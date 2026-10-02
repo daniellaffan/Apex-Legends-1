@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# OS junk
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+desktop.ini
+
+# editor
+*.swp
+*~
+
+# logs
+npm-debug.log*
+yarn-error.log*
+
+# test harness, copied in temporarily (see NOTES.md)
+harness.js
+
+# stray nested repo, left untouched on purpose (see NOTES.md)
+/Racing Game/
