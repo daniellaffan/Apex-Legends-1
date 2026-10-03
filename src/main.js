@@ -29,7 +29,20 @@ import './render2d/props.js';
 import './render2d/car.js';
 import './render2d/world.js';
 import './render2d/particles.js';
-import { AUDIO, CARVIEW, CFG, G3, S, bindTouch, buildSetup, champState, closePitMenu, endSession, loop, setPaused, setS, show, showStandings, startChampWeekend, startSession, togglePause } from './legacy-rest.js';
+import './render3d/surfaces.js';
+import './render3d/hoardings.js';
+import './render3d/pipeline.js';
+import { G3 } from './render3d/g3.js';
+import './render3d/worlds/vegas.js';
+import './render3d/worlds/vegas-city.js';
+import './render3d/worlds/monaco.js';
+import './render3d/worlds/silverstone.js';
+import './render3d/worlds/zandvoort.js';
+import './render3d/build.js';
+import './render3d/scenery.js';
+import './render3d/car.js';
+import './render3d/frame.js';
+import { AUDIO, CARVIEW, CFG, S, bindTouch, buildSetup, champState, closePitMenu, endSession, loop, setPaused, setS, show, showStandings, startChampWeekend, startSession, togglePause } from './legacy-rest.js';
 
 /* ---------- 8. boot ------------------------------------------------------- */
 function boot(){
