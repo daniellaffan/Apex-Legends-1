@@ -7,5 +7,9 @@ export default defineConfig({
   plugins: [viteSingleFile()],
   build: {
     target: 'es2022',
+    // ship the code exactly as written (bundled, not rewritten): this was a
+    // refactor, and minifiers reorder CSS declarations and rename JS locals
+    minify: false,
+    cssMinify: false,
   },
 });
