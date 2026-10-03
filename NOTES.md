@@ -71,3 +71,10 @@ check:
 - `harness.js` is in `.gitignore` for the old browser test rig, which is
   copied in only while testing.
 - No gameplay bugs were found during the move, and none were fixed.
+
+## Changes after the refactor (deliberate)
+
+- **Zandvoort camera:** `zoomK:1.3` added to `src/tracks/zandvoort.js`. The
+  original framed it too far out because the track is narrow (13.4 m) and had
+  no close-up factor. It now uses the same per-track `zoomK` mechanism as
+  Monaco (1.45) and Las Vegas (0.8).

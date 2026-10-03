@@ -1,7 +1,7 @@
 import { ZGEO } from './survey/zandvoort.js';
 
 const zandvoort =
-  { id:"zandvoort", name:"Zandvoort", loc:"Circuit Zandvoort", laps:[4,9,16], len:4259, width:13.4, night:false, sun:1.5, rain:0.35,
+  { id:"zandvoort", name:"Zandvoort", zoomK:1.3, loc:"Circuit Zandvoort", laps:[4,9,16], len:4259, width:13.4, night:false, sun:1.5, rain:0.35,
     facade:"brick",
     pal:{ skyA:"#5FA2D8", skyB:"#E2ECF0", ground:"#D6C79E", grass:"#8C9A5E", road:"#4F5258", kerbA:"#D8352A", kerbB:"#EDEDED",
           wall:"#BCC2C8", line:"#EFEFEF", accent:"#FF7A00", water:"#3B7FA8" },
