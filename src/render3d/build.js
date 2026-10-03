@@ -184,6 +184,15 @@ G3.build = function(S){
   const monacoW = T.def.world === "monaco";
   // Suzuka is not surveyed, but its world lays its own terrain and planting
   const ownGround = surveyed || T.def.world === "suzuka";
+  /* The wide grass strip under the run-off and the road is one quad per node, 55 m
+     across, and the bands drawn over it are narrower quads. On a curve their two
+     triangles split along different diagonals, so on a slope they sit at different
+     heights, and with the strip only 2 cm under them it came up through them in a
+     sawtooth (up to 11 cm at Suzuka's chicane, 7 cm at Eau Rouge). Put it 35 cm
+     under the road instead, and the flat land patches the same distance lower, so
+     they keep their place under it. A surveyed world lays its own ground just under
+     this strip, so there it stays where it was. */
+  const baseDrop = surveyed ? 0 : 0.37;
   G3.fadeU.value = 1; G3.fadeEdgeU.value = 1;
   this.fogNear = null; this.fogSpanK = null;
   /* the ground the circuit sits on — a surveyed circuit brings its own */
@@ -213,7 +222,7 @@ G3.build = function(S){
   /* the land: every patch a flat polygon */
   const land = new THREE.Group(); this.world.add(land);
   for(const L of (T.land || [])){
-    try{ this.patch(land, L.pts, L.z - 0.4 + Math.min(L.r, 40) * 0.0005, L.col, L.kind || "grass"); }catch(e){}
+    try{ this.patch(land, L.pts, L.z - 0.4 - baseDrop + Math.min(L.r, 40) * 0.0005, L.col, L.kind || "grass"); }catch(e){}
   }
   } else this.gplane = null;
 
@@ -229,7 +238,7 @@ G3.build = function(S){
   if(!wall && T.surfAt){
     /* run-off made of what the circuit says it is: tarmac, gravel traps, grass,
        and the strip of artificial grass along the kerbs */
-    this.add(road, this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift, 9), bandTex(shade(P.grass, -0.05), "grass"));
+    this.add(road, this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift - baseDrop, 9), bandTex(shade(P.grass, -0.05), "grass"));
     lift += 0.02;
     const tarmac = bandTex("#6E7176", "asphalt"), gravelM = bandTex("#ADA38C", "gravel"), astroM = bandTex("#3E8A4A", "grass");
     const gEdge = this.mat("#8E8670");
@@ -250,7 +259,7 @@ G3.build = function(S){
       band(() => w + 0.2, i => w + Math.min(rf(i), 2.0), i => code(i) === 6, tarmac, 0);
     }
   } else if(!wall){
-    this.add(road, this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift, 9), bandTex(shade(P.grass, -0.05), "grass"));
+    this.add(road, this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift - baseDrop, 9), bandTex(shade(P.grass, -0.05), "grass"));
     lift += 0.02;
     const runCol = T.id === "zandvoort" || T.id === "baku" ? "#C9B78E" : shade(P.road, 0.22);
     this.add(road, this.strip(T, i => -(w + roL(i)), -(w + 0.2), lift, 9), bandTex(runCol, "asphalt"));

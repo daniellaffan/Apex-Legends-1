@@ -133,7 +133,10 @@ function planSuzuka(T, opts){
     // top); past it the land eases into the lie of the country and its hills
     const dband = bar - 3.4;                                     // the grass strip ends 6 m past the run-off
     const t = sstep(0, 150, dband);
-    let z = dband <= 0 ? zn - 0.6 : mix(zn - 0.6, zw, t);
+    // 1 m under the road: the base grass strip is 35 cm under it, and on a tight corner its
+    // wide triangles can dip a good way below that
+    // (and eased back up over the first 16 m past the verge, so its edge is not a ledge)
+    let z = dband <= 0 ? zn - 1.0 : mix(zn - 1.0 + 0.6 * sstep(2, 16, dband), zw, t);
     const hill = (fbm(x / 430, y / 430, 11, 3) - 0.5) * 46 + (fbm(x / 140, y / 140, 23, 2) - 0.5) * 9;
     z += hill * sstep(14, 280, dband) + 16 * sstep(40, 460, dband);
     H[k] = z;
@@ -623,11 +626,11 @@ function planSuzuka(T, opts){
       dropL[i] = zl - triH(T.x[i] - T.nx[i] * eL, T.y[i] - T.ny[i] * eL);
       dropR[i] = zr - triH(T.x[i] + T.nx[i] * eR, T.y[i] + T.ny[i] * eR);
     }
-    // runs of nodes that stand clear somewhere across their width (the verge sits 0.6 m
-    // over the ground by design, so anything under 1.4 m is just that)
+    // runs of nodes that stand clear somewhere across their width (the verge sits 1 m
+    // over the ground by design, so anything under 1.8 m is just that)
     let run = null;
     for(let i = 0; i <= n; i++){
-      const k = i % n, on = i < n && lift[k] > 1.4;
+      const k = i % n, on = i < n && lift[k] > 1.8;
       if(on){ if(!run) run = { i0:k, i1:k }; else run.i1 = k; }
       else if(run){ P.bridges.push(run); run = null; }
     }
