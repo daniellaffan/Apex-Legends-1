@@ -1010,3 +1010,124 @@ Existing world kept. Seam to fix.
 
 ## Track atmosphere hook
 `def.atmo = { near, k, tint }` (src/render3d/build.js) sets per-track haze: near = fog start offset, k = visible-distance scale, tint = fog and sky colour. First user: Spa (mist, denser conifer). Spa visuals are a first pass only (no landmark kit or adverts yet); not seen in a browser.
+
+# Spa-Francorchamps: research, and how the game compares (2026-10-03)
+
+How this was done: the real lap is the OpenStreetMap `highway=raceway` ways chained into one loop
+(Overpass, 30 ways, 6,972 m against the official 7,004 m), with heights sampled every 20 m along it
+from two terrain models through OpenTopoData: EU-DEM 25 m and SRTM 30 m. Both are surface models,
+so trees and banks add a few metres of noise; I used their mean, median-filtered and smoothed. The
+game lap is the existing layout string, measured with the real `buildTrack()` in Node. Nothing was
+seen in a browser (see the end of this section).
+
+Sources:
+[F1, Highs and lows](https://www.formula1.com/en/latest/article/highs-and-lows-which-f1-track-has-the-most-elevation-changes-.7I9JEcBw3R2AqXbnJ6hyvc) ·
+[Wikipedia, Circuit de Spa-Francorchamps](https://en.wikipedia.org/wiki/Circuit_de_Spa-Francorchamps) ·
+[RacingNews365, 2022 changes](https://racingnews365.com/the-extensive-changes-made-to-spa-ahead-of-the-2022-f1-belgian-gp/amp) ·
+[Motorsport.com, gravel traps return](https://au.motorsport.com/f1/news/spa-80million-euro-revamp-gravel-traps/4888501/) ·
+[Motor Sport, winter overhaul](https://motorsportmagazine.com/archive/article/march-2022/11/spas-winter-overhaul-revealed) ·
+[RaceFans, pit entry](https://www.racefans.net/?p=4430) ·
+[Spa-Francorchamps, trackside hotel](https://www.spa-francorchamps.be/en/news/575_circuit-de-spa-francorchamps-unveils-an-unprecedented-premium-trackside-accommodation-offering-with-) ·
+[Le Shuttle, Stavelot abbey](https://www.leshuttle.com/uk-en/discover/traveller-guides/everything-you-need-to-know-about-circuit-de-spa-francorchamps) ·
+OpenStreetMap (raceways, pit lane, buildings, grandstands, villages, streams) · OpenTopoData (EU-DEM 25 m, SRTM 30 m).
+
+## Confirmed
+
+- **Layout.** 7.004 km, 19 turns, driven **clockwise** (Wikipedia; the OSM lap's signed area is
+  positive with y pointing south, the same sign as the surveyed clockwise circuits).
+- **Corner order** (from the OSM geometry, apex by apex): La Source (right hairpin, 145°) · the run
+  down past the old pits · Eau Rouge (left) · Raidillon (right, then a left over the crest) · Kemmel
+  straight (one gentle right kink) · Les Combes (right-left) · Malmedy (right) · Rivage (right
+  hairpin, 178°) · a left (OSM calls the sections round here "Bruxelles" and "Speaker's Corner"; its
+  tags are one corner out of step, the hairpin is tagged Bruxelles) · Pouhon (double-apex left,
+  148°) · Fagnes (right-left) · Campus (right, 94°) · Courbe Paul Frère (right, 117°, the old
+  Stavelot) · Blanchimont (two fast lefts) · Bus Stop (right-left chicane). Your list matches; it
+  leaves out the left after Rivage and treats Campus and Stavelot as one area, which is fair.
+- **Height range: 102.2 m** (F1 and Wikipedia agree). The terrain models give 105–107 m raw and
+  105.5 m smoothed; the extra is tree and bank noise, so the game uses the published 102.2 m.
+- **Highest and lowest points.** Sources disagreed (Les Combes, or Malmedy). F1 says Malmedy, and
+  both terrain models agree: the top is at Malmedy (OSM lap 2.34 km), and the bottom is at Courbe
+  Paul Frère (4.74 km), as F1 says ("downhill all the way to Turn 15"). **Used: Malmedy.**
+- **La Source to Eau Rouge** drops about 35 m (DEM). **Raidillon** climbs about 35-40 m. Published
+  gradient: F1 says 17 % and 40 m; Wikipedia says "in excess of 18 %". The terrain models only show
+  13 % over a 40 m baseline (they smooth out short, steep pieces). **Used: a peak of 17.9 %**, between
+  the two published figures.
+- **Kemmel straight climbs** the whole way to Les Combes (about 35 m more), and **sector 2 falls**
+  from Malmedy through Rivage and Pouhon (Pouhon itself is steeply downhill, about 13 % before it).
+  Fagnes and Campus are low; Blanchimont climbs back; the start straight climbs to La Source.
+- **Pit lane** (OSM, plus RaceFans): on the **right** of the start straight (the pit building and
+  paddock side), entry **inside the Bus Stop chicane**, exit **just after La Source**, joining on
+  the right on the way down to Eau Rouge. The main F1 grandstand faces the pits across the straight
+  (OSM "Tribune F1", left side).
+- **Run-off.** In 2022, gravel traps went in at **La Source, Raidillon, Les Combes, Stavelot and
+  Blanchimont**, Raidillon's run-off was widened both sides with the barrier moved back, and Les
+  Combes's asphalt became gravel (Wikipedia, RacingNews365, Motorsport.com). Motor Sport says a
+  gravel trap was being added at the **Bus Stop** too.
+- **The stream.** The Eau Rouge stream crosses under the track at the bottom of the dip (Wikipedia;
+  OSM streams).
+- **Around La Source / Eau Rouge** (OSM): Francorchamps village, with its church (Saint-Georges),
+  about 1 km outside La Source; the "Hôtel de la Source" about 300 m outside the hairpin; the
+  historic **Hôtel de l'Eau Rouge** on the right at the bottom of Eau Rouge, and Villa t'Stertevens
+  (both being restored, Spa-Francorchamps news); grandstands "Silver 1" and "Endurance" on the left
+  of the run down to Eau Rouge, the **Raidillon grandstand** on the left at the top of the climb;
+  campsites (Camping 35, P3) outside La Source.
+- **Further out** (OSM): Malmedy town 3.6 km east, Stavelot 4.4 km south-west, the hamlets of
+  Burnenville and Masta outside the Malmedy-to-Stavelot side of the lap (the old circuit ran
+  through them), Camping de l'Eau Rouge near Stavelot.
+
+## Not confirmed
+
+- **Cambers and banking.** I found no published figures for the camber at La Source, Pouhon or
+  Blanchimont, or for Eau Rouge beyond "compression" (1.7 g, F1/f1technical). Wikipedia calls one
+  of the Les Combes corners "slightly banked" and the bypass of Stavelot "banked", with no numbers.
+  **The game adds no banking at Spa**; the compression comes from the height profile alone.
+- **"Old monastery at La Source".** I could not find one. The historic buildings there are the
+  Hôtel de l'Eau Rouge and Villa t'Stertevens; the famous abbey is in **Stavelot, about 8 km away**.
+  The game uses a fictional old stone hotel at La Source and a generic abbey with a spire on the
+  horizon towards Stavelot.
+- **Old pits.** The pre-1979 pits stood on the run from La Source down to Eau Rouge; I could not
+  confirm what is still standing there. The game has a low, generic old pit row on that stretch.
+- **Old Masta road.** Its exact course was not used. The game shows a small public road leaving
+  the outside of Les Combes towards Burnenville and one arriving at Paul Frère from Stavelot.
+- **Run-off corner by corner.** Beyond the five 2022 gravel traps (and the Bus Stop one), which
+  corners have tarmac and which grass is my reading, not a survey.
+- **Grandstands at Les Combes, Pouhon, Blanchimont, Stavelot.** OSM did not map them as buildings;
+  the game places generic stands and spectator banks there.
+- **The start line position.** OSM has no node for it. The game keeps its own (about 200 m before
+  La Source's apex).
+
+## The game against the real circuit (before this work)
+
+Measured on the game lap (1001 nodes, 7,007 m):
+
+| | Game before | Real |
+|---|---|---|
+| Direction | clockwise (net turn +360°, area +1.11 M) | clockwise |
+| Height range | 102 m | 102.2 m |
+| Highest point | Les Combes (u 0.40) | Malmedy |
+| Lowest point | u 0.745 (Paul Frère) | Paul Frère |
+| La Source → Eau Rouge drop | 27 m | about 35 m |
+| Raidillon steepest | 16.7 % | 17 % / over 18 % |
+| Heights between the extremes | estimates (5 points, eased) | DEM |
+| Pit entry / exit | 0.86 (in Blanchimont) / 0.10 (bottom of Eau Rouge), the defaults | Bus Stop / after La Source |
+| Run-off | 18 m of plain tarmac everywhere | gravel at 5-6 corners, tarmac and grass elsewhere |
+
+**Layout mismatches** (listed for you to decide; none changed):
+1. **Shape.** Lined up with the best scale and rotation, the game lap is **167-213 m RMS** off the
+   OSM centreline (max 313-352 m).
+2. **Kemmel straight is about 680 m too long.** Raidillon crest to Les Combes apex: game 1,806 m,
+   real about 1,125 m. Everything after it sits later in the lap (Les Combes at u 0.374 against a
+   real 0.29-0.31).
+3. **Sector 2 is squeezed.** Les Combes to Pouhon: game 1,078 m, real 1,425 m. The heights are fitted
+   corner to corner, so the drop into Pouhon is steeper in the game than it really is (capped at 12 %).
+4. **Bus Stop to La Source is short**: game 455 m, real about 660 m.
+5. **Courbe Paul Frère turns 27°** in the game; the real corner turns 117°. Campus and Paul Frère
+   are drawn as one long 107° right plus a kink.
+6. **Blanchimont is one 47° left** in the game; the real one is two lefts (38° and 45°).
+7. **Corner angles** elsewhere: Pouhon 111° (real 148°), Rivage 161° (178°), Eau Rouge-Raidillon
+   L27/R38/L19 (real L18/R50/L25).
+8. **Corner radii.** The layout string adds up to 4,597 m and is stretched ×1.52 to 7,004 m, so every
+   radius is 1.52× too large (La Source about 21 m).
+
+The fix for 1-8 would be the one Suzuka got: build Spa from the surveyed OSM path (already chained,
+6,972 m, clockwise). That changes where every corner is, so I have not done it.
