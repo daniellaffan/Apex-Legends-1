@@ -740,3 +740,270 @@ drawn whole.
 - Slow motion is `S.slow`; the session passes `update(dt * S.slow, dt)`.
 - These were checked in Node (physics scenarios, mesh and cutscene code with a
   stubbed DOM) but not seen on screen: headless Chrome cannot run the 3D here.
+
+# Track upgrade: Step 0 audit (awaiting approval, nothing in `src/` has been changed)
+
+How the numbers were made: every track was built with the real `buildTrack()` in Node and measured from the
+centreline (`T.x/T.y/T.z`). Winding is the signed area plus the net heading change, printed by code, not judged
+from a picture. No screenshots were taken: headless Chrome cannot run this game's 3D in the coding sandbox, so
+the "weak points" below come from reading the track definition files and need your eye to confirm.
+
+## 0a. Direction and elevation audit
+
+### The direction bug is one bug, not eleven
+
+`turtle()` in `src/tracks/build.js` turns the letter `R` into a NEGATIVE heading change
+(`c.t === "R" ? -1 : 1`), but in the physics a right-hand turn is a POSITIVE one (`steer` right gives
+`yaw > 0`, `h += yaw`; the 3D car is `rotation.y = -h`, which turns clockwise on screen as `h` grows).
+So every circuit built from a `layout:` string is drawn as its own mirror image. The letters themselves are
+right: the first corners in the layout strings match the real first corners (Monza R-L chicane, Spa La Source
+right hairpin, Vegas T1 left hairpin, COTA T1 left hairpin, Interlagos Senna S left-right). The surveyed
+tracks (`path:` from OpenStreetMap: Monaco, Silverstone, Zandvoort, Suzuka) are not affected and are correct.
+
+Calibration: the three surveyed tracks with a known real direction (Monaco, Silverstone, Zandvoort, all
+clockwise) have positive net turn, so positive = clockwise on screen, which agrees with the physics reading.
+
+| Track | Real direction (source) | Game winding (area / net turn) | Game direction | Verdict |
+|---|---|---|---|---|
+| Monaco | clockwise ([Wikipedia list of F1 circuits](https://en.wikipedia.org/wiki/List_of_Formula_One_circuits)) | +110136 / +360 | clockwise | correct (surveyed) |
+| Singapore | anti-clockwise (same list) | +1242212 / +360 | clockwise | WRONG (mirrored) |
+| Las Vegas | anti-clockwise (same list) | +1998649 / +360 | clockwise | WRONG (mirrored) |
+| Baku | anti-clockwise (same list; I expected clockwise from memory, the list says otherwise, I used the list) | +1643286 / +360 | clockwise | WRONG (mirrored) |
+| Silverstone | clockwise (not in the Wikipedia table; widely known; matches the OSM survey) | +823589 / +360 | clockwise | correct (surveyed) |
+| Spa | clockwise (same list) | -1110045 / -360 | anti-clockwise | WRONG (mirrored) |
+| Monza | clockwise (same list) | -867586 / -360 | anti-clockwise | WRONG (mirrored) |
+| Zandvoort | clockwise (same list) | +226179 / +360 | clockwise | correct (surveyed) |
+| Suzuka | figure-of-eight, main loop clockwise (not in the table; the list notes the crossover) | +123102 / 0 | figure-of-eight, one crossing | correct (surveyed; first-corner order to be re-checked in step G) |
+| Interlagos | anti-clockwise (same list) | +899685 / +360 | clockwise | WRONG (mirrored) |
+| COTA | anti-clockwise (same list) | +1470453 / +360 | clockwise | WRONG (mirrored) |
+| Mexico City | clockwise (same list; one search summary said anti-clockwise, the table itself says clockwise, I used the table) | -401258 / -360 | anti-clockwise | WRONG (mirrored) |
+
+So 8 of 12 are wrong and all 8 are the layout-string tracks. Proposed fix, to be made ONCE in `turtle()`
+and `buildTrack()`: flip the sign. This IS a mirror, and I want you to confirm that is what you want, because
+your brief says not to just mirror. The reason it is right here: the corner letters are already in the real
+order and the real handedness, only the renderer flipped them, so mirroring puts the game on the real circuit.
+Reversing the driving order instead would run the real circuit backwards, which is also wrong.
+
+Everything that stores a side as a raw sign has to flip in the same commit, otherwise pit lanes, run-off and
+scenery end up on the wrong side after the flip: `pit` side, `runoffZones` (`ls/rs/lt/rt`), `side:1/-1`
+entries in `scene` (not the `"in"/"out"` ones, those are relative and follow the corner), banking sign, and
+the `side:-1` pit buildings. Elevation is a function of lap fraction `u`, which a mirror does not change, so
+no elevation profile needs re-ordering because of the flip.
+
+### Elevation
+
+Current profiles are `def.elev(u)` functions of lap fraction. Measured vs real:
+
+| Track | Real range (source) | Game range (min..max, start) | Max gradient | Verdict |
+|---|---|---|---|---|
+| Monaco | "over 40 m", highest Casino Square, lowest tunnel exit ([search summary of F1 and guide pages](https://www.formula1.com/en/latest/features/2016/10/highs-and-lows---which-f1-track-has-the-most-elevation-changes-.html), page itself not readable) | 42 m (2..44, start 3.5) | 11.6% | roughly right, surveyed DEM |
+| Singapore | 5 m ([f1-fansite](https://www.f1-fansite.com/f1-circuits/singapore-circuit/)) | 4.3 m | 7.7% | right range, but 7.7% is steep for a flat city: the Anderson Bridge bump is probably too sharp |
+| Las Vegas | 5 m ([f1-fansite](https://www.f1-fansite.com/f1%20circuits/las-vegas-strip-circuit-layout-records/)) | 4 m | 0.4% | right, but it is a plain 2-cycle sine (not real shape) |
+| Baku | about 27 m: highest 2.1 m, lowest 24.7 m below sea level ([Wikipedia](https://en.wikipedia.org/wiki/Baku_City_Circuit) via search; the location of the high point is reported as Turn 13 there, which I doubt: the old-town climb is mid-lap) | 30 m, start is the low point | 4.7% | close; peak position to verify |
+| Silverstone | 11 m / 37 ft ([lapmeta and others](https://lapmeta.com/es/track/variation/421)) | 14.1 m | 2.8% | 3 m high; seam of 0.14 m at the start line, must wrap exactly |
+| Spa | 102 m, Eau Rouge about 17% / 41 m ([F1 article via search](https://www.formula1.com/en/latest/article/highs-and-lows-which-f1-track-has-the-most-elevation-changes-.7I9JEcBw3R2AqXbnJ6hyvc)) | 58 m (12..70) | 16.7% | WRONG: 44 m too flat; sources disagree on where the highest point is (Les Combes vs Malmedy), both sit past mid-lap |
+| Monza | 10 m ([f1-fansite](https://www.f1-fansite.com/f1-circuits/autodromo-nazionale-monza/)) | 4 m | 0.7% | too flat, and it is an artificial 3-cycle sine |
+| Zandvoort | sources disagree: a lap-gain figure of 32 m appears on lapmeta-style pages, which is probably cumulative climb, not the range; I found no clean range figure | 11.6 m, start 8.8 | 6.1% | unknown, flagged; banked corners are implemented already |
+| Suzuka | 40.4 m ([f1-fansite](https://www.f1-fansite.com/f1-circuits/suzuka-circuit/)) | 40.3 m | 9.9% | correct; seam of 0.19 m at the start line |
+| Interlagos | 43 m, highest at the start/T1 area, lowest in the lake section ([f1-fansite](https://www.f1-fansite.com/?p=6731)) | 44 m (-10..34), start is the high point | 16.2% | range right; the low point sits at u=0.55, I could not confirm that against a source |
+| COTA | 133 ft = 40.5 m; T1 climb 85 ft = 26 m, 11-16% depending on source ([Jalopnik guide, others](https://jalopnik.com/circuit-of-the-americas-a-turn-by-turn-guide-5856083)) | 36 m (2..38) | 15.1% | 4.5 m short; right shape |
+| Mexico City | 8 m ([f1-fansite](https://www.f1-fansite.com/?p=78657)); the site is at 2285 m altitude | 2.4 m | 0.4% | too flat, artificial 2-cycle sine |
+
+Seams (height at lap end minus height at start): Silverstone 0.14 m, Suzuka 0.19 m, everything else under
+0.05 m. The brief asks for exact wrap, so those two get fixed in the shared elevation system.
+
+Visual exaggeration: there is none today. I suggest one global constant `ELEV_VISUAL = 1.25` (set to 1.0 for
+pure real figures), and I will show real and displayed values side by side per track so you can change it.
+Where I could not find a reliable profile (Zandvoort range, Interlagos low point, Baku peak position) I will
+mark the profile as an estimate in the notes.
+
+## 0b. Weak points (from the definition files, not from screenshots)
+
+- Monaco, Silverstone, Zandvoort, Suzuka, Las Vegas: have their own `worlds/*.js` files, hand-built scenery and
+  landmarks. Earlier prompts cover them. Weak: Monaco is by far the heaviest file (2028 lines); Vegas has the
+  Strip but a plain sine elevation; Silverstone and Suzuka have the start-line height seam.
+- Singapore: 33 scene entries, landmarks are boxes (`mbs`, `artscience`, `merlion` etc. from a kit), no
+  working water (Marina Bay is the signature), skyline thin, no Ferris wheel, no Anderson Bridge shape.
+- Baku: 30 entries, one tall landmark (`flame`), Old City wall is repeated boxes, no Caspian sea along the
+  Boulevard, no real castle-section squeeze visuals, palms are generic.
+- Spa: 21 entries, only chalets and a pit building: nothing like the Ardennes; no forest density, no Eau Rouge /
+  Raidillon walls and valley, no La Source hairpin hotel, elevation 44 m too flat.
+- Monza: 26 entries, trees and grandstands as boxes, banking ruins present (`banking` entries) but small,
+  royal-park feel missing, elevation is a sine.
+- Interlagos: 25 entries, almost no landmarks (only the pit building), favela facade setting but no hillside
+  homes, no lake, no Senna S tyre-wall character; run-off set to 11 everywhere.
+- COTA: 23 entries, tower and amphitheatre present, the rest is generic; Texas scrub, flat horizon, no S-curves
+  homage visuals.
+- Mexico City: 24 entries, grandstands in the Foro Sol area are plain boxes, a baseball stadium box is the only
+  landmark, no mountains on the horizon, no volcano haze.
+- Across all generic tracks: run-off is one number per track (no per-corner tarmac/gravel/grass mix, except
+  Vegas and the surveyed worlds), banking only on Zandvoort, pit lane settings are shared constants
+  (`pitbuilding` at u about 0.98 on the same side everywhere), adverts are the same billboard type.
+
+## 0c. Personality sheets (for approval)
+
+Palettes are distinct by design: no two share a dominant hue pair. Times of day are my proposals from the
+usual race slots; where I am unsure of a real race time it says so. All names, signs and adverts are fictional.
+
+### Spa (Belgian ardennes)
+1. Identity: a deep, damp, evergreen valley where the track plunges and climbs through pine forest.
+2. Palette: forest green #1F4A2E, deep spruce #12301F, wet slate #5C6670, lichen yellow-green #8AA23A, mist white #D7DEDC.
+3. Light: overcast-bright with a break of low sun; cool white light, soft shadows, sky grey-blue to pale. Real race is mid-afternoon; weather is the point.
+4. Atmosphere: low valley mist, fog tint cool grey-green, fog starts close (near 60 m), faint drifting drizzle haze.
+5. Signature: Eau Rouge/Raidillon dip and wall of trees, La Source hairpin hotel, long forest straight (Kemmel), Pouhon sweepers, Bus Stop chicane.
+6. Crowd: camping-style stands in rain jackets, orange and yellow flags, packed at Eau Rouge and La Source, ponchos animated as a slow wave.
+7. Adverts: a waffle brand ("Waffle Wizard: Dough Not Slow"), a chocolate trap ("Cocoa Brakes"), a very long forest-themed tyre pun.
+8. Surface/kerbs: darker, rougher asphalt, red-white kerbs, wide grey tarmac run-off at La Source, gravel at Les Combes, armco and tyre walls.
+9. Details: cow field, wooden bridge, a mist bank at the valley floor, birds over the forest, camper vans, a hot air balloon.
+10. Signature moment: the full-throttle compression through Eau Rouge into the Raidillon crest, camera-less: the height change itself.
+
+### Interlagos (Sao Paulo, Brazil)
+1. Identity: a hillside bowl of colourful houses, tropical green and loud local crowd.
+2. Palette: sunburnt orange #E8892C, lagoon teal #2FA39B, favela pastel #E7C7A3 and #D9657A, tropical green #3F8F3A, terracotta roof #B5532F.
+3. Light: late-afternoon golden hour, warm sun low from one side, medium shadows, humid pale-gold sky. Real race slot is around 14:00-15:00 local, but weather is often changeable; golden hour is a stylistic choice, flagged.
+4. Atmosphere: warm haze, orange-tinted fog far away, a hint of thunderheads on the horizon.
+5. Signature: Senna S, the lake bowl, a stepped hillside of houses, the Subida dos Boxes climb, the long grandstand wall at the final corner.
+6. Crowd: green-yellow-blue shirts, big fictional flag banners, drums, packed and bouncing, strong colour.
+7. Adverts: "Café Turbo: wake up in third gear", a fictional insurance firm "Seguro Sobre Rodas, we cover the lap", coconut water "Coco Boost".
+8. Surface/kerbs: bumpy warm-grey asphalt, red-white kerbs with sand-yellow edges, grass and tarmac run-off, low armco.
+9. Details: hanging laundry, a kite, parrots, a lake with a floating stage, a helicopter, a football on the grass.
+10. Signature moment: the downhill plunge out of Senna S into Descida do Lago, with the whole bowl of crowd laid out in front.
+
+### COTA (Austin, Texas)
+1. Identity: big-sky Texas ranchland with an observation tower and a hairpin on a hill.
+2. Palette: dry grass tan #C8B26A, Texas limestone #E6DCC3, sky blue #4C8FD8, cedar green #4C6B3A, sunset red #D9552B.
+3. Light: bright afternoon, high-ish sun, hard shadows, clear deep blue sky with thin cirrus. Real race is early-afternoon; bright midday is correct.
+4. Atmosphere: very clear, light dust haze, heat shimmer on the straights, almost no fog.
+5. Signature: the observation tower, the uphill Turn 1 hairpin, the esses homage, the Turn 12 stadium bend, the amphitheatre.
+6. Crowd: cowboy hats, fictional red-white-blue-and-star flags, big stands, packed at T1.
+7. Adverts: "Brisket Boost", a fictional pickup truck "Big Hoss: Fits A Horse", boot shop "Spin Out Boots".
+8. Surface/kerbs: pale tan-grey asphalt, red-white kerbs, wide tarmac run-offs, short grass beyond.
+9. Details: a cattle herd, a windmill, a longhorn statue, hot-air balloon, a train on the far edge, flags straight out in the wind.
+10. Signature moment: the blind climb to Turn 1 with the tower at the top and the whole circuit behind you.
+
+### Monza (Italian royal park)
+1. Identity: a speed temple in an ancient park, trees on both sides and a banked ruin from the old track.
+2. Palette: park green #3F6B3A, gravel #B8A582, brick red #B34A2C, old stone #A59E8E, sky pale #D6E4EC.
+3. Light: warm early-September afternoon, medium sun, soft shadows through the trees, pale blue-white sky. Real race is mid-afternoon; fine.
+4. Atmosphere: gentle haze through the trees, warm fog tint, floating pollen specks.
+5. Signature: the avenue of tall trees, old banking ruins, the Parabolica sweep, the Lesmo trees, the main-straight grandstands.
+6. Crowd: sea of red scarves and flags, packed at the Parabolica exit, flare smoke red.
+7. Adverts: "Pasta Power: carbs for corners", fictional espresso "Doppio Boost", a clock firm "Tempo, always on time".
+8. Surface/kerbs: grippy dark asphalt, red-white big kerbs, wide gravel run-off, armco.
+9. Details: a grand villa, a pigeon flock, cyclists on the park path, hot-air balloon, church bell tower, a vineyard strip.
+10. Signature moment: the long full-throttle flat run down the straight with the grandstand wall and then a heavy braking into the first chicane.
+
+### Mexico City (Autodromo Hermanos Rodriguez)
+1. Identity: a loud stadium in a mountain-ringed city bowl at high altitude.
+2. Palette: marigold #F0A21C, volcanic grey #6A6A72, hot pink #D8467C, jade green #2F8A6A, sky haze #C7D3DD.
+3. Light: bright midday at altitude, hard clean light, thin blue sky; at 2285 m the sky is deeper. Real race is early-afternoon; flagged as a choice.
+4. Atmosphere: thin smog band at the horizon, volcano haze, almost no fog near the track.
+5. Signature: the Foro Sol stadium section, the long main straight, the Peraltada curve remnant, a mountain skyline.
+6. Crowd: green-white-red scarves, fictional lucha-mask flags, party lights, dancing, packed in the stadium.
+7. Adverts: "Taco Torque", a fictional soft drink "Jarrito Jolt", "Altitude Attitude" an oxygen bar.
+8. Surface/kerbs: light grey high-grip asphalt, red-white kerbs, tarmac and grass run-off.
+9. Details: confetti, a mariachi stage, a papel picado string, a hot-air balloon, flower beds, a cable car.
+10. Signature moment: sweeping through the stadium, where the crowd is on all sides of the car.
+
+### Baku (Azerbaijan)
+1. Identity: a medieval walled old town squeezed against a modern skyline and the Caspian shore.
+2. Palette: sandstone #D8C39A, Caspian blue #2F7FB8, flame orange #E8742A, tiled turquoise #2FA7A0, carpet red #A8322F.
+3. Light: bright late-afternoon (real race is mid-to-late afternoon local), warm light from the west, medium-soft shadows, pale warm sky.
+4. Atmosphere: sea haze, warm tint, light wind lifting flags and dust.
+5. Signature: castle section squeeze, flame-shaped towers, the old city walls, the sea-front boulevard, the long main straight.
+6. Crowd: red-green-blue flags, packed in the castle section stands, flag waves.
+7. Adverts: "Pomegranate Pit Stop", "Carpet Cleaners: We Wash Your Racing Line", a fictional tea "Samovar Sprint".
+8. Surface/kerbs: dusty warm asphalt, low red-white kerbs, minimal run-off, walls close.
+9. Details: a minaret, flags on the rooftops, a gull flock, a tanker on the horizon, a pomegranate market stall, a tram.
+10. Signature moment: the narrow squeeze through the castle section between the old city walls and a barrier.
+
+### Singapore (Marina Bay)
+1. Identity: a hot neon night under a glass-and-steel skyline and a bay.
+2. Palette: neon magenta #D8307A, electric cyan #2FD0E0, deep navy #0B1230, gold #E8B33A, glass teal #1F6E80.
+3. Light: full night under floodlights, magenta and cyan accents, no sun, sky deep indigo with city glow. Real race is at night, correct.
+4. Atmosphere: humid hazy glow around lights, warm-tinted fog, thin spray after rain, light bloom.
+5. Signature: the bay with the Ferris wheel, a boat-shaped triple tower, a lotus museum, a fictional lion statue, a light-up bridge.
+6. Crowd: tropical shirts and glow sticks, big night stands, flags in lights.
+7. Adverts: "Chilli Crab Cola", a fictional bank "Merlion & Sons Savings", "Humidity Hair Gel".
+8. Surface/kerbs: dark wet-looking asphalt, bright red-white kerbs under the lights, concrete walls.
+9. Details: a Ferris wheel, passing boats on the bay, a light show, fireworks, a footbridge, drones.
+10. Signature moment: the sweep along the lit bay with the skyline mirrored in the water.
+
+### Las Vegas (night strip)
+1. Identity: a glittering neon desert night on the Strip. Already built; kept as is.
+2. Palette: neon pink #E8307A, gold #E8B33A, electric blue #2F7FE8, desert black #0A0A12, fountain white #EAF4FF.
+3. Light: late-night race, full darkness with neon, cool desert sky; real race is late evening, correct.
+4. Atmosphere: warm glow haze, dry cold night air, no fog.
+5. Signature: the Strip hotels, the sphere, the fountains, the casino signs, a 2-km straight.
+6. Crowd: fancy-dress crowd, LED-lit stands, glowing wristbands.
+7. Adverts: "Lucky Seven Lawyers", a buffet "All You Can Lap", a wedding chapel "Pit Stop & I Do".
+8. Surface/kerbs: dark smooth asphalt, red-white kerbs, tarmac and wall run-off.
+9. Details: fountains, a helicopter, a limousine, a ferris wheel, neon billboards.
+10. Signature moment: the long flat-out blast under the lit skyline.
+Existing world is kept. Left for later: a real elevation shape instead of a 2-cycle sine.
+
+### Monaco (harbour town)
+1. Identity: glamorous harbour town on a hill. Already built; kept.
+2. Palette: Mediterranean blue #2F78B8, creamy stucco #E8D5B0, terracotta #B8542F, harbour white #F2F2F0, olive #6A8A4A.
+3. Light: bright late-afternoon sun, golden warm light from the side, crisp medium shadows; the real race slot is mid-afternoon.
+4. Atmosphere: light sea haze, warm tint, a thin fog far off.
+5. Signature: harbour, casino, tunnel, hairpin hotel, swimming pool, Rascasse.
+6. Crowd: balcony crowd, flags, yacht-top crowd.
+7. Adverts: existing, to be checked for brand names.
+8. Surface/kerbs: tight walls, red-white kerbs, no run-off.
+9. Details: yachts, a cable car, cruise ship, helicopter, rooftop bars.
+10. Signature moment: the tunnel exit into the harbour chicane.
+Existing world kept.
+
+### Silverstone (English airfield)
+1. Identity: a flat English airfield under big changeable skies. Already built; kept.
+2. Palette: lawn green #5A8A3A, concrete grey #8A8F96, hay yellow #C9B35A, overcast white #E0E3E6, brick red #A8452F.
+3. Light: overcast soft light, thin sun break, very soft shadows. Real race is mid-afternoon.
+4. Atmosphere: grey cloud mass, damp haze, light drizzle possible.
+5. Signature: Maggotts-Becketts-Chapel, the Wing, the hangar straight, the airfield look.
+6. Crowd: camping crowd with union-flag style banners (fictional), umbrellas.
+7. Adverts: existing, to be checked.
+8. Surface/kerbs: grey asphalt, red-white kerbs, wide tarmac and gravel.
+9. Details: a vintage plane, a helicopter, tents, a hay bale stack.
+10. Signature moment: Maggotts-Becketts flick through.
+Existing world kept. Seam to fix.
+
+### Zandvoort (Dutch dunes)
+1. Identity: windswept sandy dunes and the North Sea with banked corners. Already built; kept.
+2. Palette: dune sand #E3D2A0, sea blue #4C86A8, grass tuft #6F8F4A, orange accents #F08A1E, cloud white #EEF1F4.
+3. Light: bright coastal sun with breeze, medium shadows, pale blue sky with scattered clouds.
+4. Atmosphere: sea mist at the horizon, drifting sand, a light salty haze.
+5. Signature: banked Tarzan and Arie Luyendyk, dunes, the sea view, the orange crowd.
+6. Crowd: orange-covered stands, flares, packed.
+7. Adverts: existing, to be checked.
+8. Surface/kerbs: grey asphalt, red-white kerbs, sand run-off.
+9. Details: a windmill, a beach hut, kites, a seaplane, a wind turbine row.
+10. Signature moment: the banked final corner onto the straight.
+Existing world kept.
+
+### Suzuka (Japan)
+1. Identity: a wooded hillside figure-of-eight with an amusement park. Already built; kept.
+2. Palette: maple red #C9442F, cedar green #2F5A3A, mist grey #AEB8BC, pagoda red #B8362A, wet black asphalt #2A2E34.
+3. Light: overcast-to-dusk soft light, low sun, long shadows. Real race is mid-afternoon.
+4. Atmosphere: hill mist, cool tint, light drizzle.
+5. Signature: the figure-of-eight crossover, the esses, the Ferris wheel, 130R.
+6. Crowd: bright costumes, banners, dense.
+7. Adverts: existing, to be checked.
+8. Surface/kerbs: dark asphalt, red-white kerbs, gravel traps.
+9. Details: a pagoda, a Ferris wheel, a monorail, cherry blossom.
+10. Signature moment: passing under the crossover bridge.
+Existing world kept. Seam to fix.
+
+## Proposed order
+
+1. Central direction fix (one commit, all eight mirrored tracks together, plus pit/run-off/scene side swaps), verified by printed winding.
+2. Shared foundations (Step 1 of the brief), reusing what exists (the `bankZ`, `runoffZones`, `pit` and `G3.tileSplit` code is already there).
+3. Tracks, weakest first: Spa, Interlagos, COTA, Monza, Mexico City, Baku, Singapore.
+4. Then Vegas, Monaco, Silverstone, Zandvoort, Suzuka: direction and elevation-seam checks only unless you want more.
+
+## Things I need from you
+
+- OK to fix direction as a one-time sign flip in the layout parser (a mirror, justified above)?
+- OK to add `ELEV_VISUAL = 1.25`, or do you want 1.0?
+- OK on the track order and the personality sheets, or edits?
+- Zandvoort and Interlagos elevation: I could not confirm those two from a clean source, accept estimates flagged as estimates?
