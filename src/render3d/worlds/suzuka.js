@@ -532,4 +532,5 @@ const SUZUKA = {
   },
 };
 
-export { SUZUKA };
+// the plant-making tools are shared with the other wooded worlds (Spa)
+export { SUZUKA, fh, flat, grad, lin, merge, paint };

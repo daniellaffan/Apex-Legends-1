@@ -104,8 +104,32 @@ const ADS = {
     ["POLDER PARKING",         "Below sea level, above expectations",     "#2E3A2A", "#E8F2DC", "#A8D860", "screen"],
     ["HAGELSLAG HOLDINGS",     "Sprinkles on everything. No questions",   "#1A1410", "#FFE8F0", "#FF8AC0", "dots"],
   ],
+  /* Spa's set: made-up Belgian brands; the jokes are about chocolate, waffles, beer,
+     fries, cyclists, rain and the climb up Raidillon */
+  SPA:[
+    ["COCOA BRAKES",      "Pralines. Stops you dead at La Source",   "#3A1E12", "#F4E0C0", "#C8864A", "stack"],
+    ["WAFFLE WIZARD",     "Dough not slow",                          "#E8B33A", "#3A2410", "#7A4A1A", "dots"],
+    ["RAIDILLON RELISH",  "Tastes better flat out",                  "#B8121A", "#FFE9C4", "#FFC23A", "mountain"],
+    ["DOUBLE FRITES",     "Fried twice, like Pouhon",                "#F4D23A", "#1E1E22", "#D8352A", "fork"],
+    ["ABBEY ALE",         "Brewed by monks who never brake",         "#4A2A14", "#F8E8D0", "#E8A040", "fire"],
+    ["PELOTON POTATOES",  "Mayonnaise sold by the climb",            "#0E3A2A", "#E0FFE8", "#6AE8A8", "wheel"],
+    ["DRIZZLE INSURANCE", "It's sunny at Les Combes. Not here",      "#2A3A4E", "#DCE6F0", "#7FB4FF", "umbrella"],
+    ["EAU ROUGE SPRINGS", "Mineral water. Slightly iron. Very fast", "#7A1E16", "#FFE4DA", "#FF8A6A", "wave"],
+    ["BUS STOP BAKERY",   "Last stop before the line",               "#E8E0D0", "#3A2410", "#C0392B", "cone"],
+    ["ARDENNES HAM CO.",  "Cured in fog since forever",              "#5A2E22", "#F4E0C8", "#E8A07A", "leaf"],
+    ["KEMMEL KAYAKS",     "We know a straight when we see one",      "#0B2C6B", "#FFFFFF", "#3E86FF", "arrow"],
+    ["MUSSEL MEMORY",     "Moules frites, every lap, same line",     "#14324A", "#E8F2FF", "#F4C04A", "ring"],
+    ["SPECULOOS SLICKS",  "Crunchy compound. Dunk at your own risk", "#8A4A1E", "#FFF0D8", "#F4C890", "bolt"],
+    ["COBBLE COMFORT",    "Saddles for people who chose cobbles",    "#1A1D28", "#E8ECF4", "#E8C04A", "flag"],
+    ["FOUR SEASONS LAP",  "Weather tours. Bring all your tyres",     "#3E5A48", "#E8F4EE", "#A8E05A", "wind"],
+    ["BLANCHIMONT BEDS",  "Mattresses you take flat out",            "#F2F2EE", "#1E3E6E", "#2F78B8", "screen"],
+    ["PRALINE PIT CREW",  "Two seconds, one box of chocolates",      "#2E1A12", "#F4D8B0", "#D8A060", "lock"],
+    ["TRIPLE HOP TAXI",   "Designated drivers for Stavelot",         "#0E1A3C", "#FFE08A", "#FFC23A", "tooth"],
+    ["MAYO MAYOR",        "Elected on the fries vote",               "#F4F0E0", "#B8121A", "#E8B33A", "scissors"],
+    ["DAMP SOCKS DEPOT",  "Camping at Spa? You will need us",        "#2A2A2E", "#DCE2EA", "#8A93A0", "umbrella"],
+  ],
   use(set){
-    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : this.VEGAS;
+    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "spa" ? this.SPA : this.VEGAS;
     if(this.LIST === want) return;
     this.dispose(); this.LIST = want;
   },

@@ -23,6 +23,8 @@ const spa =
     /* The pit lane, as mapped: on the right of the start straight, in from the middle of
        the Bus Stop, out on the right just after La Source. The boxes line the straight. */
     pit:{ side:1, in:0.967, out:0.048, box:0.999, gap:4 },
+    // the pit building faces the lane, so no Armco is drawn along it (drawing only; the wall the cars feel is unchanged)
+    noPitArmco:true,
     barrier:"armco", runoff:9,
     /* Run-off: grass behind a strip of artificial grass, with the 2022 gravel traps at
        La Source, Raidillon, Les Combes, Stavelot (Paul Frere) and Blanchimont, and the

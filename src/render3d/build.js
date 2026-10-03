@@ -13,6 +13,7 @@ import { MONACO } from './worlds/monaco.js';
 import { SILVER } from './worlds/silverstone.js';
 import { ZAND } from './worlds/zandvoort.js';
 import { SUZUKA } from './worlds/suzuka.js';
+import { SPA } from './worlds/spa.js';
 import { WEATHER } from './weather.js';
 import { CRASH } from './crash.js';
 import { CFG } from '../config/settings.js';
@@ -125,7 +126,7 @@ G3.build = function(S){
   }
   for(const t of this.texes.values()) t.dispose();
   this.mats.clear(); this.texes.clear(); PTEX.dispose();
-  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : "vegas");
+  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : T.def.world === "spa" ? "spa" : "vegas");
   while(this.scene.children.length) this.scene.remove(this.scene.children[0]);
   this.rend.renderLists.dispose();
   this.world = new THREE.Group(); this.scene.add(this.world);
@@ -183,8 +184,8 @@ G3.build = function(S){
   // a surveyed circuit brings its own ground, land and landmarks
   const surveyed = T.def.world === "monaco" || T.def.world === "silverstone" || T.def.world === "zandvoort";
   const monacoW = T.def.world === "monaco";
-  // Suzuka is not surveyed, but its world lays its own terrain and planting
-  const ownGround = surveyed || T.def.world === "suzuka";
+  // Suzuka and Spa are not surveyed paths, but their worlds lay their own terrain and planting
+  const ownGround = surveyed || T.def.world === "suzuka" || T.def.world === "spa";
   /* The wide grass strip under the run-off and the road is one quad per node, 55 m
      across, and the bands drawn over it are narrower quads. On a curve their two
      triangles split along different diagonals, so on a slope they sit at different
@@ -397,7 +398,8 @@ G3.build = function(S){
     for(const sd of [-1, 1]){
       const f = i => boAt(sd, i);
       // where a circuit has a SAFER wall instead, its own builder puts that up
-      const armco = i => !(T.safer && T.safer(i, sd));
+      // and where a circuit's pit building faces its lane (def.noPitArmco), none along the lane on that side
+      const armco = i => !(T.safer && T.safer(i, sd)) && !(T.def.noPitArmco && sd === T.pitSide && T.pitRamp(i) > 0.02);
       this.add(road, this.wall(T, f, 1.0, armco, 0), this.twoSided(this.mat("#C7CDD3")), true);
       this.add(road, this.strip(T, f, i => f(i) + sd * 0.4, 1.0, 8, armco), this.mat("#8A9199"));
       // posts
@@ -498,6 +500,12 @@ G3.build = function(S){
   if(T.def.world === "suzuka"){
     try{ SUZUKA.build(this, this.world, T, S); this.suzuka = SUZUKA; }
     catch(e){ console.warn("suzuka", e.message, e.stack); }
+  }
+  /* Spa: the Ardennes valley, its forest, villages, stands and stream */
+  this.spa = null;
+  if(T.def.world === "spa"){
+    try{ SPA.build(this, this.world, T, S); this.spa = SPA; }
+    catch(e){ console.warn("spa", e.message, e.stack); }
   }
 
   /* the cars */
