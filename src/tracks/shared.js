@@ -1,5 +1,10 @@
 /* Circuits. layout DSL: S<metres> | R<deg>/<radius> | L<deg>/<radius>
    elev(u) -> metres above datum. scene = procedural set dressing.        */
+/* One visual height factor for every circuit: buildTrack multiplies def.elev by
+   it, so the road, the ground, the barriers, the scenery and the car all see the
+   same number. 1 means real heights. The physics reads the slope (a climb slows
+   the car), so anything above 1 also makes every circuit drive steeper. */
+const ELEV_VISUAL = 1.0;
 // elevation as a piecewise profile over the lap, eased between the points given,
 // so a climb can be put exactly where the real one is
 function elevPW(pts){
@@ -27,4 +32,4 @@ function bankZ(T, k, o){
 function bumpU(u, c, w){ const d = Math.abs((((u - c) % 1) + 1.5) % 1 - 0.5); return d < w ? 0.5 + 0.5 * Math.cos(Math.PI * d / w) : 0; }
 
 
-export { bankZ, bumpU, elevPW };
+export { ELEV_VISUAL, bankZ, bumpU, elevPW };
