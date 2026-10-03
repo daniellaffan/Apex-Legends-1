@@ -3,6 +3,8 @@ import './tracks/survey/silverstone.js';
 import './tracks/survey/zandvoort.js';
 import { $, el, store } from './config/util.js';
 import { TEAMS } from './config/teams.js';
+import './car/parts.js';
+import './car/spec.js';
 import './tracks/shared.js';
 import { TRACKS } from './tracks/index.js';
 import './tracks/monaco.js';
@@ -18,7 +20,9 @@ import './tracks/interlagos.js';
 import './tracks/cota.js';
 import './tracks/mexico.js';
 import './tracks/build.js';
-import { AUDIO, CARVIEW, CFG, G3, LAUNCH_HI, LAUNCH_LO, R, S, bindTouch, buildSetup, champState, closePitMenu, endSession, loop, setPaused, setS, show, showStandings, startChampWeekend, startSession, togglePause } from './legacy-rest.js';
+import { LAUNCH_HI, LAUNCH_LO } from './car/physics.js';
+import './ai/driver.js';
+import { AUDIO, CARVIEW, CFG, G3, R, S, bindTouch, buildSetup, champState, closePitMenu, endSession, loop, setPaused, setS, show, showStandings, startChampWeekend, startSession, togglePause } from './legacy-rest.js';
 
 /* ---------- 8. boot ------------------------------------------------------- */
 function boot(){
