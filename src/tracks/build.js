@@ -1,6 +1,6 @@
 import { RAD, TAU, angWrap, clamp, dist, lerp, mulberry } from '../config/util.js';
 import { TEAMS } from '../config/teams.js';
-import { bankZ } from './shared.js';
+import { bankZ, ELEV_VISUAL } from './shared.js';
 
 /* ---------- 2. track builder --------------------------------------------- */
 function parseLayout(str){
@@ -95,7 +95,7 @@ function buildTrack(def){
   for(let i = 0; i < n; i++){
     T.x[i] = pts[i][0]; T.y[i] = pts[i][1]; T.s[i] = i * ds;
     const u = i / n;
-    T.z[i] = def.elev ? def.elev(u) : 0;
+    T.z[i] = def.elev ? def.elev(u) * ELEV_VISUAL : 0;
     T.bank[i] = def.bank ? def.bank(u) : 0;
   }
   // iron out spline kinks left by the loop closure before anything reads the curvature

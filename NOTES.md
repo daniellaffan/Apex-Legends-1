@@ -1010,3 +1010,37 @@ Existing world kept. Seam to fix.
 
 ## Track atmosphere hook
 `def.atmo = { near, k, tint }` (src/render3d/build.js) sets per-track haze: near = fog start offset, k = visible-distance scale, tint = fog and sky colour. First user: Spa (mist, denser conifer). Spa visuals are a first pass only (no landmark kit or adverts yet); not seen in a browser.
+
+---
+
+# COTA (Austin) overhaul — research, mismatches, decisions
+
+## Research (Part 1). Sources and how sure I am
+
+| Fact | Value I found | Source | Confidence |
+|---|---|---|---|
+| Lap and corners | 3.4 mi / 5.513 km, 20 turns, counter-clockwise | [Jalopnik turn-by-turn guide](https://jalopnik.com/circuit-of-the-americas-a-turn-by-turn-guide-5856083), SI guide | high |
+| Elevation range | 133 ft (about 40.5 m), highest to lowest point | same Jalopnik guide; F1/Pirelli pages repeat it | high for the range; **where the lowest point is, I did not find**. I kept it on the back straight / T12 as before (estimate) |
+| T1 climb | about 85 ft (26 m) and about 11 % at the steep part; T1 is the highest point of the track | Jalopnik / search summaries of Racer and Pirelli; "11 percent" appears in one summary only | medium. Sources differ between 11 % and 16 % in older notes (see section 0a). I used 11 % on the steepest stretch |
+| T1 | blind, uphill braking zone into a left-hand hairpin ("Big Red") | Jalopnik, NASCAR turn guide | high |
+| Esses | T3 left, T4 right, T5 left (then T6), compared with Maggotts-Becketts-Chapel at Silverstone | NASCAR turn-by-turn analysis | high |
+| T11 | left-hand hairpin ("Bobby Pin"), no big elevation change | NASCAR guide | high |
+| Back straight | **0.63 mile = 1.01 km** in the NASCAR guide; the game's version is longer (see mismatches) | NASCAR guide; other pages quote about 1.2 km | sources disagree, I show both |
+| T12 | sharp left, big stadium grandstand, good view of most of the track | NASCAR guide | high |
+| T19-T20 | T19 a left after a long right, "flick downhill"; T20 is a 90-degree left onto the front straight | NASCAR guide | medium (T19 direction wording is odd in the source) |
+| Pit lane | entry at T20, **exit goes directly into the apex of T1**; pit entry on the left (inside of T20) | Jalopnik, a search summary of track-map pages | medium-high. I found no box count or lane length; I did not guess them |
+| Tower | **on the outside of the track near turns 16-18**, 251 ft (76.5 m) at its highest, observation deck 22 stories up, external double-helix stair of 419 steps, glass floor panel | [official COTA tower page](https://circuitoftheamericas.com/blog/2024/2/20/all-about-the-cota-tower/) | high for height/place. A search summary also said "inside of the right-hand corner", which contradicts "outside"; I used the official wording |
+| Amphitheatre | in the infield, opened 2012; capacity 14,000 (Wikipedia, via search) vs a 20,000 plan quoted before it opened (Jalopnik) | [Wikipedia](https://en.wikipedia.org/wiki/Germania_Insurance_Amphitheater) | capacity disagrees; its exact spot in the infield I did **not** confirm |
+| Run-off | Recent changes: asphalt verges at T6, T13, T14, T15 narrowed by 1.5 m and replaced with turf; gravel-style insert on one exit (a summary says "Turn 11", but T11 is the hairpin, so I do not trust the number); T2-T10 and T12-T16 resurfaced | [The Drive](https://www.thedrive.com/news/cota-adds-gravel-to-crack-down-on-f1-track-limits-violations), F1technical | medium. **I found no published full run-off map.** The mix of tarmac, gravel and grass in `cota.js` is my reading (flagged "guess" per zone) |
+| Two service tunnels under the track for transporters | yes | Jalopnik | high (not modelled) |
+
+Not confirmed at all: exact grandstand capacities, hospitality box layout, where the paddock buildings stand relative to the pit lane, the Ferris wheel (fan zone) position.
+
+## Mismatches against the game (measured by `scripts/cota-audit.mjs`, not by eye)
+
+1. Direction: **already correct** — the `turtle()` handedness fix landed after the 0a audit above, so COTA now winds anticlockwise (net turn -360). Nothing to reverse, and no mirror was applied.
+2. Tower side: the game had it on the inside (`side:"in"`); the official page says outside. Moved.
+3. Pit zone: the game's pit lane ran from lap 0.86 to 0.10 (the shared default), 1.3 km, entry well before T20. Real: entry at T20, exit into the T1 apex. Set to 0.885 -> 0.075.
+4. Elevation: shape was cosine-eased between 10 points (flat at every knot, so the climb stopped and started). Range was already right (0 to 40.5 m). Replaced by a closed spline with continuous gradient.
+5. Run-off: one untyped 18 m everywhere. Replaced by per-corner zones.
+6. Layout questions I did **not** change (asked in the report): see the report.
