@@ -194,6 +194,18 @@ const COTA = {
       }
     }
 
+    /* catch fencing along the front of every stand: posts and three rails, so the stand is still visible through it */
+    for(const s of S.stands){
+      if(s.kind === "bank") continue;
+      const { i0, span, side } = s, C = L("#5C6068");
+      for(let k = 0; k < span; k++){
+        const ia = (i0 + k) % n, ib = (i0 + k + 1) % n, oa = P.edge(ia, side) + 1.0, ob = P.edge(ib, side) + 1.0, m = M.at(...at(ia, side, oa));
+        const A = at(ia, side, oa), B = at(ib, side, ob), za = ht(A[0], A[1]), zb2 = ht(B[0], B[1]);
+        for(const hh of [1.3, 2.7, 4.0]) m.quad([A[0], A[1], za + hh], [B[0], B[1], zb2 + hh], [B[0], B[1], zb2 + hh + 0.12], [A[0], A[1], za + hh + 0.12], C);
+        if(k % 3 === 0) m.pole(A[0], A[1], za - 0.2, A[0], A[1], za + 4.3, 0.09, C);
+      }
+    }
+
     /* the pit building: ground floor, a set-back floor, a glass hospitality deck, awnings, a tower at the line */
     { const pb = S.pit, { i0, span, side, off0 } = pb;
       const D0 = off0, D1 = off0 + pb.depth;

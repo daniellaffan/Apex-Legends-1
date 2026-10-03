@@ -3,7 +3,7 @@ import { TRACKS } from '../src/tracks/index.js';
 import { buildTrack } from '../src/tracks/build.js';
 import { ELEV_VISUAL } from '../src/tracks/shared.js';
 
-const def = TRACKS.find(t => t.id === 'cota');
+const def = process.argv[2] ? (await import(process.argv[2])).default : TRACKS.find(t => t.id === 'cota');
 const T = buildTrack(def), n = T.n;
 let A = 0, turn = 0;
 for (let i = 0; i < n; i++) {
