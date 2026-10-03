@@ -8,7 +8,8 @@ const spa =
     pit:{ side:1 },
     barrier:"armco", runoff:18,
     // Ardennes mist: the forest fades out early, in a cool grey-green
-    atmo:{ near:40, k:0.55, tint:"#B7C2C4" },
+    // (the camera stands 700 m back, so near is an offset from that: negative = the haze starts in front of the car)
+    atmo:{ near:-130, k:0.3, tint:"#B7C2C4" },
     // Spa: a public road through the Ardennes — conifer on every side, meadow
     // wherever the valley opens out
     land:[ {t:"blob", n:96, near:18, far:125, size:[9,26], col:"#2C4A2A"},

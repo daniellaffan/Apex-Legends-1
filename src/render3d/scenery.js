@@ -24,7 +24,7 @@ G3.prop = function(parent, p, T, S){
   const g = new THREE.Group(), z = p.z, night = T.night;
   // tall things have to be able to get out of the way on their own, so they stay
   // out of the bake and carry their own materials
-  const big = p.t === "sphere" ||
+  const big = p.t === "sphere" || p.fade ||
     (p.h > 12 && ["lm", "hotel", "tower", "grandstand", "stadium", "ferris", "garage"].includes(p.t));
   const B = (cx, cy, cz, l, w, h, ang, col, tex) => this.boxAt(g, cx, cy, cz, l, w, h, ang, col, tex);
   const sphere = (cx, cy, cz, r, col, seg) => {

@@ -481,6 +481,12 @@ G3.build = function(S){
 
   /* the scenery */
   const props = new THREE.Group();
+  // the trees nearest the road carry their own materials so they can fade when they
+  // stand between the camera and the car. Capped, since each one is its own draw call.
+  const nearTrees = T.props.filter(p => p.t === "tree" && p.h > 12)
+    .map(p => { const j = T.near(p.x, p.y); return { p, d:Math.hypot(p.x - T.x[j], p.y - T.y[j]) }; })
+    .sort((a, b) => a.d - b.d).slice(0, 110);
+  for(const o of nearTrees) o.p.fade = true;
   for(const p of T.props){
     if(p.only2d && ownGround) continue;           // the survey (or the world) built the real one
     try{ this.prop(props, p, T, S); }catch(e){ console.warn("prop", p.t, p.k, e.message); } }

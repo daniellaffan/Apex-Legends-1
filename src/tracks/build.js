@@ -367,7 +367,9 @@ function buildTrack(def){
       const u = e.a + (e.b - e.a) * ((i + 0.5) / e.n + (rnd() - 0.5) * 0.012);
       const idx = ((Math.round(u * n) % n) + n) % n;
       const side = sideOf(e);
-      const need = CLEAR[e.t] != null ? CLEAR[e.t] : 6;
+      let need = CLEAR[e.t] != null ? CLEAR[e.t] : 6;
+      // a canopy is wider than the trunk: keep it off the tarmac, not just the trunk
+      if(e.t === "tree") need = Math.max(need, e.h[1] * 0.45);
       const halfLen = e.wid ? e.wid / 2 : 0;
       let placed = false;
       // try the intended spot, then progressively further out before giving up
