@@ -1421,7 +1421,7 @@ test. Frame times could not be measured: no browser here.
 |---|---|---|---|
 | Spa before | 83-240 (418 on the grid with 20 cars) | 80-150k | 0.16 s |
 | Spa after | 140-220 (436 on the grid) | 270-590k | 1.5 s (1.2 s of it the plan) |
-| Spa after, Lite | 167-197 | 250-360k | 0.9 s |
+| Spa after, Lite | 165-197 | 250-360k | 0.7 s |
 | Suzuka | 135-170 | 210-660k | 0.6 s |
 | COTA | 106-131 | 160-265k | 0.6 s |
 
