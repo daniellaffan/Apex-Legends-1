@@ -5,6 +5,7 @@ const monza =
     facade:"stucco",
     pal:{ skyA:"#4F97D2", skyB:"#E6E8DC", ground:"#547A3E", grass:"#456B33", road:"#55585E", kerbA:"#D8352A", kerbB:"#EDEDED",
           wall:"#B2B8BE", line:"#EFEFEF", accent:"#C8102E", water:"#4C7A96" },
+    pit:{ side:1 },
     barrier:"armco", runoff:14,
     // Monza: the royal park — mature woodland, formal lawns, gravel avenues
     land:[ {t:"blob", n:92, near:16, far:115, size:[9,26], col:"#2F4F2C"},
@@ -20,7 +21,7 @@ const monza =
     scene:[ {t:"banking", n:6, a:0.17, b:0.27, side:"out", off:84, h:[10,12], col:"#9E9384"},
             {t:"banking", n:5, a:0.72, b:0.83, side:"out", off:92, h:[10,12], col:"#9E9384"},
             {t:"lm", k:"villareale", n:1, a:0.55, b:0.55, side:"in", off:520, h:[24,24], col:"#E4CFA4"},
-            {t:"lm", k:"pitbuilding", n:1, a:0.99, b:0.99, side:-1, off:42, h:[24,24], col:"#ADB4BB"},
+            {t:"lm", k:"pitbuilding", n:1, a:0.99, b:0.99, side:1, off:42, h:[24,24], col:"#ADB4BB"},
             {t:"grandstand", n:1, a:0.97, b:0.97, side:"out", off:24, h:[16,16], col:"#ADB4BB", wid:220},
             {t:"grandstand", n:1, a:0.87, b:0.87, side:"out", off:24, h:[15,15], col:"#ADB4BB", wid:120},
             {t:"grandstand", n:1, a:0.65, b:0.65, side:"out", off:24, h:[13,13], col:"#ADB4BB", wid:90},

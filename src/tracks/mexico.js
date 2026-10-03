@@ -5,6 +5,7 @@ const mexico =
     facade:"concrete",
     pal:{ skyA:"#3E86C8", skyB:"#E6DCC8", ground:"#5E7A46", grass:"#4E6A38", road:"#54575D", kerbA:"#2E8B45", kerbB:"#D8352A",
           wall:"#B4BAC0", line:"#EFEFEF", accent:"#2E8B45", water:"#4C7A96" },
+    pit:{ side:1 },
     barrier:"armco", runoff:12,
     // Mexico City: the Magdalena Mixhuca sports park, and then one of the
     // densest cities on earth in every direction
@@ -20,7 +21,7 @@ const mexico =
     elev:u => 1.2 * Math.sin(u * TAU * 2),
     scene:[ {t:"stadium", n:1, a:0.8, b:0.8, side:0, off:0, h:[16,16], col:"#B9BFC6"},
             {t:"lm", k:"baseball", n:1, a:0.8, b:0.8, side:"in", off:70, h:[10,10], col:"#5E8A46"},
-            {t:"lm", k:"pitbuilding", n:1, a:0.975, b:0.975, side:-1, off:42, h:[24,24], col:"#AEB5BC"},
+            {t:"lm", k:"pitbuilding", n:1, a:0.975, b:0.975, side:1, off:42, h:[24,24], col:"#AEB5BC"},
             {t:"grandstand", n:1, a:0.05, b:0.05, side:"out", off:24, h:[16,16], col:"#AEB5BC", wid:200},
             {t:"grandstand", n:1, a:0.12, b:0.12, side:"out", off:24, h:[16,16], col:"#AEB5BC", wid:200},
             {t:"grandstand", n:1, a:0.2, b:0.2, side:"out", off:24, h:[16,16], col:"#AEB5BC", wid:200},

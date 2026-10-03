@@ -10,7 +10,13 @@ function parseLayout(str){
     return { t:tok[0], a, r };
   });
 }
-function turtle(cmds, k){
+/* Handedness. In the physics a right-hand turn is a POSITIVE change of heading
+   (steer right: h grows), so "R" in a layout string must turn the heading up.
+   It used to turn it down, which drew every layout-built circuit as its own mirror
+   image (Monza anticlockwise, Singapore clockwise...). The corner letters in the
+   layouts are the real ones. Las Vegas is deliberately left as it was, by request. */
+const LEGACY_MIRRORED = new Set(["vegas"]);
+function turtle(cmds, k, hand){
   const pts = []; let x = 0, y = 0, h = 0;
   const push = () => pts.push([x, y]);
   push();
@@ -19,7 +25,7 @@ function turtle(cmds, k){
       const steps = Math.max(1, Math.round(c.len / 12));
       for(let i = 0; i < steps; i++){ x += Math.cos(h) * c.len / steps; y += Math.sin(h) * c.len / steps; push(); }
     } else {
-      const ang = c.a * k * RAD * (c.t === "R" ? -1 : 1);
+      const ang = c.a * k * RAD * (c.t === "R" ? hand : -hand);
       const steps = Math.max(3, Math.round(Math.abs(ang) * c.r / 10));
       const dh = ang / steps, ds = Math.abs(dh) * c.r;
       for(let i = 0; i < steps; i++){ h += dh; x += Math.cos(h) * ds; y += Math.sin(h) * ds; push(); }
@@ -59,12 +65,13 @@ function buildTrack(def){
     raw = def.path().map(p => [p[0], p[1]]);
   } else {
     const cmds = parseLayout(def.layout);
+    const hand = LEGACY_MIRRORED.has(def.id) ? -1 : 1;
     let turn = 0;
-    for(const c of cmds) if(c.t !== "S") turn += c.a * (c.t === "R" ? -1 : 1);
+    for(const c of cmds) if(c.t !== "S") turn += c.a * (c.t === "R" ? hand : -hand);
     // normalise to a closed lap. A figure-of-eight nets to nothing (Suzuka), and
     // must not have its corners blown up to chase 360.
     const k = Math.abs(turn) < 100 ? 1 : clamp((360 * Math.sign(turn)) / turn, 0.78, 1.28);
-    raw = turtle(cmds, k);
+    raw = turtle(cmds, k, hand);
     const gx = raw[0][0] - raw[raw.length - 1][0], gy = raw[0][1] - raw[raw.length - 1][1];
     const N0 = raw.length - 1;
     raw = raw.map((p, i) => [p[0] + gx * i / N0, p[1] + gy * i / N0]);   // distribute the closing gap

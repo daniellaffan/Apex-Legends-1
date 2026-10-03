@@ -5,6 +5,7 @@ const spa =
     facade:"concrete",
     pal:{ skyA:"#6F8194", skyB:"#C9D1D6", ground:"#4C6B3C", grass:"#3E5C31", road:"#4E5157", kerbA:"#D8352A", kerbB:"#EDEDED",
           wall:"#AEB5BB", line:"#EFEFEF", accent:"#2E5A2A", water:"#3F6478" },
+    pit:{ side:1 },
     barrier:"armco", runoff:18,
     // Spa: a public road through the Ardennes — conifer on every side, meadow
     // wherever the valley opens out
@@ -18,7 +19,7 @@ const spa =
            {t:"blob", n:20, near:80, far:420, size:[28,76], col:"#4A6B34"} ],
     layout:"S123 R170/14 S250 L30/75 R45/69 L25/120 S1122 R90/40 L51/46 R40/68 S183 R155/27 S133 L44/79 S112 L108/90 S277 R70/55 L48/60 S195 R104/50 S179 R29/150 S427 L48/220 S318 R60/16 L60/14 S136",
     elev:elevPW([[0,52],[0.035,54],[0.10,22],[0.14,52],[0.25,66],[0.37,70],[0.44,58],[0.54,36],[0.62,30],[0.69,14],[0.75,12],[0.86,36],[0.96,50],[1,52]]),
-    scene:[ {t:"lm", k:"pitbuilding", n:1, a:0.985, b:0.985, side:-1, off:42, h:[24,24], col:"#A9B0B7"},
+    scene:[ {t:"lm", k:"pitbuilding", n:1, a:0.985, b:0.985, side:1, off:42, h:[24,24], col:"#A9B0B7"},
             {t:"grandstand", n:1, a:0.115, b:0.115, side:"out", off:24, h:[22,22], col:"#A9B0B7", wid:130},
             {t:"grandstand", n:1, a:0.03, b:0.03, side:"out", off:24, h:[14,14], col:"#A9B0B7", wid:80},
             {t:"grandstand", n:1, a:0.44, b:0.44, side:"out", off:24, h:[12,12], col:"#A9B0B7", wid:70},
