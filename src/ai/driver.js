@@ -1,5 +1,7 @@
 import { clamp, lerp } from '../config/util.js';
 import { AUDIO } from '../audio/audio.js';
+import { BRAKE, DRAG, GRIP, VMAX, tyreGripK, tyreLoad } from '../car/physics.js';
+import { TYRES } from '../car/parts.js';
 
 /* ---------- 4. AI --------------------------------------------------------- */
 // The rail followers track their own speed in railV; the player's car does not,
@@ -31,6 +33,70 @@ function cornerAhead(T, i){
   return { dist:C.dist[i], side:C.side[i], vmin:C.vmin[i], apex:C.apex[i] };
 }
 
+/* The rivals' own speed profile, built from the same limits the player's car
+   has: full grip on the racing line, the real brakes, no padding. T.vprof is
+   the cautious one the camera, the sound and the corner finder read; this one
+   is how fast the line can actually be driven. Speeds are along the centre
+   line (that is how the rail followers move), so a corner taken on a shorter
+   inside line gets a little extra. No acceleration pass: the engine limits
+   the rivals on the way out of a corner exactly as it limits the player. */
+const aiBrake = () => BRAKE * 0.93;                // leave the controller a hair of margin
+function aiProfile(T){
+  if(T._aiProf) return T._aiProf;
+  const n = T.n, px = i => T.x[i] + T.nx[i] * T.line[i], py = i => T.y[i] + T.ny[i] * T.line[i];
+  const r = new Float64Array(n), V = new Float64Array(n);
+  for(let i = 0; i < n; i++){ const b = (i + 1) % n; r[i] = clamp(Math.hypot(px(b) - px(i), py(b) - py(i)) / T.ds, 0.7, 1.3); }
+  for(let i = 0; i < n; i++){
+    // a touch of smoothing, so a kink in the line is not a reason to brake
+    const a = (i - 1 + n) % n, b = (i + 1) % n;
+    const k = (Math.abs(T.lcurv[a]) + 2 * Math.abs(T.lcurv[i]) + Math.abs(T.lcurv[b])) / 4 + 1e-6;
+    V[i] = Math.min(VMAX * 1.06, Math.sqrt(GRIP * (1 + T.bank[i] * 1.8) / k));
+  }
+  /* Through a run of sweepers the limit ripples up and down. A driver holds
+     one speed there rather than accelerating for twenty metres and braking
+     again, so flatten every peak narrower than ~80 m (min, then max, filter:
+     the dips themselves stay exactly where they were). */
+  const w = Math.max(1, Math.round(40 / T.ds)), lo = new Float64Array(n);
+  for(let i = 0; i < n; i++){ let m = Infinity; for(let q = -w; q <= w; q++) m = Math.min(m, V[(i + q + n) % n]); lo[i] = m; }
+  for(let i = 0; i < n; i++){ let m = 0; for(let q = -w; q <= w; q++) m = Math.max(m, lo[(i + q + n) % n]); V[i] = Math.min(V[i], m); }
+  for(let p = 0; p < 3; p++)
+    for(let i = n - 1; i >= 0; i--){ const b = (i + 1) % n;
+      V[i] = Math.min(V[i], Math.sqrt(V[b] * V[b] + 2 * (aiBrake() + DRAG * V[b] * V[b]) * T.ds * r[i])); }
+  for(let i = 0; i < n; i++) V[i] /= r[i];
+  return (T._aiProf = V);
+}
+
+/* How much tyre one lap at racing speed takes off, at wear multiplier 1:
+   the session sets its wear multiplier from this so a compound lasts the
+   same share of a race on every circuit, whatever the lap is like. */
+function lapWearLoad(T){
+  if(T._lapLoad) return T._lapLoad;
+  const V = aiProfile(T), n = T.n;
+  let sum = 0;
+  for(let i = 0; i < n; i++){
+    const v = Math.max(V[i] * 0.97, 8), brk = V[(i + 1) % n] < V[i] - 0.05 ? 1 : 0;
+    sum += tyreLoad(Math.abs(T.lcurv[i]) * v * v, brk) * (T.ds / v) * 0.34;
+  }
+  return (T._lapLoad = sum);
+}
+// the share of the tyre a whole race takes, per point of compound wear: a soft
+// (1.95) is past its best around half distance, a medium nearer three quarters
+const RACE_WEAR = 0.78;
+function wearMulFor(T, laps){ return RACE_WEAR / (Math.max(1, laps) * lapWearLoad(T)); }
+// laps of racing a set of this compound gives before it is worth changing
+function stintLaps(tyre, S, T){ return 0.72 / (tyre.wear * S.wearMul * lapWearLoad(T)); }
+
+/* the pit wall's call: which compound to bolt on for the laps that are left */
+function chooseTyre(c, S){
+  if(S.wetTarget > 0.4 && S.wet > 0.3) return TYRES.wet;
+  const left = Math.max(1, S.laps - c.lap);
+  const needNew = S.mustPit && c.used.size < 2;
+  const opts = [TYRES.soft, TYRES.medium, TYRES.hard].filter(t => !(needNew && c.used.has(t.key)));
+  // the softest set that gets to the flag, with a little in hand; else the longest-lasting
+  for(const t of opts) if(stintLaps(t, S, c.T) >= left * 1.05) return t;
+  return opts[opts.length - 1];
+}
+
 function driveAI(c, S, dt){
   const T = c.T, i = c.node, v = carSpeed(c);
   if(c.pitting) return;
@@ -38,15 +104,15 @@ function driveAI(c, S, dt){
   const look = Math.max(2, Math.round(clamp((10 + v * 0.46) / (1 + kNow * 40), 9, 56) / T.ds));
   const ti = (i + look) % T.n;
 
-  // --- pace from the speed profile, with a braking horizon ---
-  const horizon = Math.round(220 / T.ds);
-  let vt = Infinity;
-  for(let k = 1; k <= horizon; k++){
-    const j = (i + k) % T.n, d = k * T.ds;
-    vt = Math.min(vt, Math.sqrt(T.vprof[j] ** 2 + 2 * 29 * d));
-  }
-  const tyreK = 0.90 + 0.10 * c.life, wetK = S.wet > 0 ? lerp(1, c.tyre.key === "wet" ? 0.95 : 0.80, S.wet) : 1;
-  vt = Math.min(vt, T.vprof[i] * 1.02) * 0.985 * c.pace * S.aiScale * tyreK * wetK * (1 + c.mistake * 0.22);
+  // --- pace: the line's own limit, scaled by the grip this car has right now ---
+  // (read a fraction of a second ahead, so the brakes go on at the board, not after it)
+  const P = aiProfile(T), sNow = c.railS != null ? c.railS : c.s;
+  const fi = (((sNow + v * 0.06) / T.ds) % T.n + T.n) % T.n, j0 = Math.floor(fi), j1 = (j0 + 1) % T.n;
+  const vline = lerp(P[j0], P[j1], fi - j0);
+  const wetK = S.wet > 0 ? lerp(1, c.tyre.key === "wet" ? 0.93 : 0.68, S.wet) : 1;
+  const gripK = tyreGripK(c) * wetK * c.perf.grip * c.pace * (1 - c.damage * 0.22);
+  const topV = VMAX * c.pace * c.perf.top * (c.boost > 0 && c.batt > 0.02 && c.perf.boost ? 1.055 : 1);
+  let vt = Math.min(topV, vline * Math.sqrt(gripK) * S.aiScale * (1 + c.mistake * 0.05));
 
   // --- traffic: who is in front, who is hounding us ---
   let ahead = null, gap = 1e9, behind = null, bgap = 1e9;
@@ -86,7 +152,7 @@ function driveAI(c, S, dt){
   if(ahead){
     const av = carSpeed(ahead);
     const lane = Math.abs(ahead.off - c.off) < 3.6;      // are we actually behind them?
-    const respect = 8 + v * 0.30;
+    const respect = 8 + v * 0.26;
     const mine = c.pace * c.drv.skill * (0.86 + 0.14 * c.life);
     const theirs = ahead.pace * ahead.drv.skill * (0.86 + 0.14 * ahead.life);
     const quicker = mine > theirs * 0.998;
@@ -104,8 +170,10 @@ function driveAI(c, S, dt){
       if(lane && gap < 70) vt = Math.min(vt, Math.max(T.vprof[i] * 0.55, av + 12));
     } else if(lane){
       const bold = c.drv.aggr * D.aggr;
+      // anyone quicker, anyone closing, and the bold ones always have a go
+      const closing = v > av + 1.5;
       const willTry = racing &&
-        ((T.half > 6.4 ? quicker : mine > theirs * 1.015) || avenging || bold > 0.88);
+        ((T.half > 6.4 ? quicker : mine > theirs * 1.004) || closing || avenging || bold > 0.72);
       if(S.mode !== "race"){ if(gap < respect){ vt = Math.min(vt, av * 0.97); passDir = ahead.off > 0 ? -1 : 1; } }
       else if(willTry && gap < respect * (1 + 1.1 * tight)){
         // Line up the move on the straight, before the braking zone: the inside
@@ -130,7 +198,7 @@ function driveAI(c, S, dt){
         if(c.lungeSide){ passDir = c.lungeSide; vt = Math.min(vt, av + 3 + D.aggr * 2); }
       } else if(gap < respect){
         c.lungeSide = 0;
-        vt = Math.min(vt, av * clamp(0.95 + 0.05 * (gap / respect), 0.88, 1));
+        vt = Math.min(vt, av * clamp(0.98 + 0.02 * (gap / respect), 0.94, 1));
       } else if(gap > respect * 2.4) c.lungeSide = 0;
     } else if(gap > respect * 2.4) c.lungeSide = 0;
     // once committed, stay committed until the move is finished
@@ -145,7 +213,8 @@ function driveAI(c, S, dt){
     if(lane){
       const clearing = stricken && Math.abs(c.off - ahead.off) > 2.2;
       const press = passDir ? 0.5 : 1;          // committed to a move: close right up
-      const desired = (7.5 + v * 0.45 + Math.max(0, (v * v - av * av) / (2 * 30))) * press;
+      // sit right on their gearbox: a fifth of a second, plus the room to scrub off any speed difference
+      const desired = (5 + v * 0.17 + Math.max(0, (v * v - av * av) / (2 * aiBrake()))) * press;
       if(gap < desired) vt = Math.min(vt, Math.max(clearing ? 11 : 3, av - (desired - gap) * 2.0));
     } else if(gap < 7 && Math.abs(ahead.off - c.off) < 5.2){
       vt = Math.min(vt, Math.max(8, av * 1.03));         // wheel to wheel: edge past, don't barge
@@ -215,17 +284,17 @@ function driveAI(c, S, dt){
   want = c.aiWantS;
   if(c.momentT > 0){
     c.momentT -= dt;
-    if(c.momentKind === "lock") vt *= 0.72;
+    if(c.momentKind === "lock") vt *= 0.88;
     else if(c.momentKind === "wide"){
       vt *= 1.07;
       const spill = T.half * 0.8 + Math.min(T.runoff, 3.5) * 0.4;
       want = clamp(want + c.momentSide * spill, -(T.half + 1.6), T.half + 1.6);
     }
   } else if(kNow > 0.004){
-    const rate = (1.03 - c.drv.skill) * 0.040 * (1 + S.wet * 1.2) *
+    const rate = (1.03 - c.drv.skill) * 0.016 * (1 + S.wet * 1.2) *
                  (1 + (1 - c.life) * 0.9) * (1 + c.damage * 1.5);
     if(Math.random() < rate * dt){
-      c.momentT = 0.7 + Math.random() * 1.5;
+      c.momentT = 0.5 + Math.random() * 0.8;
       c.momentKind = Math.random() < 0.5 ? "lock" : "wide";
       c.momentSide = -Math.sign(T.curv[i]) || 1;
       try{ AUDIO.event("moment", c, S); }catch(e){}
@@ -236,16 +305,31 @@ function driveAI(c, S, dt){
   c.aiWant = want;
   c.aiTargetV = vt * Math.sqrt(c.perf.grip);
   c.mistake = lerp(c.mistake, (Math.random() - 0.5) * (1.04 - c.drv.skill) * 1.4, dt * 2.4);
-  const straight = T.vprof[ti] > 78;
-  c.boost = (straight && c.batt > 0.35 && v > 30 && (gap < 70 || c.batt > 0.85)) ? 1 : 0;
+  const straight = T.vprof[ti] > 74;
+  c.boost = (straight && c.batt > 0.2 && v > 30 && (gap < 90 || c.batt > 0.6)) ? 1 : 0;
   c.hand = 0;
 
-  // pit call
-  if(S.mode === "race" && !c.pitReq && c.stops === 0 && S.mustPit &&
-     c.lap >= Math.floor(S.laps * (0.38 + (c.idx % 5) * 0.07))) c.pitReq = true;
-  if(!c.pitReq && c.life < 0.22 && S.mode === "race" && S.laps - c.lap > 2) c.pitReq = true;
-  if(!c.pitReq && c.broken.size && S.mode === "race" && S.laps - c.lap > 1) c.pitReq = true;
+  /* pit call. Each car has its own idea of how far to run a set (some go
+     early for the undercut, some stretch it); it watches what the last lap
+     took off the tyres, and comes in when the next lap would take them past
+     that. Nobody stops on the final lap, everybody makes the mandatory stop. */
+  if(S.mode !== "race" || c.pitReq || c.lap < 1 || c.lap >= S.laps) return;
+  if(c.wearLap !== c.lap){
+    if(c.wearLap === c.lap - 1 && c.lifeAtLap != null && c.lifeAtLap > c.life) c.wearRate = c.lifeAtLap - c.life;
+    c.wearLap = c.lap; c.lifeAtLap = c.life;
+  }
+  if(c.pitAt == null) c.pitAt = 0.22 + ((c.idx * 7) % 11) / 10 * 0.16;    // 0.22 .. 0.38 life left
+  const perLap = c.wearRate || c.tyre.wear * S.wearMul * lapWearLoad(T) * 1.05;
+  const lapsLeft = S.laps - c.lap;                       // full laps after this one
+  const canFinish = c.life - perLap * (lapsLeft + 0.5) > 0.12;
+  const owesStop = S.mustPit && c.stops === 0;
+  let box = false;
+  if(c.life - perLap * 1.1 < c.pitAt && (!canFinish || owesStop)) box = true;
+  if(owesStop && lapsLeft <= 1) box = true;                // last chance to make the stop
+  if(c.broken.size && lapsLeft > 1) box = true;
+  if(S.wetTarget > 0.4 && S.wet > 0.45 && c.tyre.key !== "wet" && lapsLeft > 0) box = true;
+  if(box){ c.pitReq = true; c.nextTyre = chooseTyre(c, S); }
 }
 
 
-export { driveAI };
+export { driveAI, wearMulFor };

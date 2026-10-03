@@ -11,6 +11,16 @@ const VMAX = 92, ENGINE = 15.2, DRAG = 0.00128, BRAKE = 40, GRIP = 38.5, STEER_A
 const SURF = { road:1, kerb:0.94, runoff:0.62, grass:0.48, sand:0.42, pit:1, tarmac:0.86, gravel:0.30, astro:0.60 };
 const GRADE_G = 9.81 * 0.5;                      // gravity along a slope, at half strength
 
+/* How much grip a set of tyres has left. They fade steadily to 93% at 30% life,
+   then fall off the cliff: on the canvas they are down to 78%, seconds a lap. */
+function tyreWearK(life){
+  life = clamp(life, 0, 1);
+  return life >= 0.3 ? 0.93 + 0.07 * (life - 0.3) / 0.7 : 0.78 + 0.15 * (life / 0.3);
+}
+function tyreGripK(c){ return c.tyre.grip * tyreWearK(c.life) * lerp(0.93, 1, clamp(c.temp, 0, 1)); }
+// the same wear sum for the player and the rivals: a base rate, cornering load and braking
+function tyreLoad(lat, brk){ return 0.00042 + lat * 0.00005 + brk * 0.00055; }
+
 class Car {
   constructor(team, drv, idx, T){
     this.team = team; this.drv = drv; this.idx = idx; this.T = T;
@@ -213,8 +223,7 @@ class Car {
 
     const surf = this.surface();
     const wetK = S.wet > 0 ? lerp(1, this.tyre.key === "wet" ? 0.93 : 0.68, S.wet) : 1;
-    const tyreGrip = this.tyre.grip * (0.80 + 0.20 * clamp(this.life * 1.15, 0, 1)) *
-                     (this.life < 0.12 ? 0.86 : 1) * lerp(0.93, 1, clamp(this.temp, 0, 1));
+    const tyreGrip = tyreGripK(this);
     const g = GRIP * surf * wetK * tyreGrip * (1 - this.damage * 0.22) * this.pace * this.perf.grip;
     const boosting = this.boost > 0 && this.batt > 0.01 && vf > 8 && this.perf.boost;
     const vmax = VMAX * (boosting ? 1.055 : 1) * this.pace * this.perf.top;
@@ -343,7 +352,7 @@ class Car {
     // battery + tyres
     if(boosting) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
     else this.batt = clamp(this.batt + dt * (this.brk > 0.2 ? 0.20 : 0.035), 0, 1);
-    const load = Math.abs(vs) * 0.00055 + Math.abs(yaw) * Math.abs(vf) * 0.00005 + 0.00042 + this.brk * 0.00055;
+    const load = tyreLoad(Math.abs(yaw) * Math.abs(vf), this.brk) + Math.abs(vs) * 0.00055;
     this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * dt * 0.34, 0, 1);
     this.temp = clamp(this.temp + (Math.abs(vs) * 0.02 + Math.abs(vf) * 0.004 - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
   }
@@ -383,9 +392,14 @@ class Car {
         (1 - this.damage * 0.20) * Math.min(1, 0.55 + v / 25) - DRAG * v * v - v * 0.035 - GRADE_G * T.grade(i));
       v = Math.min(vt, v + Math.min(accCap, (vt - v) * 3.2) * dt);
       this.brk = 0; this.thr = 1;
+    } else if(v - vt < 0.8 && !(this.brk > 0.02)){
+      // a hair too quick: lift and let the drag take it, no stab of the brakes
+      // (once braking for a corner, though, stay on them until it is done)
+      v = Math.max(vt, v - (2 + DRAG * v * v) * dt);
+      this.brk = 0; this.thr = 0;
     } else {
-      const decCap = BRAKE * 0.92 * this.perf.brake * (S.wet > 0 ? lerp(1, 0.78, S.wet) : 1);
-      v = Math.max(1.2, v - Math.min(decCap, (v - vt) * 3.4) * dt);
+      const decCap = BRAKE * this.perf.brake * (S.wet > 0 ? lerp(1, 0.78, S.wet) : 1) + DRAG * v * v;
+      v = Math.max(1.2, v - Math.min(decCap, (v - vt) * 14) * dt);
       this.brk = clamp((this.railV - v) / (decCap * dt || 1), 0, 1); this.thr = 0;
     }
     this.railV = v;
@@ -423,7 +437,7 @@ class Car {
     this.kerbShake = Math.abs(off) > T.half - 0.8 ? 1 : Math.max(0, this.kerbShake - dt * 4);
     if(this.boost > 0 && this.batt > 0.01) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
     else this.batt = clamp(this.batt + dt * (this.brk > 0.2 ? 0.20 : 0.035), 0, 1);
-    const load = lat * 0.00004 + 0.00042 + this.brk * 0.00055;
+    const load = tyreLoad(lat, this.brk);
     this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * dt * 0.34, 0, 1);
     this.temp = clamp(this.temp + (lat * 0.0016 + v * 0.004 - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
   }
@@ -438,7 +452,7 @@ class Car {
     let v = this.pitV;
     if(this.pitT > 0){ v = this.pitV = 0; this.pitT -= dt;
       if(this.pitT <= 0){ this.tyre = this.nextTyre || TYRES.medium; this.used.add(this.tyre.key);
-        this.life = 1; this.temp = 0.45; this.stops++; if(!this.ai) S.toast((this.repaired && this.repaired.length ? this.repaired.join(" + ") + " replaced · " : this.tyre.name + " tyres · ") + this.pitStopTime.toFixed(1) + "s");
+        this.life = 1; this.temp = 0.45; this.stops++; this.wearRate = null; this.lifeAtLap = null; if(!this.ai) S.toast((this.repaired && this.repaired.length ? this.repaired.join(" + ") + " replaced · " : this.tyre.name + " tyres · ") + this.pitStopTime.toFixed(1) + "s");
         this.repaired = null; } }
     else if(this.pitDone){                                    // released: pull away up to the limiter
       this.pitV = v = Math.min(22, this.pitV + 15 * dt);
@@ -475,4 +489,4 @@ class Car {
   }
 }
 
-export { Car, LAUNCH_HI, LAUNCH_LO };
+export { BRAKE, Car, DRAG, GRIP, LAUNCH_HI, LAUNCH_LO, VMAX, tyreGripK, tyreLoad };

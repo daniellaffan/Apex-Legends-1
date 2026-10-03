@@ -14,14 +14,16 @@ const OPTS = {
   fx:[["Effects on", 1], ["Effects off", 0]],
   detail:[["Full detail", 1], ["Lite", 0]],
 };
-const AI_SCALE = [0.945, 0.975, 0.995, 1.012];
+// the rivals' cornering pace against the limit of the line (1 = a perfect lap):
+// Rookie gives up ~6%, Pro ~1.5%, Ace drives the perfect lap, Legend finds more
+const AI_SCALE = [0.895, 0.955, 0.98, 1.0];
 // how hard the field races you, by difficulty: chance to defend, appetite for a move,
 // the extra push when chasing a place back, and how far they will lunge
 const COMBAT = [
-  { defend:0.22, aggr:0.55, push:0.000, lunge:0.75 },
-  { defend:0.55, aggr:0.85, push:0.008, lunge:1.00 },
-  { defend:0.80, aggr:1.05, push:0.016, lunge:1.15 },
-  { defend:0.96, aggr:1.22, push:0.026, lunge:1.30 },
+  { defend:0.35, aggr:0.75, push:0.006, lunge:0.90 },
+  { defend:0.80, aggr:1.10, push:0.018, lunge:1.15 },
+  { defend:0.95, aggr:1.25, push:0.026, lunge:1.30 },
+  { defend:1.00, aggr:1.40, push:0.034, lunge:1.40 },
 ];
 
 

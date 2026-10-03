@@ -4,7 +4,7 @@ import { PARTS, TYRES } from '../car/parts.js';
 import { TRACKS } from '../tracks/index.js';
 import { buildTrack } from '../tracks/build.js';
 import { Car, LAUNCH_HI, LAUNCH_LO } from '../car/physics.js';
-import { driveAI } from '../ai/driver.js';
+import { driveAI, wearMulFor } from '../ai/driver.js';
 import { CAM_LOW, ISX, ISY, R, ZS } from '../render2d/view.js';
 import { renderWorld } from '../render2d/world.js';
 import { PART, spawn, stepParts } from '../render2d/particles.js';
@@ -32,9 +32,10 @@ function startSession(mode, champ){
 
   S = { track:T, mode, laps, cars:[], clock:0, state:"lights", lights:0, wet:0, wetTarget,
         uid:T.id + "#" + (++SESSION_N),
-        wearMul:mode === "race" ? clamp(9 / laps, 0.55, 2.2) : 0.55,
+        // tyres last the same share of a race on every circuit and at every length
+        wearMul:wearMulFor(T, mode === "race" ? laps : 12),
         aiScale:AI_SCALE[CFG.diff], combat:COMBAT[CFG.diff], shake:0, champ:!!champ,
-        mustPit:mode === "race" && laps >= 10, assistLine:!!CFG.line, damage:!!CFG.damage,
+        mustPit:mode === "race", assistLine:!!CFG.line, damage:!!CFG.damage,
         finishOrder:[], ended:false, ghost:null, ghostCar:null, rec:[], bestRec:null,
         toast:msg => showToast(msg) };
 
@@ -95,7 +96,7 @@ function startSession(mode, champ){
   buildBoard();
   hudT = 0;
   showMsg(mode === "race" ? T.name.toUpperCase() : mode === "qualy" ? "QUALIFYING" : "TIME TRIAL",
-          mode === "race" ? `${laps} laps · ${(T.length / 1000).toFixed(3)} km` : T.loc, 2.2);
+          mode === "race" ? `${laps} laps · ${(T.length / 1000).toFixed(3)} km · pit stop required` : T.loc, 2.2);
 }
 function isoOf(c){ return [(c.x - c.y) * R.isx, (c.x + c.y) * R.isy - c.z * R.zs]; }
 
@@ -137,8 +138,8 @@ function requestPit(){
 function recover(){
   const c = S.player; if(!c) return;
   const T = S.track, i = c.node;
+  // back on the road, but the car is as broken as it was: only the pit crew fix damage
   c.place(i, T.line[i]); c.vx = Math.cos(c.h) * 12; c.vy = Math.sin(c.h) * 12;
-  c.damage = Math.max(0, c.damage - 0.15);
   showToast("Recovered to the track");
 }
 
@@ -205,6 +206,23 @@ function updateTiming(c){
   if(c.ai && c.pitReq && !c.pitting && S.mode === "race" && c.node >= T.pitIn && c.node < T.pitIn + 6 && c.lap <= S.laps){
     c.pitting = 1; c.pitS = c.node; c.pitDone = false; c.pitT = 0;
     if(!c.ai) showToast("Pit entry — limiter on");
+    // the race leader diving in is news; so is anyone just ahead or behind you
+    c.pitNews = c.pos === 1 ? "lead" : (S.player && !S.player.dnf && Math.abs(c.pos - S.player.pos) === 1) ? "near" : null;
+    if(c.pitNews === "lead") showMsg("LEADER PITS", `${c.drv.last} is in — ${c.tyre.name.toLowerCase()}s off, ${(c.nextTyre || TYRES.medium).name.toLowerCase()}s on`, 2.4);
+    else if(c.pitNews) showToast(`${c.drv.last} (P${c.pos}) is pitting`);
+  }
+  // and where they come back out
+  if(c.ai && c.wasPitting && !c.pitting && c.pitNews){
+    showToast(`${c.drv.last} rejoins P${c.pos} on ${c.tyre.name.toLowerCase()}s` +
+      (S.player && !S.player.dnf && S.player.stops === 0 && S.mustPit ? " · you still have to stop" : ""));
+    c.pitNews = null;
+  }
+  c.wasPitting = !!c.pitting;
+  // your own tyres: a word from the pit wall when they start to go
+  if(!c.ai && S.mode === "race" && !c.pitting && !c.inPit){
+    if(c.life < 0.32 && !c.tyreCall && c.lap < S.laps){ c.tyreCall = true; showToast("Tyres are going off — box soon (P)"); }
+    if(c.life > 0.6) c.tyreCall = false;
+    if(S.mustPit && c.stops === 0 && c.lap === S.laps - 1 && !c.stopCall){ c.stopCall = true; showToast("Mandatory stop — box this lap (P)"); }
   }
 }
 
@@ -442,7 +460,8 @@ function endSession(){
   res.forEach((r, i) => r.pos = i + 1);
   // two-compound rule
   if(S.mode === "race" && S.mustPit){
-    for(const r of res) if(!r.dnf && r.car.used.size < 2){ r.dq = true; }
+    // two dry compounds, or no stop at all; anyone who ran wets is exempt
+    for(const r of res) if(!r.dnf && (r.car.used.size < 2 || r.car.stops === 0) && !r.car.used.has("wet")){ r.dq = true; }
     res.sort((a, b) => (a.dnf - b.dnf) || (a.dq - b.dq) || (a.pos - b.pos));
     res.forEach((r, i) => r.pos = i + 1);
   }
