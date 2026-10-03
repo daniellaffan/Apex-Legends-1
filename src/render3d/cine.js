@@ -176,13 +176,38 @@ const CINE = {
     c.car = g; c.base = g.matrixWorld.clone();
     c.q = new THREE.Quaternion(); g.getWorldQuaternion(c.q);
     c.dur = 13.6;
-    // out of the side that faces the track: away from the barrier
-    const toward = V(-Math.sign(p.off || 1) * S.track.nx[p.node], 0, -Math.sign(p.off || 1) * S.track.ny[p.node]);
-    const right = V(0, 0, 1).applyQuaternion(c.q);
-    right.y = 0; right.normalize();
-    c.side = right.dot(toward) >= 0 ? 1 : -1;
+    /* Which side he climbs out of, and where he walks, are decided in the WORLD, not by the car's own axes: the car can
+       finish pointing anywhere. Both side-of-car standing spots are tested for room to the barrier; the one with more
+       room wins (capped at 6 m), and when both are roomy the one facing away from the track, so the car shields him. */
+    const T = S.track, node = p.node, sg = Math.sign(p.off || 1) || 1;
+    const outward = V(T.nx[node] * sg, 0, T.ny[node] * sg), tan = V(T.tx[node], 0, T.ty[node]);
+    const rightW = V(0, 0, 1).applyQuaternion(c.q); rightW.y = 0; rightW.normalize();
+    c.S0 = 0.84;                                    // the driver's scale: the cockpit helmet is 0.78 m up, and this puts his head there
+    let best = null;
+    for(const sd of [1, -1]){
+      const sp = V(0.32, 0, sd * 1.55).applyMatrix4(c.base), r = this.dnfRoom(S, sp);
+      const score = Math.min(r.room, 6) + 0.8 * rightW.clone().multiplyScalar(sd).dot(outward);
+      if(!best || score > best.score) best = { sd, score };
+    }
+    c.side = best.sd;
+    // the walk-off: along the track, against the traffic if there is room, with a little outward drift
+    const sp0 = V(0.32, 0, c.side * 1.55).applyMatrix4(c.base);
+    // candidates: along the track either way (with a little outward drift), or straight away from the car's side.
+    // A path that would cross the car's own footprint is out.
+    const inv = c.base.clone().invert(), hitsCar = d => { for(let m = 0.5; m <= 9; m += 0.5){ const q = sp0.clone().addScaledVector(d, m).applyMatrix4(inv); if(q.x > -1.5 && q.x < 4.3 && Math.abs(q.z) < 1.3) return true; } return false; };
+    const away = rightW.clone().multiplyScalar(c.side);
+    const cands = [[-1, 0.9], [1, 0.9]].map(([dir, k]) => ({ d:tan.clone().multiplyScalar(dir * k).add(outward.clone().multiplyScalar(0.35)).normalize(), pref:dir < 0 ? 0.5 : 0 }))
+      .concat([{ d:away.clone(), pref:-0.5 }, { d:away.clone().multiplyScalar(0.8).addScaledVector(tan, 0.6).normalize(), pref:-0.3 }, { d:away.clone().multiplyScalar(0.8).addScaledVector(tan, -0.6).normalize(), pref:-0.3 }]);
+    let wd = away.clone(), wr = -1e9;
+    for(const cd of cands){
+      if(hitsCar(cd.d)) continue;
+      const r = this.dnfRoom(S, sp0.clone().addScaledVector(cd.d, 8)).room + cd.pref;
+      if(r > wr){ wr = r; wd = cd.d; }
+    }
+    c.walkDir = wd;
     const t = p.team, d = p.drv;
     c.person = G.person({ suit:t.body, accent:t.accent, helmet:d.cam || "#F2C230", skin:G.skinFor(d.n), hair:G.hairFor(d.n) });
+    c.person.root.scale.setScalar(c.S0);
     G.world.add(c.person.root);
     // the helmet he will throw
     c.helm = { pos:V(0, 0, 0), vel:V(0, 0, 0), thrown:false, held:true };
@@ -200,11 +225,16 @@ const CINE = {
     const p = c.car && c.car.userData.parts; if(p && p.drv) p.drv.visible = true;
     c.person = null;
   },
+  /* room between a world point and the barrier line (negative: past it), and which node it is nearest */
+  dnfRoom(S, wp){
+    const T = S.track, i = T.near(wp.x, wp.z, S.player.node), off = (wp.x - T.x[i]) * T.nx[i] + (wp.z - T.y[i]) * T.ny[i];
+    return { room:T.half + T.roAt(i, off) + 2.6 - 1.0 - Math.abs(off), off, i };
+  },
   /* the whole performance, in car-local coordinates (x along the nose, z out of the right side) */
-  dnfKeys(s){
+  dnfKeys(s, S0){
     const seat = { lean:-0.45, nod:0.15, ls:1.15, rs:1.15, le:0.8, re:0.8, lh:1.45, rh:1.45, lk:0.4, rk:0.4 };
     const K = (t, x, y, z, yaw, pose) => ({ t, x, y, z, yaw, pose });
-    const GY = 0.90;                                 // hips on the ground: feet on it
+    const GY = 0.93 * S0 - 0.03;                     // hips this high: feet on the ground
     return [
       K(0.0, 0.62, 0.06, 0, 0, seat),
       K(1.0, 0.62, 0.06, 0, 0, { ...seat, nod:0.65, lean:-0.30, ls:1.0, rs:1.0, le:1.0, re:1.0 }),
@@ -233,28 +263,29 @@ const CINE = {
     const c = S.cine;
     if(!c.person) this.dnfInit(G, S);
     const P = c.person, t = c.t, s = c.side, p = S.player;
-    const keys = c.keys || (c.keys = this.dnfKeys(s));
+    const keys = c.keys || (c.keys = this.dnfKeys(s, c.S0));
     const sm = this.dnfSample(keys, Math.min(t, 9.8));
     let { x, y, z, yaw } = sm; let pose = sm.pose;
-    // after the throw he walks off, down the side of the car, head down
-    if(t > 9.8){
+    // after the throw he walks off along the track edge (in the world, not along the car), head down
+    const walking = t > 9.8;
+    if(walking){
       const w = t - 9.8; c.walkX = Math.min(w * 1.15, 12);
-      x += c.walkX; yaw = lerp(-s * 0.4, 0, ease(seg(t, 9.8, 10.6)));
       const ph = w * 5.4, sw = Math.sin(ph);
       pose = { lean:0.30, nod:0.6, ls:-sw * 0.3, rs:sw * 0.3, le:0.15, re:0.15, lh:sw * 0.5, rh:-sw * 0.5, lk:Math.max(0, -sw) * 0.7, rk:Math.max(0, sw) * 0.7 };
-      y += Math.abs(sw) * 0.02;
+      y += Math.abs(sw) * 0.02 * c.S0;
+      x = 0.32; z = s * 1.55;                               // the standing spot; the walk is added in the world below
     }
     P.pose(pose);
     // the helmet: on, in the hand, then in the air
     const H = P.helm;
     if(t < 5.95){ P.setHelmet(true); }
     else if(!c.helm.thrown){
-      if(H.parent !== P.rHand){ P.rHand.add(H); H.position.set(0.04, -0.14, 0); H.rotation.set(0, 0, 0); H.scale.setScalar(0.9); P.bare.visible = true; H.visible = true; }
+      if(H.parent !== P.rHand){ P.rHand.add(H); H.position.set(0.04, -0.14, 0); H.rotation.set(0, 0, 0); H.scale.setScalar(1.0); P.bare.visible = true; H.visible = true; }
       if(t > 7.2){
         c.helm.thrown = true;
         H.updateMatrixWorld(true);
         const wp = V(0, 0, 0); H.getWorldPosition(wp); G.world.add(H);
-        H.position.copy(wp); H.quaternion.identity(); H.scale.setScalar(0.9);
+        H.position.copy(wp); H.quaternion.identity(); H.scale.setScalar(c.S0);
         // away from the car, along the ground, hard
         const out = V(0.6, 0, s).normalize().applyQuaternion(c.q);
         c.helm.vel.set(out.x * 5.5, 3.5, out.z * 5.5); c.helm.spin = V(7, 3, 9);
@@ -269,10 +300,23 @@ const CINE = {
       if(hp.y < floorY){ hp.y = floorY; if(hv.y < -1.5){ hv.y = -hv.y * 0.45; hv.x *= 0.7; hv.z *= 0.7; c.helm.spin.multiplyScalar(0.55); SFX.hit(); } else hv.y = 0; hv.x *= 0.96; hv.z *= 0.96; }
     }
     // into the world
-    const lp = V(x, y - 0.93, z).applyMatrix4(c.base);
+    const lp = V(x, y - 0.93 * c.S0, z).applyMatrix4(c.base);
+    const qy = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -yaw), qCar = c.q.clone().multiply(qy);
+    if(walking){
+      const wd = c.walkDir;
+      lp.addScaledVector(wd, c.walkX);
+      // never past the barrier: lose any excess along the track's normal
+      const r = this.dnfRoom(S, lp);
+      if(r.room < 0){ const T = S.track, sgn = Math.sign(r.off) || 1; lp.x += T.nx[r.i] * sgn * r.room; lp.z += T.ny[r.i] * sgn * r.room; }
+      // stay on the ground he is walking on
+      try{ const z0 = S.track.surfZ(lp.x, lp.z, p.node); if(z0 === z0 && Math.abs(z0 - c.base.elements[13]) < 2.5) lp.y = z0 - 0.03; }catch(e){}
+      // turn from how he stood to the way he is walking
+      c.walkQ = c.walkQ || (() => { const a = Math.atan2(wd.z, wd.x); return new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -a); })();
+      if(!c.standQ){ const q0 = c.q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -(-s * 0.4))); c.standQ = q0; }
+      qCar.copy(c.standQ).slerp(c.walkQ, ease(seg(t, 9.8, 10.8)));
+    }
     P.root.position.copy(lp);
-    const qy = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -yaw);
-    P.root.quaternion.copy(c.q).multiply(qy);
+    P.root.quaternion.copy(qCar);
     // the car smoulders
     if(Math.random() < dt * 24){
       const sp = V(-0.1, 0.5, 0).applyMatrix4(c.base);
