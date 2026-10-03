@@ -125,7 +125,7 @@ G3.build = function(S){
   }
   for(const t of this.texes.values()) t.dispose();
   this.mats.clear(); this.texes.clear(); PTEX.dispose();
-  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : "vegas");
+  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : T.def.world === "cota" ? "cota" : "vegas");
   while(this.scene.children.length) this.scene.remove(this.scene.children[0]);
   this.rend.renderLists.dispose();
   this.world = new THREE.Group(); this.scene.add(this.world);
