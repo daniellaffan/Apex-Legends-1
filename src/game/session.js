@@ -411,6 +411,8 @@ function update(dt){
   R.camY = lerp(R.camY, ty, 1 - Math.pow(0.0008, dt));
   const inLane = p.inPit || p.stopT > 0 || p.pitting;
   S.pitFocus = lerp(S.pitFocus || 0, inLane ? 1 : 0, 1 - Math.pow(0.05, dt));
+  // the zoom is sized to the view: never work it out from a view that measured nothing
+  if(!(R.W > 0) || !(R.H > 0)) R.resize();
   R.targZoom = lerp(clamp(Math.min(R.W, R.H) / (46 + p.speed * 0.50), 4.4, 14),
                     clamp(Math.min(R.W, R.H) / 27, 7, 19), S.pitFocus);
   R.targZoom = lerp(R.targZoom, clamp(Math.min(R.W, R.H) / 32, 6.5, 15), lc);

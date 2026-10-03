@@ -13,6 +13,7 @@ import { MONACO } from './worlds/monaco.js';
 import { SILVER } from './worlds/silverstone.js';
 import { ZAND } from './worlds/zandvoort.js';
 import { SUZUKA } from './worlds/suzuka.js';
+import { WEATHER } from './weather.js';
 import { CFG } from '../config/settings.js';
 
 G3.tileSplit = function(root, cell, minTris){
@@ -486,5 +487,9 @@ G3.build = function(S){
   sg2.setAttribute("position", new THREE.Float32BufferAttribute(new Float32Array(900), 3));
   this.sparks = new THREE.Points(sg2, new THREE.PointsMaterial({ color:0xFFC35A, size:0.5, sizeAttenuation:true, transparent:true }));
   this.sparks.frustumCulled = false; this.world.add(this.sparks);
+
+  /* the rain, the spray and the wet look (see weather.js); after the world, so it
+     knows what the light and the road are in the dry */
+  WEATHER.build(this, S);
 };
 

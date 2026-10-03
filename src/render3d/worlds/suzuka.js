@@ -239,6 +239,7 @@ const SUZUKA = {
     c.fillStyle = gr; c.fillRect(0, 0, 8, 64);
     const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
     const mat = new THREE.MeshStandardMaterial({ map:t, roughness:0.95, metalness:0 });
+    this.vergeMat = mat;
     const w = T.half, lift = 0.04;
     for(const sd of [-1, 1]){
       const code = i => (sd < 0 ? T.rsL[i] : T.rsR[i]), rf = i => (sd < 0 ? T.roL[i] : T.roR[i]);
@@ -489,6 +490,11 @@ const SUZUKA = {
   frame(S, G){
     const t = S.clock || 0, dt = this._t == null ? 0 : clamp(t - this._t, 0, 0.1); this._t = t;
     this.U.time.value = t;
+    // in the wet the grass, the verges and the leaves go darker (weather.js says how wet it looks)
+    const wv = G.wetVis || 0;
+    if(this.groundMat) this.groundMat.color.setScalar(1 - wv * 0.26);
+    if(this.vergeMat) this.vergeMat.color.setScalar(1 - wv * 0.26);
+    if(this.mat) this.mat.color.setScalar(1 - wv * 0.14);
     const W = this.wh;
     if(W){
       W.a += dt * TAU / 300;

@@ -698,3 +698,31 @@ drawn whole.
 - **Materials are `MeshStandardMaterial`, not Lambert.** That is what the whole
   renderer uses (its lighting was calibrated for it). The plants use flat
   shading and vertex colours to keep the stylised look.
+
+# Rain in 3D, and the camera zooming out (2026-10-03)
+
+- **Rain never showed in 3D.** The 2D painter draws rain (a dark wash and
+  streaks), but in 3D the only sign of rain was the haze closing in. New:
+  `src/render3d/weather.js`, for every circuit. In the wet it draws:
+  - falling streaks round the camera, one draw call; up to 4,000 drops, as many
+    and as bright as the track is wet
+  - a dimmer sun and sky fill
+  - a darker, glossier road and darker ground (Silverstone and Zandvoort keep
+    their own versions of this)
+  - on Suzuka, darker grass, verges and leaves
+- **Spray drew as orange sparks.** The 3D renderer drew every particle as one,
+  including the wheel spray and tyre smoke. Those now draw as soft puffs in
+  their own colours. Nothing changes in the dry.
+  - **Checked headless** on Suzuka, Monza and Silverstone, with the real
+    `G3.build` and `G3.frame`, dry then wet at 85 %: 3,470 drops in view, the
+    sun 1.12 → 0.72, the road ×0.68 and roughness 0.94 → 0.47, spray as puffs.
+    **Not yet seen in a browser.**
+- **The camera zoomed right out.** The zoom is worked out from the 2D view's
+  size (`R.W`, `R.H`). With 3D running, that canvas is hidden and measures
+  0 × 0, so any resize after boot (window, fullscreen, browser zoom, dev tools)
+  pinned the camera at its widest (4.4 px/m, about 182 m of track top to
+  bottom).
+  - `R.resize` now measures the game area the canvas sits in.
+  - The camera code re-measures if it ever sees a zero size.
+  - In a 1280 × 800 window the zoom is back to 14 when slow and 9.3 at 80 m/s
+    (about 86 m top to bottom), as designed.

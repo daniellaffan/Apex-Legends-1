@@ -3,9 +3,9 @@ import { clamp, lerp } from '../config/util.js';
 import { bankZ } from '../tracks/shared.js';
 import { R } from '../render2d/view.js';
 import { SPHERE } from '../render2d/sphere.js';
-import { PART } from '../render2d/particles.js';
 import { PP } from './pipeline.js';
 import { G3 } from './g3.js';
+import { WEATHER } from './weather.js';
 import { CFG } from '../config/settings.js';
 
 /* ---- the frame --------------------------------------------------------- */
@@ -129,14 +129,7 @@ G3.frame = function(S){
     }
   }
 
-  const pa = this.sparks.geometry.attributes.position;
-  let k = 0;
-  for(const q of PART){
-    if(k >= 300) break;
-    pa.array[k * 3] = q.x; pa.array[k * 3 + 1] = q.z; pa.array[k * 3 + 2] = q.y; k++;
-  }
-  for(let q = k; q < 300; q++) pa.array[q * 3 + 1] = -9999;
-  pa.needsUpdate = true;
+  // the sparks, the spray and the rain are all done in WEATHER.step, once the camera is placed
 
   this.wet = lerp(this.wet, S.wet > 0.3 ? 0.55 : 0, 0.02);
 
@@ -148,6 +141,7 @@ G3.frame = function(S){
     cam.lookAt(p.x + p.vx * 0.12, p.z + 0.7, p.y + p.vy * 0.12);
     if(this.scene.fog){ this.scene.fog.near = 220; this.scene.fog.far = 220 + this.fogSpan * (1 - this.wet * 0.5); }
     this.cam = cam;
+    WEATHER.step(this, S, p.x, p.y, p.z, 60, 45, 8);
   } else {
     const cam = this.camIso;
     const hh = Math.max(14, (this.cv.clientHeight || 600) / Math.max(R.zoom, 0.5) * 0.5);
@@ -174,6 +168,7 @@ G3.frame = function(S){
     if(this.scene.fog){ const fn = this.fogNear == null ? 120 : this.fogNear;
       this.scene.fog.near = d + fn; this.scene.fog.far = d + fn + this.fogSpan * (this.fogSpanK || 1) * (1 - this.wet * 0.5); }
     this.cam = cam;
+    WEATHER.step(this, S, tx, ty, tz, hh * asp, hh, (this.rend.domElement.height || 600) / (2 * hh));
     if(this.sun){
       this.sun.target.position.set(tx, tz, ty); this.sun.target.updateMatrixWorld();
       const sa = T.sun == null ? 0.9 : T.sun;

@@ -20,7 +20,13 @@ const R = {
   },
   resize(){
     this.dpr = Math.min(devicePixelRatio || 1, 2);
-    this.W = this.cv.clientWidth; this.H = this.cv.clientHeight;
+    /* The camera's zoom is worked out from this size. When the 3D renderer is
+       running, this canvas is hidden (display:none) and measures 0 x 0, so any
+       resize after boot (the window, fullscreen, browser zoom, dev tools) sent
+       the camera out to its furthest. Measure the game area it sits in instead,
+       which is the same size and always visible. */
+    const box = this.cv.clientWidth && this.cv.clientHeight ? this.cv : (this.cv.parentNode || this.cv);
+    this.W = box.clientWidth || innerWidth || 800; this.H = box.clientHeight || innerHeight || 600;
     this.cv.width = Math.max(1, this.W * this.dpr); this.cv.height = Math.max(1, this.H * this.dpr);
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
   },
