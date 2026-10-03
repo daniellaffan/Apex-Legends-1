@@ -33,7 +33,7 @@ src/
   tracks/               one definition per circuit + index.js (TRACKS, in menu order)
     shared.js           elevPW, bankZ, bumpU
     build.js            parseLayout, turtle, catmull, buildTrack
-    survey/             baked map/terrain data for Monaco, Silverstone, Zandvoort
+    survey/             baked map/terrain data for Monaco, Silverstone, Zandvoort, Suzuka
   car/                  parts.js (damage, tyres), spec.js (dimensions), physics.js (Car), pit.js (player pit stop)
   ai/driver.js          rival drivers
   game/session.js       session state, timing, race update, frame loop
@@ -62,7 +62,7 @@ methods to `G3`. The import order matters, so don't reorder those lines.
 | Spa-Francorchamps | `src/tracks/spa.js` | — |
 | Monza | `src/tracks/monza.js` | — |
 | Zandvoort | `src/tracks/zandvoort.js` | `src/render3d/worlds/zandvoort.js`, data in `src/tracks/survey/zandvoort.js` |
-| Suzuka | `src/tracks/suzuka.js` | `src/render3d/worlds/suzuka.js`, plan in `suzuka-plan.js` |
+| Suzuka | `src/tracks/suzuka.js` | `src/render3d/worlds/suzuka.js`, plan in `suzuka-plan.js`, data in `src/tracks/survey/suzuka.js` |
 | São Paulo | `src/tracks/interlagos.js` | — |
 | Austin | `src/tracks/cota.js` | — |
 | Mexico City | `src/tracks/mexico.js` | — |

@@ -93,15 +93,15 @@ function planSuzuka(T, opts){
     Q.far = bi < 0;
     if(Q.far){ Q.d = 999; Q.bar = 999; Q.band = false; return Q; }
     /* Where two different parts of the lap are both close (never the same stretch of
-       road further along a bend), the lower one wins: on a verge (6 m past the run-off)
-       wherever two overlap, and at a crossing for more than one grid diagonal past the
-       lower road's verge too, so no ground triangle can climb onto it on the way up to
-       the road on the bridge (which gets walls or piers instead, below). */
+       road further along a bend), the lower one wins, out to more than one grid diagonal
+       past its verge (6 m past the run-off): no ground triangle can then climb onto it on
+       the way up to the other road, which gets a retaining wall or a span instead (below).
+       At Suzuka that is the crossing, and the 200R running beside the West straight. */
     let zb = bz;
     for(let k = 0; k < m; k++){
       const di = Math.abs(((cI[k] - bi) % n + n + (n >> 1)) % n - (n >> 1));
-      if(di < 25) continue;
-      if((cD[k] < cE[k] + 6.5 || atBridge) && cZ[k] < zb) zb = cZ[k];
+      if(di < 14) continue;
+      if(cZ[k] < zb) zb = cZ[k];
     }
     Q.d = bd; Q.i = bi; Q.side = bs; Q.bar = bbar; Q.z = bz; Q.band = true; Q.zBand = zb;
     return Q;
@@ -189,16 +189,18 @@ function planSuzuka(T, opts){
   };
   P.blocked = blocked; P.excl = excl; P.rects = rects;
 
-  /* ---- the zones ---- */
+  /* ---- the zones: where things are on the lap, as the circuit's definition names them ---- */
   const ps = T.pitSide;
+  const Z = Object.assign({ main:[0.95, 0.08], park:[0.93, 0.05], tight:[0.6, 0.87], infield:[0.1, 0.26],
+    back:[0.68, 0.8], spoon:[0.6, 0.68], r130:[0.8, 0.87], towers:[], wheel:null }, T.def.zones || {});
   // the main straight, line to Turn 1 and the run up to it
-  const MAIN = [0.952, 0.105];
+  const MAIN = Z.main;
   // the paddock: behind the pit garages, all along the pit lane
   const inPaddock = (i, side, d) => side === ps && T.pitU(i) >= 0 && d < half + T.pitW + 95;
   // the park: across the main straight from the pits, behind the grandstands
-  const inParkZone = (i, side, bar) => side === -ps && inU(uOf(i), 0.955, 0.06) && bar > 38 && bar < 250;
+  const inParkZone = (i, side, bar) => side === -ps && inU(uOf(i), Z.park[0], Z.park[1]) && bar > 38 && bar < 250;
   // the back of the circuit, where it runs tight between the trees
-  const tight = i => inU(uOf(i), 0.55, 0.87);
+  const tight = i => inU(uOf(i), Z.tight[0], Z.tight[1]);
   P.zones = { MAIN, inPaddock, inParkZone, tight };
 
   /* ---- the farmland: tea on the slopes, paddies in the bottoms ---- */
@@ -255,10 +257,16 @@ function planSuzuka(T, opts){
     for(let r = 0; r < NY; r++) for(let c = 0; c < NX; c++){
       const k = r * NX + c; if(!inParkZone(NI[k], SD[k], DB[k])) continue;
       const x = X0 + c * STEP, y = Y0 + r * STEP; park.cells.push(k);
-      // the wheel: as far from the track as the park allows, near the line
-      const u = uOf(NI[k]), du = Math.min(Math.abs(u - 0.0), Math.abs(u - 1.0));
-      const sc = Math.min(DB[k], 150) - du * 900;
+      // the wheel, if the map does not place it: as far from the track as the park allows
+      const u = uOf(NI[k]), du = Math.min(Math.abs(u - Z.park[0]), Math.abs(u - Z.park[1]));
+      const sc = Math.min(DB[k], 150) + du * 300;
       if(DB[k] > 70 && !blocked(x, y, 34) && (!best || sc > best.sc)) best = { x, y, sc, k };
+    }
+    // where the map has it, if it fits there
+    if(Z.wheel){
+      const i = ((Math.round(Z.wheel.u * n) % n) + n) % n, o = Z.wheel.side * Z.wheel.off;
+      const x = T.x[i] + T.nx[i] * o, y = T.y[i] + T.ny[i] * o, q = query(x, y);
+      if((q.far || q.bar > 30) && !blocked(x, y, 26)) best = { x, y, sc:0, k:-1 };
     }
     if(best){ park.wheel = { x:best.x, y:best.y, z:height(best.x, best.y), r:24, h:52 }; excl.push({ x:best.x, y:best.y, r:30 }); }
     // the park is flattened a little into terraces, so the buildings sit down
@@ -286,7 +294,7 @@ function planSuzuka(T, opts){
       park.paths.push([nodes[bj], nodes[a]]);
     }
     for(const s of stands){
-      if(!inU(uOf(s.i), 0.95, 0.05) || !nodes.length) continue;
+      if(!inU(uOf(s.i), Z.main[0], Z.main[1]) || !nodes.length) continue;
       const al = Math.hypot(s.away[0], s.away[1]) || 1, bx = s.p.x + s.away[0] / al * 24, by = s.p.y + s.away[1] / al * 24;
       let bj = 0, bd = Infinity; nodes.forEach((q, j) => { const d = Math.hypot(q[0] - bx, q[1] - by); if(d < bd){ bd = d; bj = j; } });
       park.paths.push([[bx, by], nodes[bj]]);
@@ -331,12 +339,12 @@ function planSuzuka(T, opts){
     }
   };
   // the main straight, the side away from the pits: behind the stands and on into the park
-  along(0.94, 0.10, 52, -ps, 30, 46, 5, 12);
+  along(Z.main[0], Z.main[1], 52, -ps, 30, 46, 5, 12);
   // the back straight: an avenue of them, both sides
-  along(0.64, 0.79, 95, 0, 7, 16, 4, 9);
+  along(Z.back[0], Z.back[1], 95, 0, 7, 16, 4, 9);
   // the spectator banks round every other grandstand
   for(const s of stands){
-    if(inU(uOf(s.i), 0.94, 0.05)) continue;
+    if(inU(uOf(s.i), Z.main[0], Z.main[1])) continue;
     const al = Math.hypot(s.away[0], s.away[1]) || 1, ax = s.away[0] / al, ay = s.away[1] / al;
     const wid = s.p.wid || 30, tx = Math.cos(s.p.rot), ty = Math.sin(s.p.rot);
     for(const f of [-0.7, -0.2, 0.3, 0.8]) cluster(s.p.x + ax * 34 + tx * wid * 0.5 * f, s.p.y + ay * 34 + ty * wid * 0.5 * f, 4, 9);
@@ -362,9 +370,9 @@ function planSuzuka(T, opts){
       }
     }
   };
-  fenceRow(0.94, 0.10, -ps);
+  fenceRow(Z.main[0], Z.main[1], -ps);
   for(const s of stands){ const du = ((s.p.wid || 40) / 2 + 25) / T.length; fenceRow(uOf(s.i) - du, uOf(s.i) + du, 0); }
-  fenceRow(0.56, 0.63, 0); fenceRow(0.79, 0.84, 0);
+  fenceRow(Z.spoon[0], Z.spoon[1], 0); fenceRow(Z.r130[0], Z.r130[1], 0);
   tm.park = Date.now() - t0;
 
   /* ---- farmland: paddies and tea fields, just outside the forest ---- */
@@ -411,7 +419,7 @@ function planSuzuka(T, opts){
     let best = null;
     for(let r = 0; r < NY; r++) for(let c = 0; c < NX; c++){
       const k = r * NX + c, u = uOf(NI[k]);
-      if(!inU(u, 0.12, 0.24) || DB[k] < 45 || DB[k] > 110) continue;
+      if(!inU(u, Z.infield[0], Z.infield[1]) || DB[k] < 45 || DB[k] > 110) continue;
       const x = X0 + c * STEP, y = Y0 + r * STEP; if(blocked(x, y, 30)) continue;
       const sc = H[k] - DB[k] * 0.02;
       if(!best || sc < best.sc) best = { x, y, sc, k };
@@ -568,7 +576,7 @@ function planSuzuka(T, opts){
 
   /* ---- TV towers among the trees, on the outside of the big corners ---- */
   P.towers = [];
-  for(const u of [0.195, 0.312, 0.405, 0.595, 0.812, 0.9]){
+  for(const u of Z.towers){
     const i = Math.round(u * n) % n, sd = T.curv[i] > 0 ? -1 : 1, o = sd * (half + roOf(i, sd) + BAR + 6);
     const x = T.x[i] + T.nx[i] * o, y = T.y[i] + T.ny[i] * o, q = query(x, y);
     if(!q.far && q.bar < 4.5) continue;
@@ -604,9 +612,11 @@ function planSuzuka(T, opts){
       for(let o = -eL; o <= eR + 0.01; o += 3){
         const x = T.x[i] + T.nx[i] * o, y = T.y[i] + T.ny[i] * o;
         mx = Math.max(mx, T.zAt(i, o) - triH(x, y));
-        // over another road? (a road on another part of the lap, well below this one)
-        const q = query(x, y);
-        if(!q.far && Math.abs(((q.i - i + n + n / 2) % n) - n / 2) > 40 && q.d < half + roOf(q.i, q.side) + 7 && q.z < T.z[i] - 3) open[i] = 1;
+        // over another road: its tarmac is right underneath, well below this one
+        if(Math.abs(o) <= half + roOf(i, o >= 0 ? 1 : -1)){
+          const q = query(x, y);
+          if(!q.far && Math.abs(((q.i - i + n + n / 2) % n) - n / 2) > 40 && q.d < half + 1.5 && q.z < T.z[i] - 3) open[i] = 1;
+        }
       }
       lift[i] = mx;
       const zl = T.zAt(i, -eL), zr = T.zAt(i, eR);
