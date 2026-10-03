@@ -12,6 +12,7 @@ import { CITY } from './worlds/vegas-city.js';
 import { MONACO } from './worlds/monaco.js';
 import { SILVER } from './worlds/silverstone.js';
 import { ZAND } from './worlds/zandvoort.js';
+import { SUZUKA } from './worlds/suzuka.js';
 import { CFG } from '../config/settings.js';
 
 G3.tileSplit = function(root, cell, minTris){
@@ -180,9 +181,12 @@ G3.build = function(S){
   // a surveyed circuit brings its own ground, land and landmarks
   const surveyed = T.def.world === "monaco" || T.def.world === "silverstone" || T.def.world === "zandvoort";
   const monacoW = T.def.world === "monaco";
+  // Suzuka is not surveyed, but its world lays its own terrain and planting
+  const ownGround = surveyed || T.def.world === "suzuka";
   G3.fadeU.value = 1; G3.fadeEdgeU.value = 1;
+  this.fogNear = null; this.fogSpanK = null;
   /* the ground the circuit sits on — a surveyed circuit brings its own */
-  if(!surveyed){
+  if(!ownGround){
   const bb = T.bounds, pad = (T.def.streets ? 3400 : 520), GX = 150;
   const gw = bb.w + pad * 2, gh = bb.h + pad * 2;
   const ggeo = new THREE.PlaneGeometry(gw, gh, GX, GX);
@@ -241,6 +245,8 @@ G3.build = function(S){
       band(i => w + T.astro + 1.6, i => w + rf(i), i => code(i) === 4 && rf(i) > T.astro + 1.8, astroM, 0.002);
       // the white line down the edge of a tarmac escape
       band(i => w + rf(i) - 0.6, i => w + rf(i) - 0.25, i => code(i) === 1 && rf(i) > 10, this.mat("#E8E8EA"), 0.01);
+      // plain run-off: a tarmac apron behind the kerb, then the verge (a world may mow it)
+      band(() => w + 0.2, i => w + Math.min(rf(i), 2.0), i => code(i) === 6, tarmac, 0);
     }
   } else if(!wall){
     this.add(road, this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift, 9), bandTex(shade(P.grass, -0.05), "grass"));
@@ -420,7 +426,7 @@ G3.build = function(S){
 
   /* the hillside under a circuit that climbs */
   let zLo = Infinity; for(let i = 0; i < n; i++) zLo = Math.min(zLo, T.z[i]);
-  if(!surveyed) for(const sd of [-1, 1])
+  if(!ownGround) for(const sd of [-1, 1])
     this.add(road, this.wall(T, sd * bo, 0.2, i => T.z[i] > zLo + 9, i => T.z[i] - zLo + 1),
       this.twoSided(this.mat(shade(P.ground, -0.2))), true);
 
@@ -458,10 +464,17 @@ G3.build = function(S){
   /* the scenery */
   const props = new THREE.Group();
   for(const p of T.props){
-    if(p.only2d && surveyed) continue;            // the survey built the real one
+    if(p.only2d && ownGround) continue;           // the survey (or the world) built the real one
     try{ this.prop(props, p, T, S); }catch(e){ console.warn("prop", p.t, p.k, e.message); } }
   const baked = this.bake(props, 260);
   this.world.add(baked);
+
+  /* Suzuka: the wooded hills, the planting, the park and the bridges */
+  this.suzuka = null;
+  if(T.def.world === "suzuka"){
+    try{ SUZUKA.build(this, this.world, T, S); this.suzuka = SUZUKA; }
+    catch(e){ console.warn("suzuka", e.message, e.stack); }
+  }
 
   /* the cars */
   for(const c of S.cars){ const g = this.car(c); this.world.add(g); this.cars.push({ c, g }); }

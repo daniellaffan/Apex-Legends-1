@@ -184,7 +184,7 @@ class Car {
     if(a < T.half - 0.4) return SURF.road;
     if(a < T.half + 1.6) return SURF.kerb;
     if(T.surfAt){ const k = T.surfAt(this.node, this.off);
-      return k === "asphalt" ? SURF.tarmac : k === "gravel" ? SURF.gravel : k === "astro" ? SURF.astro : SURF.grass; }
+      return k === "asphalt" ? SURF.tarmac : k === "gravel" ? SURF.gravel : k === "astro" ? SURF.astro : k === "runoff" ? SURF.runoff : SURF.grass; }
     const ro = T.roAt(this.node, this.off);
     if(ro > 0 && a < T.half + ro) return T.pal.ground === "#D6C79E" || T.id === "baku" ? SURF.sand : SURF.runoff;
     // on a street circuit there is nothing beyond the run-off but the wall, so

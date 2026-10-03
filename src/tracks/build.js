@@ -478,8 +478,9 @@ function buildTrack(def){
       }
     }
     // what the run-off is made of, where a circuit says: 0 is the old one-surface
-    // behaviour, then asphalt, gravel, grass, artificial grass, and asphalt-then-gravel
-    const SC = { asphalt:1, gravel:2, grass:3, astro:4, mix:5 };
+    // behaviour, then asphalt, gravel, grass, artificial grass, asphalt-then-gravel,
+    // and "plain": the old untyped run-off, kept for a circuit that only wants a few traps
+    const SC = { asphalt:1, gravel:2, grass:3, astro:4, mix:5, plain:6 };
     if(def.runoffSurf){
       T.rsL = new Uint8Array(n).fill(SC[def.runoffSurf] || 3); T.rsR = new Uint8Array(n).fill(SC[def.runoffSurf] || 3);
       T.rtL = new Float32Array(n); T.rtR = new Float32Array(n);
@@ -505,7 +506,7 @@ function buildTrack(def){
         if(a > ro) return "grass";
         if(code === 5) return a < (off >= 0 ? T.rtR[i] : T.rtL[i]) ? "asphalt" : "gravel";
         if(code === 3 && a < T.astro + 1.6) return "astro";
-        return ["", "asphalt", "gravel", "grass", "astro"][code];
+        return ["", "asphalt", "gravel", "grass", "astro", "", "runoff"][code];
       };
     }
     let mx = base;

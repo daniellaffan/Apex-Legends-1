@@ -170,7 +170,9 @@ G3.frame = function(S){
     cam.position.set(tx + Math.cos(az) * d * Math.cos(el), tz + d * Math.sin(el), ty + Math.sin(az) * d * Math.cos(el));
     cam.lookAt(tx, tz, ty);
     // the orthographic camera stands well back, so the haze starts from there
-    if(this.scene.fog){ this.scene.fog.near = d + 120; this.scene.fog.far = d + 120 + this.fogSpan * (1 - this.wet * 0.5); }
+    // (a world may start it a little nearer, for a touch of depth across the frame)
+    if(this.scene.fog){ const fn = this.fogNear == null ? 120 : this.fogNear;
+      this.scene.fog.near = d + fn; this.scene.fog.far = d + fn + this.fogSpan * (this.fogSpanK || 1) * (1 - this.wet * 0.5); }
     this.cam = cam;
     if(this.sun){
       this.sun.target.position.set(tx, tz, ty); this.sun.target.updateMatrixWorld();
@@ -191,6 +193,7 @@ G3.frame = function(S){
   }
   if(this.monaco){ try{ this.monaco.frame(S, this); }catch(e){ console.warn("monaco frame", e.message); this.monaco = null; } }
   if(this.silver){ try{ this.silver.frame(S, this); }catch(e){ console.warn("silverstone frame", e.message); this.silver = null; } }
+  if(this.suzuka){ try{ this.suzuka.frame(S, this); }catch(e){ console.warn("suzuka frame", e.message); this.suzuka = null; } }
   /* Bloom is what the composer is for, and a daytime circuit has next to none.
      Without it the frame goes straight to the screen: the renderer's own ACES
      and sRGB steps (the same curve, which divides by 0.6 inside, hence the

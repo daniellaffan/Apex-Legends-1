@@ -39,7 +39,7 @@ src/
   game/session.js       session state, timing, race update, frame loop
   render2d/             2D canvas renderer: view/camera, drawCar, props (pyramid, box, boxCol, B3), world, particles
   render3d/             G3 renderer: g3.js core, surfaces, hoardings, post-processing pipeline,
-    worlds/             per-track 3D worlds (vegas, vegas-city, monaco, silverstone, zandvoort)
+    worlds/             per-track 3D worlds (vegas, vegas-city, monaco, silverstone, zandvoort, suzuka)
     build.js, scenery.js, car.js, frame.js   parts of G3 attached after the worlds
   ui/                   screens, hud, setup, results, championship, minimap, carview
   input/input.js        keyboard, wheel zoom, touch
@@ -62,7 +62,7 @@ methods to `G3`. The import order matters, so don't reorder those lines.
 | Spa-Francorchamps | `src/tracks/spa.js` | — |
 | Monza | `src/tracks/monza.js` | — |
 | Zandvoort | `src/tracks/zandvoort.js` | `src/render3d/worlds/zandvoort.js`, data in `src/tracks/survey/zandvoort.js` |
-| Suzuka | `src/tracks/suzuka.js` | — |
+| Suzuka | `src/tracks/suzuka.js` | `src/render3d/worlds/suzuka.js`, plan in `suzuka-plan.js` |
 | São Paulo | `src/tracks/interlagos.js` | — |
 | Austin | `src/tracks/cota.js` | — |
 | Mexico City | `src/tracks/mexico.js` | — |
