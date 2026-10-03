@@ -42,7 +42,18 @@ import './render3d/build.js';
 import './render3d/scenery.js';
 import './render3d/car.js';
 import './render3d/frame.js';
-import { AUDIO, CARVIEW, CFG, S, bindTouch, buildSetup, champState, closePitMenu, endSession, loop, setPaused, setS, show, showStandings, startChampWeekend, startSession, togglePause } from './legacy-rest.js';
+import './ui/minimap.js';
+import { bindTouch } from './input/input.js';
+import { CFG } from './config/settings.js';
+import { S, endSession, loop, setPaused, setS, startSession } from './game/session.js';
+import { closePitMenu } from './car/pit.js';
+import { AUDIO } from './audio/audio.js';
+import { show, togglePause } from './ui/screens.js';
+import './ui/hud.js';
+import { buildSetup } from './ui/setup.js';
+import './ui/results.js';
+import { champState, showStandings, startChampWeekend } from './ui/championship.js';
+import { CARVIEW } from './ui/carview.js';
 
 /* ---------- 8. boot ------------------------------------------------------- */
 function boot(){

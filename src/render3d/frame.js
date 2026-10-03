@@ -6,7 +6,7 @@ import { SPHERE } from '../render2d/sphere.js';
 import { PART } from '../render2d/particles.js';
 import { PP } from './pipeline.js';
 import { G3 } from './g3.js';
-import { CFG } from '../legacy-rest.js';
+import { CFG } from '../config/settings.js';
 
 /* ---- the frame --------------------------------------------------------- */
 G3.frame = function(S){

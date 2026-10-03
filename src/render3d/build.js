@@ -12,7 +12,7 @@ import { CITY } from './worlds/vegas-city.js';
 import { MONACO } from './worlds/monaco.js';
 import { SILVER } from './worlds/silverstone.js';
 import { ZAND } from './worlds/zandvoort.js';
-import { CFG } from '../legacy-rest.js';
+import { CFG } from '../config/settings.js';
 
 G3.tileSplit = function(root, cell, minTris){
   const jobs = [];

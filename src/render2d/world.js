@@ -6,7 +6,7 @@ import { boxCol, drawProp, setTEXBUDGET } from './props.js';
 import { drawCar } from './car.js';
 import { PART, drawPart } from './particles.js';
 import { G3 } from '../render3d/g3.js';
-import { showToast } from '../legacy-rest.js';
+import { showToast } from '../ui/screens.js';
 
 /* ---------- 5b. world render ---------------------------------------------- */
 

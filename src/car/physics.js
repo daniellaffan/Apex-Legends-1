@@ -2,7 +2,7 @@ import { TAU, angWrap, clamp, lerp } from '../config/util.js';
 import { PARTS, PART_KEYS, TYRES } from './parts.js';
 import { bankZ } from '../tracks/shared.js';
 import { spawn } from '../render2d/particles.js';
-import { AUDIO } from '../legacy-rest.js';
+import { AUDIO } from '../audio/audio.js';
 
 /* ---------- 3. cars: physics --------------------------------------------- */
 const LAUNCH_LO = 0.52, LAUNCH_HI = 0.74;          // the rev window for a clean getaway

@@ -5,7 +5,7 @@ import { R } from '../../render2d/view.js';
 import { PTEX } from '../surfaces.js';
 import { LB } from './vegas.js';
 import { CITY } from './vegas-city.js';
-import { CFG } from '../../legacy-rest.js';
+import { CFG } from '../../config/settings.js';
 
 /* ---------- 10d. Monaco, built from the survey ------------------------------
    The circuit runs on the real OpenStreetMap centreline, so everything else can

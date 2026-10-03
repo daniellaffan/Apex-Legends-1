@@ -1,5 +1,5 @@
 import { clamp, lerp } from '../config/util.js';
-import { AUDIO } from '../legacy-rest.js';
+import { AUDIO } from '../audio/audio.js';
 
 /* ---------- 4. AI --------------------------------------------------------- */
 // The rail followers track their own speed in railV; the player's car does not,

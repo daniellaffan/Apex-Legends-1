@@ -4,7 +4,7 @@ import { bankZ } from '../tracks/shared.js';
 import { TEX } from '../render2d/textures.js';
 import { PTEX } from './surfaces.js';
 import { PP } from './pipeline.js';
-import { CFG } from '../legacy-rest.js';
+import { CFG } from '../config/settings.js';
 
 /* ---------- 10. the 3D renderer ------------------------------------------
    The world is built once per session as a Three.js scene: the circuit as
