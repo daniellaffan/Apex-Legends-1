@@ -41,7 +41,7 @@ function planCota(T, opts){
   // which side is the outside of the corner at node i (a left turn has its outside on the right)
   const outside = i => { let c = 0; for(let k = -6; k <= 6; k++) c += T.curv[((i + k) % n + n) % n]; return c <= 0 ? 1 : -1; };
   P.edge = edge; P.outside = outside;
-  const at = (i, side, off) => { i = ((i % n) + n) % n; return [T.x[i] + T.nx[i] * side * off, T.y[i] + T.ny[i] * side * off]; };
+  const at = (i, side, off) => { i = ((Math.round(i) % n) + n) % n; return [T.x[i] + T.nx[i] * side * off, T.y[i] + T.ny[i] * side * off]; };
   P.at = at;
 
   /* ---- segments, hashed so "what is near here" is cheap (as in suzuka-plan) ---- */
@@ -338,17 +338,25 @@ function planCota(T, opts){
     if(runStart >= 0) S.roads.push({ side, i0:runStart, i1:n - 1 });
   }
   // marshal posts (a little cabin each ~230 m, on the outside of the corners) and TV towers (scaffold, along the back straight)
+  // a spot beside the barrier at node i, pushed outward until it is genuinely clear of every part of the circuit
+  const placeOut = (i, side, off0, minBar, r) => {
+    for(let t = 0; t < 14; t++){
+      const [x, y] = at(i, side, off0 + t * 1.5);
+      if(P.clearance(x, y) >= minBar && !blocked(x, y, r)) return [x, y];
+    }
+    return null;
+  };
   for(let k = 0; k < 24; k++){
-    const i = nodeAt(0.02 + k / 24), side = outside(i), off = edge(i, side) + 2.8, [x, y] = at(i, side, off);
-    if(blocked(x, y, 3)) continue;
-    S.marshal.push({ x, y, z:height(x, y), ang:T.ang[i] + (side > 0 ? Math.PI : 0) });
-    addCircle(x, y, 4);
+    const i = nodeAt(0.02 + k / 24), side = outside(i), pp = placeOut(i, side, edge(i, side) + 2.8, 2.6, 3);
+    if(!pp) continue;
+    S.marshal.push({ x:pp[0], y:pp[1], z:height(pp[0], pp[1]), ang:T.ang[i] + (side > 0 ? Math.PI : 0) });
+    addCircle(pp[0], pp[1], 4);
   }
   for(const u of [0.07, 0.14, 0.23, 0.31, 0.37, 0.43, 0.50, 0.57, 0.61, 0.66, 0.72, 0.78, 0.84, 0.90]){
-    const i = nodeAt(u), side = u > 0.40 && u < 0.60 ? 1 : outside(i), off = edge(i, side) + 7, [x, y] = at(i, side, off);
-    if(blocked(x, y, 5)) continue;
-    S.tvTowers.push({ x, y, z:height(x, y), ang:T.ang[i], h:9 + R() * 3 });
-    addCircle(x, y, 6);
+    const i = nodeAt(u), side = u > 0.40 && u < 0.60 ? 1 : outside(i), pp = placeOut(i, side, edge(i, side) + 7, 6, 5);
+    if(!pp) continue;
+    S.tvTowers.push({ x:pp[0], y:pp[1], z:height(pp[0], pp[1]), ang:T.ang[i], h:9 + R() * 3 });
+    addCircle(pp[0], pp[1], 6);
   }
   // light pylons along the back straight and the front straight (the circuit's own pylons stand lower)
   // flag poles on the stand fronts and at plazas; bunting runs between them
@@ -387,7 +395,7 @@ function planCota(T, opts){
   // big screens facing the straights and the hairpin
   for(const [u, side] of [[0.972, 1], [0.088, 1], [0.392, outside(nodeAt(0.39))], [0.78, outside(nodeAt(0.78))]]){
     const i = nodeAt(u), st = S.stands.find(s => s.i0 === nodeAt(s.u0) && inU(u, s.u0, s.u1) && s.side === side), off = (st ? st.off0 + st.depth : edge(i, side)) + 14, [x, y] = at(i, side, off);
-    if(blocked(x, y, 7)) continue; S.screens.push({ x, y, z:height(x, y), ang:T.ang[i] + (side > 0 ? Math.PI : 0), side, n:S.screens.length }); addCircle(x, y, 10);
+    if(blocked(x, y, 7)) continue; S.screens.push({ x, y, z:height(x, y), a0:T.ang[i], side, n:S.screens.length }); addCircle(x, y, 10);
   }
   // warehouses behind the car parks and along the service zone
   S.warehouses = [];

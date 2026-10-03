@@ -21,8 +21,9 @@ const cota =
                      [0.300,6.0],[0.340,4.5],[0.383,4.0],[0.450,2.5],[0.520,1.0],[0.600,0.0],[0.630,0.6],
                      [0.670,2.7],[0.710,5.0],[0.780,4.1],[0.830,5.5],[0.872,7.0],[0.920,10.0],[0.960,12.5]]),
     /* The pit lane runs down the left (inside) of the front straight: in at Turn 20, out
-       straight into the Turn 1 apex (Jalopnik; no box count found, so the shared default is kept). */
-    pit:{ side:-1, in:0.885, out:0.075 },
+       straight into the Turn 1 apex (Jalopnik). I found no box count or box positions, so the garages are strung
+       on the shared pattern, closer together and centred on the pit building by the line (my assumption). */
+    pit:{ side:-1, in:0.885, out:0.075, box:0.995, gap:5 },
     /* Left-handers wind this lap, so the outside of every corner is the right (+) side. My reading
        of the real mix, because I found no published run-off map (see NOTES.md): big tarmac at Turn 1,
        tarmac along the back straight, turf-trimmed verges at T6 and T13-15. */

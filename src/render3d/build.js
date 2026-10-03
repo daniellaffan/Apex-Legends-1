@@ -13,6 +13,7 @@ import { MONACO } from './worlds/monaco.js';
 import { SILVER } from './worlds/silverstone.js';
 import { ZAND } from './worlds/zandvoort.js';
 import { SUZUKA } from './worlds/suzuka.js';
+import { COTA } from './worlds/cota.js';
 import { WEATHER } from './weather.js';
 import { CRASH } from './crash.js';
 import { CFG } from '../config/settings.js';
@@ -184,7 +185,7 @@ G3.build = function(S){
   const surveyed = T.def.world === "monaco" || T.def.world === "silverstone" || T.def.world === "zandvoort";
   const monacoW = T.def.world === "monaco";
   // Suzuka is not surveyed, but its world lays its own terrain and planting
-  const ownGround = surveyed || T.def.world === "suzuka";
+  const ownGround = surveyed || T.def.world === "suzuka" || T.def.world === "cota";
   /* The wide grass strip under the run-off and the road is one quad per node, 55 m
      across, and the bands drawn over it are narrower quads. On a curve their two
      triangles split along different diagonals, so on a slope they sit at different
@@ -498,6 +499,13 @@ G3.build = function(S){
   if(T.def.world === "suzuka"){
     try{ SUZUKA.build(this, this.world, T, S); this.suzuka = SUZUKA; }
     catch(e){ console.warn("suzuka", e.message, e.stack); }
+  }
+
+  /* Austin: the Hill Country, the tower, the stands, the paddock, the sky */
+  this.cota = null;
+  if(T.def.world === "cota"){
+    try{ COTA.build(this, this.world, T, S); this.cota = COTA; }
+    catch(e){ console.warn("cota", e.message, e.stack); }
   }
 
   /* the cars */

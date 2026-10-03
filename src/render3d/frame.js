@@ -201,6 +201,7 @@ G3.frame = function(S){
   if(this.monaco){ try{ this.monaco.frame(S, this); }catch(e){ console.warn("monaco frame", e.message); this.monaco = null; } }
   if(this.silver){ try{ this.silver.frame(S, this); }catch(e){ console.warn("silverstone frame", e.message); this.silver = null; } }
   if(this.suzuka){ try{ this.suzuka.frame(S, this); }catch(e){ console.warn("suzuka frame", e.message); this.suzuka = null; } }
+  if(this.cota){ try{ this.cota.frame(S, this); }catch(e){ console.warn("cota frame", e.message); this.cota = null; } }
   /* Bloom is what the composer is for, and a daytime circuit has next to none.
      Without it the frame goes straight to the screen: the renderer's own ACES
      and sRGB steps (the same curve, which divides by 0.6 inside, hence the
