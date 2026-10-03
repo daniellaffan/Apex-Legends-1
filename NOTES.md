@@ -1154,3 +1154,13 @@ Plan time in Node is about 450 ms (Lite 250 ms), build total about 550 ms; the b
 6. Pits: garages in front of the new pit building, striped awnings, timing tower, paddock sign over the entrance.
 7. Console: look for `cota ...` warnings (the world is built inside try/catch, so a bug shows as a warning and a
    plain circuit, not a crash). `window.__cota.audit()` reruns the clearance audit; `window.__cota.stats` shows counts.
+
+---
+
+# DNF climb-out: direction, size and look
+
+- **Direction.** The old exit was written in car-local axes: out of the side facing the track, then a walk of up to 12 m along the car's nose. The car can finish pointing anywhere, so the driver could walk through the barrier or out into the run-off wall. Now the exit side and the walk are chosen in the world (`CINE.dnfInit` in `render3d/cine.js`): both standing spots beside the car are tested for room to the barrier line (capped at 6 m, ties go to the side facing away from the track), then the walk goes along the track edge (against the traffic if there is room, with a little outward drift) or straight away from the car, whichever clears the car's own footprint and has the most room. Each frame the position is pulled back inside the barrier and he faces the way he walks.
+- **Check.** `node scripts/dnf-test.mjs [track]` runs the real `dnfInit`/`dnfTick` for 400 car positions and headings (some pressed against the barrier). COTA: old logic ended past the barrier in 65 of 400 runs (worst 9.4 m), new in 0, and 0 frames inside the car. Monaco: old 137 of 400 (worst 17.2 m), new 0.
+- **Size.** The standing driver was 2.01 m with the helmet, about 1.2 times the car (the car is scaled 0.92). In the DNF scene he is now scaled 0.84 (1.69 m with helmet), which puts the seated helmet at height 0.73 m, x 0.36, against the cockpit's own helmet at 0.72 m, x 0.32 (`node scripts/driver-size.mjs`). The podium drivers are untouched.
+- **Look.** `render3d/person.js`: rounded tapering limbs, a waist that narrows into the chest, shoulder pads, cuffs, belt, collar and zip; gloves with a thumb; boots with a sole; a head with hair, ears, nose, eyes and brows; a helmet with a dark visor band, chin bar, stripe in the team's colour and a rear fin. Joints did not move, so every pose still works. About 1,900 triangles per driver.
+- Not seen in a browser (see above): the walk path, the camera positions (unchanged, relative to the exit side) and the new look need your eyes. If a camera shot ends up behind the barrier on a tight spot, tell me which circuit and corner.
