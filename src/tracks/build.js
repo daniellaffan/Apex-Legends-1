@@ -362,7 +362,20 @@ function buildTrack(def){
     }
     return true;
   };
-  for(const e of (def.scene || [])){
+  // trees go down last, so they can keep clear of the grandstands and buildings
+  const sceneOrder = [...(def.scene || [])].sort((a, b) => (a.t === "tree") - (b.t === "tree"));
+  const hitsStructure = (x, y, cr) => {
+    for(const q of T.props){
+      if(q.t === "tree" || q.t === "marshal" || q.t === "fence" || q.t === "billboard" || q.t === "arch") continue;
+      const dx = x - q.x, dy = y - q.y;
+      if(q.t === "grandstand" || q.t === "garage" || q.wid){
+        const c = Math.cos(q.rot), s = Math.sin(q.rot);
+        if(Math.abs(dx * c + dy * s) < (q.wid || 26) / 2 + cr + 4 && Math.abs(-dx * s + dy * c) < 24 + cr) return true;
+      } else if(dx * dx + dy * dy < (Math.max(14, q.h * 0.6) + cr) ** 2) return true;
+    }
+    return false;
+  };
+  for(const e of sceneOrder){
     for(let i = 0; i < e.n; i++){
       const u = e.a + (e.b - e.a) * ((i + 0.5) / e.n + (rnd() - 0.5) * 0.012);
       const idx = ((Math.round(u * n) % n) + n) % n;
@@ -377,6 +390,7 @@ function buildTrack(def){
         const off2 = e.off * (e.wid ? 1 : (0.82 + rnd() * 0.5)) + attempt * (need * 0.8 + halfLen * 0.25);
         const px = T.x[idx] + T.nx[idx] * off2 * side, py = T.y[idx] + T.ny[idx] * off2 * side;
         if(!clears(px, py, need)) continue;
+        if(e.t === "tree" && hitsStructure(px, py, e.h[1] * 0.45)) continue;
         if(halfLen){
           const tx2 = Math.cos(T.ang[idx]), ty2 = Math.sin(T.ang[idx]);
           let ok = true;
