@@ -61,8 +61,7 @@ const cota =
             {t:"tree", n:40, a:0, b:1, side:-1, off:56, h:[7,13], col:"#4A7038", only2d:true},
             {t:"billboard", n:26, a:0, b:1, side:1, off:26, h:[12,17], col:"#C8442A"},
             {t:"arch", n:2, a:0, b:0.5, side:0, off:0, h:[10,10], col:"#2B4C9B"},
-            {t:"pylon", n:30, a:0, b:1, side:1, off:26, h:[10,13], col:"#8A9199"},
-            {t:"marshal", n:12, a:0, b:1, side:1, off:26, h:[3,3], col:"#D8DCE0"} ],
+            {t:"pylon", n:30, a:0, b:1, side:1, off:26, h:[10,13], col:"#8A9199"} ],
     layout:"S300 L104/23 S121 R45/102 L50/62 R44/55 L46/47 R47/62 S120 L38/41 R75/50 L30/90 S197 L45/55 S273 L106/22 S874 L100/20 S98 R95/35 L29/65 R94/36 S101 L27/69 L33/72 L29/88 S188 L53/36 S344 L69/39 S448" };
 
 export default cota;
