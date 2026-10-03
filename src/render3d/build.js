@@ -14,6 +14,7 @@ import { SILVER } from './worlds/silverstone.js';
 import { ZAND } from './worlds/zandvoort.js';
 import { SUZUKA } from './worlds/suzuka.js';
 import { WEATHER } from './weather.js';
+import { CRASH } from './crash.js';
 import { CFG } from '../config/settings.js';
 
 G3.tileSplit = function(root, cell, minTris){
@@ -500,5 +501,6 @@ G3.build = function(S){
   /* the rain, the spray and the wet look (see weather.js); after the world, so it
      knows what the light and the road are in the dry */
   WEATHER.build(this, S);
+  CRASH.build(this, S);
 };
 

@@ -42,6 +42,9 @@ import './render3d/build.js';
 import './render3d/scenery.js';
 import './render3d/car.js';
 import './render3d/frame.js';
+import './render3d/crash.js';
+import './render3d/person.js';
+import { CINE } from './render3d/cine.js';
 import './ui/minimap.js';
 import { bindTouch } from './input/input.js';
 import { CFG } from './config/settings.js';
@@ -89,7 +92,7 @@ function boot(){
   $("#pb-resume").onclick = togglePause;
   $("#pb-restart").onclick = () => { setPaused(false); $("#pause").hidden = true;
     startSession(S.mode, S.champ ? { grid:S.gridAbbr } : null); };
-  $("#pb-quit").onclick = () => { setPaused(false); $("#pause").hidden = true; try{ AUDIO.silence(); }catch(e){} R.persp = false; R.tv = false; setS(null); show("screen-title"); };
+  $("#pb-quit").onclick = () => { setPaused(false); $("#pause").hidden = true; if(S) CINE.end(G3, S); try{ AUDIO.silence(); }catch(e){} R.persp = false; R.tv = false; setS(null); show("screen-title"); };
   $("#st-reset").onclick = () => { store("champ", { round:0, pts:{}, cons:{}, done:[] }); showStandings(); boot0(); };
   const zone = document.getElementById("h-tachzone");
   if(zone){ zone.style.left = (LAUNCH_LO * 100) + "%"; zone.style.width = ((LAUNCH_HI - LAUNCH_LO) * 100) + "%"; }

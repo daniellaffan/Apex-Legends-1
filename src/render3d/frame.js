@@ -6,6 +6,8 @@ import { SPHERE } from '../render2d/sphere.js';
 import { PP } from './pipeline.js';
 import { G3 } from './g3.js';
 import { WEATHER } from './weather.js';
+import { CRASH } from './crash.js';
+import { CINE } from './cine.js';
 import { CFG } from '../config/settings.js';
 
 /* ---- the frame --------------------------------------------------------- */
@@ -42,6 +44,10 @@ G3.frame = function(S){
     if(g.userData.lift) g.position.y += g.userData.lift;
     this.crewUpdate(e, c, S, g);
   }
+
+  CRASH.fx(this, S); CRASH.step(this, S);
+  // the podium is a stage of its own
+  if(S.cine && S.cine.kind === "win"){ CINE.podiumFrame(this, S); return; }
 
   for(const d of this.dyn){
     if(d.kind === "screen"){
@@ -135,7 +141,13 @@ G3.frame = function(S){
 
   const p = S.player;
   this.fadeOccluders(S, p);
-  if(R.tv && S.tv){
+  if(S.cine){
+    // a cutscene shot: the crash cam or the walk away from the wreck
+    const cam = S.cine.kind === "crash" ? CINE.crashCam(this, S) : CINE.dnfCam(this, S);
+    if(this.scene.fog){ this.scene.fog.near = 220; this.scene.fog.far = 220 + this.fogSpan * (1 - this.wet * 0.5); }
+    this.cam = cam;
+    WEATHER.step(this, S, p.x, p.y, p.z, 60, 45, 8);
+  } else if(R.tv && S.tv){
     const cam = this.camTV;
     cam.position.set(S.tv.x, S.tv.z, S.tv.y);
     cam.lookAt(p.x + p.vx * 0.12, p.z + 0.7, p.y + p.vy * 0.12);

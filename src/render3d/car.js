@@ -3,6 +3,7 @@ import { TAU, angWrap, clamp, lerp, shade } from '../config/util.js';
 import { TYRES } from '../car/parts.js';
 import { CAR_SPEC } from '../car/spec.js';
 import { G3 } from './g3.js';
+import { CRASH } from './crash.js';
 
 /* ---- the cars ----------------------------------------------------------
    Built from simple faceted shapes in the dimensions of CAR_SPEC: a lofted tub
@@ -467,6 +468,7 @@ const CARGEO = {
   },
 };
 
+export { CARGEO };
 G3.carMats = function(t){
   // the body's finish, as the 2D car does with its highlight: gloss shines, matte does not
   const f = t.finish === "gloss" ? { roughness:0.34, metalness:0.12 } : t.finish === "satin" ? { roughness:0.52, metalness:0.08 } : { roughness:0.78, metalness:0.02 };
@@ -514,7 +516,7 @@ G3.car = function(c){
     pv.userData.base = { x:ax.x, y:ax.r, z:ax.y * sd, sd, ax };
   }
   g.userData.car = c;
-  g.userData.parts = { body, drv, fw, rw, fwFlap, rwFlap, fwStub, rwStub, glow, glowMat, pivots, compound, chipped:false };
+  g.userData.parts = { ownGeo:false, dentVer:0, body, drv, fw, rw, fwFlap, rwFlap, fwStub, rwStub, glow, glowMat, pivots, compound, chipped:false };
   g.userData.anim = { spinF:0, spinR:0, steer:0, flap:0, brake:0, clock:null, h:null };
   return g;
 };
@@ -628,9 +630,10 @@ G3.carAnim = function(g, c, S, dt){
     P.pivots.forEach((pv, i) => { const ax = pv.userData.base.ax;
       g.userData.wheels[i].geometry = CARGEO.wheel(this, ax.r, ax.w, compound, c.team.wheel || "#2A2D31"); });
   }
-  const bent = gone.has("susp") ? (c.idx % 4) : -1, flat = gone.has("punct") ? ((c.idx + 1) % 4) : -1;
+  const bent = gone.has("susp") && !(c.wheelOff >= 0) ? (c.idx % 4) : -1, flat = gone.has("punct") ? ((c.idx + 1) % 4) : -1;
   P.pivots.forEach((pv, i) => {
     const B = pv.userData.base, front = i >= 2, w = g.userData.wheels[i];
+    pv.visible = !(c.wheelOff === i || c.wheelOff2 === i);
     const out = wheelOut + (i === bent ? 0.34 : 0);
     pv.position.set(B.x, B.y - (i === flat ? 0.09 : 0) + wheelOut * 0.45, B.z + B.sd * out);
     pv.rotation.set(i === bent ? 0.42 * B.sd : 0, (front ? -A.steer : 0) + (i === bent ? 0.3 : 0), 0, "YXZ");
@@ -646,8 +649,20 @@ G3.carAnim = function(g, c, S, dt){
   const noFront = gone.has("wing"), noRear = gone.has("rear");
   P.fw.visible = !noFront; P.fwStub.visible = noFront;
   P.rw.visible = !noRear; P.rwStub.visible = noRear;
-  const chip = gone.has("floor");
-  if(chip !== P.chipped){ P.chipped = chip; P.body.geometry = chip ? CARGEO.chipped(this, c.team) : CARGEO.team(this, c.team).body; }
+  const chip = gone.has("floor"), dv = c.dentVer || 0, now = (S && S.clock) || 0;
+  // the bodywork crumples where it was hit; rebuilt at most a few times a second while a car is being ground along a wall
+  if(chip !== P.chipped || (dv !== P.dentVer && now - (P.dentT || -9) > 0.15)){
+    P.chipped = chip; P.dentVer = dv; P.dentT = now;
+    const base = chip ? CARGEO.chipped(this, c.team) : CARGEO.team(this, c.team).body;
+    if(P.ownGeo){ P.body.geometry.dispose(); P.ownGeo = false; }
+    if(c.dents && c.dents.length){ P.body.geometry = CRASH.deformed(base, c.dents); P.ownGeo = true; }
+    else P.body.geometry = base;
+  }
+  // a wing that survives a hit hangs from the nose a little lower, and a bit crooked
+  let sagF = 0, sagR = 0, sideF = 0;
+  if(c.dents) for(const d of c.dents){ if(d.x > 1.4){ sagF += d.mag; sideF += d.z * d.mag; } else if(d.x < -1.4) sagR += d.mag; }
+  P.fw.rotation.set(clamp(sideF * 0.04, -0.12, 0.12), 0, -clamp(sagF * 0.05, 0, 0.12));
+  P.rw.rotation.set(0, 0, clamp(sagR * 0.04, 0, 0.1));
   // the lights: brighter under braking, the rain light flashing in the wet, stuck on with broken brakes
   A.brake += (clamp(c.brk || 0, 0, 1) - A.brake) * (1 - Math.exp(-dt * 12));
   const wet = (S && S.wet > 0.2) ? (((S.clock || 0) * 4) % 1 < 0.5 ? 1 : 0.25) : 0;

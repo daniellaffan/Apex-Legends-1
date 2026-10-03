@@ -3,6 +3,7 @@ import { PARTS, PART_KEYS, TYRES } from './parts.js';
 import { bankZ } from '../tracks/shared.js';
 import { spawn } from '../render2d/particles.js';
 import { AUDIO } from '../audio/audio.js';
+import { addDent, contactLocal, contactTorque, pushFx } from './damage.js';
 
 /* ---------- 3. cars: physics --------------------------------------------- */
 const LAUNCH_LO = 0.52, LAUNCH_HI = 0.74;          // the rev window for a clean getaway
@@ -41,23 +42,41 @@ class Car {
     this.secStart = 0; this.curSec = 0; this.secT = [null, null, null];
     this.ai = true; this.pace = 1; this.pos = idx + 1; this.gap = null; this.total = 0;
     this.aiOff = 0; this.aiTarget = 0; this.mistake = 0; this.kerbShake = 0; this.wallHit = 0;
+    this.dents = []; this.dentVer = 0; this.wheelOff = -1; this.wheelOff2 = -1; this.lossT = 0; this.spinCool = 0; this.lastHit = null;
   }
   /* ---------- crash dynamics ----------------------------------------------
      A wrecked car leaves the track model entirely and becomes a ballistic
      body: it tumbles, lands, bounces, and can clear the barriers.           */
   launch(imp, S){
-    this.wrecked = true; this.spinT = 0;
+    this.wrecked = true; this.spinT = 0; this.crashT = 0;
     this.air = Math.max(this.air, 0.35);
-    this.airV = clamp(imp * 0.26, 3.5, 12);
-    this.rollV = (Math.random() < 0.5 ? -1 : 1) * (2.8 + Math.random() * 4.5);
-    this.pitchV = (Math.random() - 0.5) * 3.4;
-    this.spinV = (Math.random() - 0.5) * 7;
+    this.airV = clamp(imp * 0.30, 5, 14);
+    this.rollV = (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 4.5);
+    this.pitchV = (Math.random() - 0.5) * 4.2;
+    this.spinV = (Math.random() - 0.5) * 8;
     const sp = Math.hypot(this.vx, this.vy);
-    if(sp > 2){ this.vx *= 0.7; this.vy *= 0.7; }
-    if(S) for(let k = 0; k < 22; k++)
-      spawn(this.x, this.y, this.z + 0.4, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16,
-            2 + Math.random() * 9, 0.7 + Math.random() * 1.2,
-            k % 3 ? "#8A9199" : "#FFC46B", 0.28, k % 3 ? "spark" : "smoke");
+    if(sp > 2){ this.vx *= 0.9; this.vy *= 0.9; }
+    if(S){
+      for(let k = 0; k < 22; k++)
+        spawn(this.x, this.y, this.z + 0.4, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 16,
+              2 + Math.random() * 9, 0.7 + Math.random() * 1.2,
+              k % 3 ? "#8A9199" : "#FFC46B", 0.28, k % 3 ? "spark" : "smoke");
+      // a heavy crash sheds the wings, a wheel or two and a shower of bodywork
+      if(!this.broken.has("wing")) this.breakPart("wing", S, true, true);
+      if(!this.broken.has("rear")) this.breakPart("rear", S, true, true);
+      this.tearWheel(S, this.lastHit && this.lastHit.lf < 0 ? 0 : 2, imp);
+      if(Math.random() < 0.8) this.tearWheel(S, (Math.random() * 4) | 0, imp);
+      pushFx(S, { t:"shards", car:this, n:18 + (imp * 0.4 | 0), power:1.4 });
+      pushFx(S, { t:"crash", car:this, imp });
+    }
+  }
+  /* A wheel comes off and goes bouncing away on its own. */
+  tearWheel(S, idx, imp){
+    if(this.wheelOff === idx) return;
+    if(this.wheelOff >= 0 && this.wheelOff2 === idx) return;
+    if(this.wheelOff < 0) this.wheelOff = idx; else this.wheelOff2 = idx;
+    this.broken.add("susp"); this.health.susp = 0; this.recalcPerf();
+    pushFx(S, { t:"wheel", car:this, idx, imp: imp || 20 });
   }
   wreckStep(dt, S){
     const T = this.T;
@@ -89,6 +108,19 @@ class Car {
     const dx = this.x - T.x[i], dy = this.y - T.y[i];
     this.off = dx * T.nx[i] + dy * T.ny[i];
     this.s = T.s[i] + (dx * T.tx[i] + dy * T.ty[i]);
+    // the barrier stops a tumbling car as it stops any other
+    const lim = T.half + T.roAt(i, this.off) + (T.barrier === "wall" ? 0.9 : 3.2);
+    if(Math.abs(this.off) > lim){
+      const sg = Math.sign(this.off), push = Math.abs(this.off) - lim;
+      this.x -= T.nx[i] * sg * push; this.y -= T.ny[i] * sg * push; this.off -= sg * push;
+      const into = this.vx * T.nx[i] * sg + this.vy * T.ny[i] * sg;
+      if(into > 1){
+        this.vx -= T.nx[i] * sg * into * 1.45; this.vy -= T.ny[i] * sg * into * 1.45;
+        this.rollV += (Math.random() - 0.5) * 3; this.airV = Math.max(this.airV, Math.min(6, into * 0.3));
+        if(into > 4) pushFx(S, { t:"shards", car:this, n:Math.min(10, 3 + into * 0.3 | 0), power:0.8 });
+        if(this === S.player) S.shake = Math.min(1, S.shake + into * 0.03);
+      }
+    }
     this.z = this.roadZ(i, dx * T.tx[i] + dy * T.ty[i]) + this.air;
     this.slide = 0;
     if(this.air === 0 && Math.hypot(this.vx, this.vy) < 1.2 && Math.abs(this.rollV) < 0.5){
@@ -97,6 +129,13 @@ class Car {
       this.pitch *= 0.2; this.rollV = this.pitchV = this.spinV = 0;
       this.vx = this.vy = 0;
     }
+  }
+  startSpin(S, v){
+    if(this.spinT > 0 || this.wrecked || this.dnf) return;
+    this.spinT = 1.6 + Math.random() * 0.6; this.spinV = v;
+    this.slide = 1; this.lossT = 0;
+    if(this === S.player){ S.shake = Math.min(1, S.shake + 0.45); S.toast && 0; }
+    try{ AUDIO.event("spin", this, S); }catch(e){}
   }
   scuff(S, imp){
     if(!S.marks) S.marks = [];
@@ -117,7 +156,7 @@ class Car {
     }
     this.perf = p;
   }
-  breakPart(where, S, exact){
+  breakPart(where, S, exact, quiet){
     let k;
     if(exact){ k = where; if(this.broken.has(k)) return null; }
     else {
@@ -132,16 +171,42 @@ class Car {
     this.broken.add(k); this.recalcPerf();
     if(PARTS[k].tyre) this.life = Math.min(this.life, 0.08);
     if(S){
-      try{ AUDIO.event("fail", this, S, PARTS[k].name); }catch(e){}
-      if(!this.ai) S.toast(PARTS[k].name + " damaged — box for repairs");
-      else if(S.player && Math.abs(this.pos - S.player.pos) <= 3) S.toast(this.drv.last + ": " + PARTS[k].name.toLowerCase() + " trouble");
+      if(k === "wing" || k === "rear") pushFx(S, { t:"part", car:this, part:k });
+      if(k === "susp" && this.wheelOff < 0 && !quiet){
+        const lh = this.lastHit, idx = lh ? (lh.front ? 2 : 0) + (lh.lr > 0 ? 0 : 1) : (this.idx % 4);
+        if(!lh || Math.random() < 0.6) this.tearWheel(S, idx, 14);
+      }
+      if(!quiet){
+        try{ AUDIO.event("fail", this, S, PARTS[k].name); }catch(e){}
+        if(!this.ai) S.toast(PARTS[k].name + " damaged — box for repairs");
+        else if(S.player && Math.abs(this.pos - S.player.pos) <= 3) S.toast(this.drv.last + ": " + PARTS[k].name.toLowerCase() + " trouble");
+      }
     }
     return k;
   }
-  hurt(imp, where, S){
+  /* hit = the world direction from this car towards what it struck. It puts the
+     dent where the contact was, decides which corner of the car takes the part
+     damage, and tells the 3D car where to throw its bodywork. */
+  hurt(imp, where, S, hit){
     if(this.dnf || !S || !S.damage) return;
+    let loc = null;
+    if(hit){
+      loc = contactLocal(hit.dx, hit.dy, this.h); this.lastHit = loc;
+      where = loc.zone === "nose" || loc.zone === "fl" || loc.zone === "fr" ? "front"
+            : loc.zone === "tail" || loc.zone === "rl" || loc.zone === "rr" ? "rear" : "side";
+      addDent(this, loc, imp / 24);
+      if(imp > 8) pushFx(S, { t:"shards", car:this, n:Math.min(14, 2 + imp * 0.45 | 0), power:Math.min(1.2, imp / 20), loc });
+    }
+    if(imp < 6) return;
     this.damage = clamp(this.damage + Math.pow(clamp(imp / 30, 0, 1.3), 1.7) * 0.32, 0, 1);
     if(imp > 30 || this.damage >= 0.995){ this.launch(imp, S); this.retire(S, "Heavy crash"); return; }
+    // a hard enough knock takes the nearest wing straight off
+    if(loc && imp > 13 && !this.broken.has("wing") && (loc.zone === "nose" || loc.zone === "fl" || loc.zone === "fr") && Math.random() < (imp - 8) / 22) this.breakPart("wing", S, true);
+    if(loc && imp > 13 && !this.broken.has("rear") && (loc.zone === "tail" || loc.zone === "rl" || loc.zone === "rr") && Math.random() < (imp - 8) / 22) this.breakPart("rear", S, true);
+    if(loc && imp > 15 && this.wheelOff < 0 && (loc.zone === "fl" || loc.zone === "fr" || loc.zone === "rl" || loc.zone === "rr" || loc.zone === "left" || loc.zone === "right") && Math.random() < (imp - 10) / 26){
+      this.tearWheel(S, (loc.front ? 2 : 0) + (loc.lr > 0 ? 0 : 1), imp);
+      if(!this.broken.has("susp")) this.breakPart("susp", S, true, true);
+    }
     // wear the components on the side that took the hit
     for(const k of PART_KEYS){
       if(this.broken.has(k)) continue;
@@ -157,14 +222,16 @@ class Car {
   retire(S, why){
     if(this.dnf) return;
     this.dnf = true; this.retiredBy = why || "Retired"; this.thr = 0; this.brk = 1;
-    this.vx = this.vy = 0; this.railV = 0;
+    if(!this.wrecked){ this.vx = this.vy = 0; }
+    this.railV = 0;
     if(typeof spawn === "function") for(let k = 0; k < 16; k++)
       spawn(this.x, this.y, this.z + 0.5, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 12,
             2 + Math.random() * 6, 0.9 + Math.random(), k % 3 ? "#6E7681" : "#FFB86B", 0.5, "smoke");
     try{ AUDIO.event("out", this, S); if(this === S.player) setTimeout(() => AUDIO.silence(), 900); }catch(e){}
     if(this === S.player){
       S.toast("RETIRED — " + this.retiredBy);
-      S.crashCam = this.wrecked ? 7.5 : 2.2;          // watch it come to rest first
+      S.crashCam = this.wrecked ? 9 : 2.2;            // watch it come to rest first (the session runs the cutscene)
+      S.crashKind = this.wrecked ? "wreck" : "stop";
     }
     else S.toast(this.drv.last + " is out — " + this.retiredBy.toLowerCase());
   }
@@ -206,7 +273,11 @@ class Car {
 
   step(dt, S){
     const T = this.T;
-    if(this.dnf && !this.wrecked) return;
+    if(this.dnf && !this.wrecked){
+      // a wreck that came to rest on its roof is put back on its wheels, so the driver can climb out
+      if(!this.ai){ const to = Math.round(this.roll / TAU) * TAU; this.roll += (to - this.roll) * Math.min(1, dt * 2.5); }
+      return;
+    }
     if(S.damage && !this.pitting){
       const risk = (0.00005 + this.damage * 0.0011 + (this.life < 0.12 ? 0.0004 : 0)) * dt;
       if(Math.random() < risk) this.breakPart("any", S);
@@ -259,37 +330,67 @@ class Car {
                clamp(spd / 4.5, 0, 1) * (1 - clamp(Math.abs(vs) / 26, 0, 0.28)) * (vf < 0 ? -1 : 1);
     // catching a slide should work: countersteer gets extra authority
     if(vs !== 0 && Math.sign(this.steer) === Math.sign(vs)) auth *= 1 + clamp(Math.abs(vs) / 10, 0, 0.35);
-    const yaw = (this.steer + this.perf.pull) * auth * (1 - this.hand * 0.25);
-    this.h += yaw * dt;
-    vs += -vf * yaw * dt;
-    const latMax = g * (1 - this.hand * 0.62) * dt;
-    if(Math.abs(vs) <= latMax) vs = 0; else vs -= Math.sign(vs) * latMax;
-    vf -= Math.abs(vs) * 0.28 * dt;
-    this.slide = lerp(this.slide, clamp(Math.abs(vs) / 9, 0, 1), 0.2);
-    // lose the back end badly enough and the car spins
-    if(this.spinT <= 0 && Math.abs(vs) > 10.5 && Math.abs(vf) > 16 && !this.dnf){
-      this.spinT = 1.1 + Math.random() * 0.9;
-      this.spinV = -Math.sign(vs) * (2.0 + Math.random() * 1.8);
-      if(this === S.player) S.shake = Math.min(1, S.shake + 0.35);
+    const spinning = this.spinT > 0;
+    const yaw = spinning ? 0 : (this.steer + this.perf.pull) * auth * (1 - this.hand * 0.25);
+    if(!spinning){
+      this.h += yaw * dt;
+      vs += -vf * yaw * dt;
+      const latMax = g * (1 - this.hand * 0.62) * dt;
+      if(Math.abs(vs) <= latMax) vs = 0; else vs -= Math.sign(vs) * latMax;
+      vf -= Math.abs(vs) * 0.28 * dt;
+    }
+    this.slide = lerp(this.slide, spinning ? 1 : clamp(Math.abs(vs) / 9, 0, 1), 0.2);
+    this.spinCool = Math.max(0, this.spinCool - dt);
+
+    /* Beyond the limit the car lets go. The friction circle: what the steering asks
+       of the tyres sideways and what the brakes ask of them at once. Too much of it
+       for long enough, or being on the grass at speed with the wheel turned, and the
+       back end goes. It turns the way the corner was going, so it is the car you
+       were steering that spins, not a random one. */
+    if(!spinning && !this.dnf && this.spinCool <= 0){
+      const spdNow = Math.hypot(vf, vs);
+      const latDem = Math.abs(yaw * vf) / Math.max(g, 1);
+      const brkDem = this.brk * BRAKE * this.perf.brake * surf * wetK * (vf > 0.4 ? 1 : 0) / Math.max(g, 1);
+      const use = Math.hypot(latDem, brkDem + this.thr * 0.12 * (spdNow < 30 ? 1.8 : 0.4));
+      let over = use > 1.12 ? (use - 1.05) * 5 : 0;
+      if(surf < 0.7 && spdNow > 42 && Math.abs(this.steer) > 0.45) over += (1 - surf) * 3.2 * Math.abs(this.steer);
+      if(Math.abs(vs) > 8 && Math.abs(vf) > 20) over += Math.abs(vs) / 14;       // already well sideways
+      if(this.hand > 0.5 && spdNow > 30 && Math.abs(this.steer) > 0.3) over += 2.2;
+      if(over > 0) this.lossT += over * dt; else this.lossT = Math.max(0, this.lossT - dt * 2.2);
+      if(this.lossT > 0.45 && spdNow > 20){
+        this.lossT = 0;
+        const dir = Math.abs(yaw) > 0.05 ? Math.sign(yaw) : (vs !== 0 ? -Math.sign(vs) : (Math.random() < 0.5 ? -1 : 1));
+        this.startSpin(S, dir * (3.2 + Math.min(spdNow, 80) * 0.035 + Math.random() * 1.2));
+      }
     }
     if(this.spinT > 0){
-      this.spinT -= dt;
+      // a spinning car slides on along the line it had, scrubbing speed off as it turns
+      const sp0 = Math.hypot(this.vx, this.vy);
       this.h += this.spinV * dt;
-      this.spinV *= Math.pow(0.42, dt);
+      this.spinV *= Math.pow(sp0 < 8 ? 0.05 : 0.5, dt);
+      const dec = (10 + (1 - surf) * 12 + this.brk * 12) * dt;
+      const k3 = sp0 > dec ? (sp0 - dec) / sp0 : 0;
+      this.vx *= k3; this.vy *= k3;
+      if(Math.abs(this.spinV) < 1.6 || sp0 < 5) this.spinT -= dt * 2.4; else this.spinT -= dt * 0.25;
       this.pitch = lerp(this.pitch, 0, dt * 3);
       if(this.ai){ this.thr = 0; this.brk = 0.75; this.steer = 0; }
-      if(Math.abs(vf) > 8 && Math.random() < dt * 30)
-        spawn(this.x, this.y, this.z + 0.15, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6,
-              0.8, 0.9, "#B9BEC4", 0.55, "smoke");
-      if(this.spinT <= 0 && this.ai){ this.railV = Math.hypot(this.vx, this.vy); this.railS = null; }
+      if(sp0 > 6 && Math.random() < dt * 60)
+        spawn(this.x - Math.cos(this.h) * 0.6, this.y - Math.sin(this.h) * 0.6, this.z + 0.15, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6,
+              0.8 + Math.random(), 0.9 + Math.random() * 0.5, "#D4D8DC", 0.7, "smoke");
+      if(this.spinT <= 0){
+        this.spinCool = 1.4; this.spinV = 0;
+        if(this.ai){ this.railV = Math.hypot(this.vx, this.vy); this.railS = null; }
+      }
     }
     // body leans under load, and settles when it is not
     this.roll = lerp(this.roll, clamp(-vs * 0.012, -0.11, 0.11), dt * 6);
     this.pitch = lerp(this.pitch, clamp((this.brk * 0.05 - this.thr * 0.025), -0.05, 0.06), dt * 5);
 
     // rebuild in the NEW heading's frame, so the velocity actually turns with the car
-    const nfx = Math.cos(this.h), nfy = Math.sin(this.h);
-    this.vx = nfx * vf - nfy * vs; this.vy = nfy * vf + nfx * vs;
+    if(!spinning){
+      const nfx = Math.cos(this.h), nfy = Math.sin(this.h);
+      this.vx = nfx * vf - nfy * vs; this.vy = nfy * vf + nfx * vs;
+    }
     this.x += this.vx * dt; this.y += this.vy * dt;
 
     // ---- track frame ----
@@ -324,7 +425,8 @@ class Car {
       const into = this.vx * T.nx[i] * Math.sign(this.off) + this.vy * T.ny[i] * Math.sign(this.off);
       if(into > 0){
         const sg = Math.sign(this.off);
-        const rest = clamp(0.35 + into * 0.012, 0.35, 0.75);       // it bounces, it does not stick
+        const hitD = { dx:T.nx[i] * sg, dy:T.ny[i] * sg }, hitL = contactLocal(hitD.dx, hitD.dy, this.h);
+        const rest = into > 26 ? 0.22 : clamp(0.35 + into * 0.012, 0.35, 0.75);       // it bounces, it does not stick; a wreck crumples
         this.vx -= T.nx[i] * sg * into * (1 + rest);
         this.vy -= T.ny[i] * sg * into * (1 + rest);
         this.vx *= 0.86; this.vy *= 0.86;
@@ -336,13 +438,16 @@ class Car {
                   -T.ny[i] * sg * (3 + Math.random() * 9) + (Math.random() - 0.5) * 6,
                   2 + Math.random() * 6, 0.35 + Math.random() * 0.4,
                   k % 4 ? "#FFC46B" : "#C9CED4", 0.22, "spark");
-          // a glancing blow kicks the car sideways and can spin it
-          if(into > 8 && this.spinT <= 0 && !this.wrecked){
-            this.spinT = 0.8 + Math.random() * 0.9;
-            this.spinV = sg * (1.4 + into * 0.09) * (Math.random() < 0.5 ? -1 : 1);
-          }
         }
-        if(into > 6) this.hurt(into, Math.abs(this.off) > T.half ? "side" : "front", S);
+        // the contact is on the corner that touched: a front corner pushes the nose off
+        // the wall, a rear one swings the nose into it. Either way, at speed, it spins.
+        const lf = hitL.lf, lr = hitL.lr, spd0 = Math.hypot(this.vx, this.vy) + into;
+        if(into > 1.2 && spd0 > 25 && this.spinT <= 0 && !this.wrecked){
+          const side = Math.abs(lf) < 0.15 ? 1 : (lf > 0 ? -1 : 1);
+          const dirS = side * (Math.sign(lr) || 1);
+          this.startSpin(S, dirS * clamp(2.4 + into * 0.18 + spd0 * 0.03, 2.6, 7));
+        }
+        if(into > 1.2) this.hurt(into, Math.abs(this.off) > T.half ? "side" : "front", S, hitD);
         this.wallHit = 1; if(!this.ai) S.shake = Math.min(1, S.shake + into * 0.03);
       }
     }
@@ -464,7 +569,7 @@ class Car {
       for(const k of this.broken){ if(PARTS[k].tyre){ fixed.push(k); continue; }
         extra += PARTS[k].fix; fixed.push(k); }
       this.repaired = fixed.map(k => PARTS[k].name);
-      this.broken.clear(); this.recalcPerf();
+      this.broken.clear(); this.recalcPerf(); this.wheelOff = this.wheelOff2 = -1;
       this.damage = Math.max(0, this.damage - 0.5);
       this.pitStopTime = 2.1 + Math.random() * 1.4 + (this.ai ? Math.random() * 0.6 : 0) + extra;
       this.pitT = this.pitStopTime; v = this.pitV = 0;

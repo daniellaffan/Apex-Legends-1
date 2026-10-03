@@ -726,3 +726,17 @@ drawn whole.
   - The camera code re-measures if it ever sees a zero size.
   - In a 1280 × 800 window the zoom is back to 14 when slow and 9.3 at 80 m/s
     (about 86 m top to bottom), as designed.
+
+## Crashes and cutscenes
+
+- `src/car/damage.js`: contact geometry (where on the car a hit landed), the dent
+  list on `car.dents`, and the `S.fx` queue physics uses to tell the 3D side what
+  happened. `physics.js` does the spins (wall brush, over the grip limit) and the
+  part loss; `Car.startSpin` is the one place a spin begins.
+- `src/render3d/crash.js`: crumples a car's body from its dents (own copy of the
+  geometry, cut finer, vertices pushed in and darkened) and runs the flying
+  debris. `cine.js`: the slow-motion crash camera, the DNF scene (driver climbs
+  out) and the podium scene. `person.js`: the jointed driver model.
+- Slow motion is `S.slow`; the session passes `update(dt * S.slow, dt)`.
+- These were checked in Node (physics scenarios, mesh and cutscene code with a
+  stubbed DOM) but not seen on screen: headless Chrome cannot run the 3D here.

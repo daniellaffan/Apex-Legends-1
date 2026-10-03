@@ -4,6 +4,9 @@ import { PARTS, TYRES } from '../car/parts.js';
 import { TRACKS } from '../tracks/index.js';
 import { buildTrack } from '../tracks/build.js';
 import { Car, LAUNCH_HI, LAUNCH_LO } from '../car/physics.js';
+import { contactTorque } from '../car/damage.js';
+import { CINE } from '../render3d/cine.js';
+import { G3 } from '../render3d/g3.js';
 import { driveAI, wearMulFor } from '../ai/driver.js';
 import { CAM_LOW, ISX, ISY, R, ZS } from '../render2d/view.js';
 import { renderWorld } from '../render2d/world.js';
@@ -24,6 +27,8 @@ let S = null, paused = false, lastT = 0, hudT = 0;
 
 let SESSION_N = 0;
 function startSession(mode, champ){
+  if(S && S.cine) CINE.end(G3, S);
+  $("#cine").hidden = true;
   const def = TRACKS.find(t => t.id === CFG.trackId) || TRACKS[0];
   const T = buildTrack(def);
   const laps = mode === "race" ? def.laps[CFG.lapsIdx] : mode === "qualy" ? 4 : 99;
@@ -243,7 +248,8 @@ function positions(){
   return arr;
 }
 
-function update(dt){
+function update(dt, rdt){
+  rdt = rdt || dt;
   S.clock += dt;
   // lights
   if(S.state === "lights"){
@@ -321,6 +327,11 @@ function update(dt){
     if(Math.abs(c.off) > S.track.half + 1.5 && spd > 14 && S.track.barrier !== "wall" && Math.random() < 0.7)
       spawn(c.x, c.y, c.z + 0.1, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5, 1.5, 0.6,
             S.track.pal.ground, 0.5, "smoke");
+    // a battered car trails smoke, and a dead engine pours it out
+    const hurt = Math.max(c.damage > 0.45 ? (c.damage - 0.4) * 1.4 : 0, c.broken.has("engine") ? 0.8 : 0, c.dnf ? 0.7 : 0);
+    if(hurt > 0 && !c.pitting && Math.random() < dt * (3 + hurt * 14))
+      spawn(c.x - Math.cos(c.h) * 0.7, c.y - Math.sin(c.h) * 0.7, c.z + 0.55, (Math.random() - 0.5) * 1.4, (Math.random() - 0.5) * 1.4,
+            1.6 + Math.random() * 1.8, 1.0 + hurt * 1.2, hurt > 0.7 ? "#3E4147" : "#8A8F96", 0.4 + hurt * 0.3, "smoke");
     if(c.dnf && !c.wrecked && Math.random() < dt * 3)
       spawn(c.x, c.y, c.z + 0.4, (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 1.5,
             1.2 + Math.random(), 1.6, "#6E757D", 0.5, "smoke");
@@ -343,14 +354,17 @@ function update(dt){
       if(rel < 0){
         const imp = -rel * 0.68;
         A.vx -= ux * imp; A.vy -= uy * imp; B.vx += ux * imp; B.vy += uy * imp;
-        // wheels touching throws the cars sideways and can spin them
-        if(imp > 5){
+        // wheels touching throws the cars sideways, and a tap on a rear corner spins the car in front
+        if(imp > 4){
+          const tA = contactTorque(A, ux, uy, imp), tB = contactTorque(B, -ux, -uy, imp);
+          A.spinV = (A.spinV || 0) + tA; B.spinV = (B.spinV || 0) + tB;
           const kick = clamp(imp * 0.10, 0.2, 2.6);
-          A.spinV = (A.spinV || 0) - kick * Math.sign(ds2 || 1);
-          B.spinV = (B.spinV || 0) + kick * Math.sign(ds2 || 1);
+          A.spinV -= kick * Math.sign(ds2 || 1) * 0.4; B.spinV += kick * Math.sign(ds2 || 1) * 0.4;
+          if(imp > 6 && Math.abs(tA) > 0.9 && A.spinT <= 0 && !A.wrecked) A.startSpin(S, clamp(A.spinV, -7, 7) || tA);
+          if(imp > 6 && Math.abs(tB) > 0.9 && B.spinT <= 0 && !B.wrecked) B.startSpin(S, clamp(B.spinV, -7, 7) || tB);
           if(imp > 11){
-            if(A.spinT <= 0 && !A.wrecked){ A.spinT = 0.7 + Math.random() * 0.8; }
-            if(B.spinT <= 0 && !B.wrecked){ B.spinT = 0.7 + Math.random() * 0.8; }
+            if(A.spinT <= 0 && !A.wrecked) A.startSpin(S, (tA || kick) * 1.2);
+            if(B.spinT <= 0 && !B.wrecked) B.startSpin(S, (tB || -kick) * 1.2);
           }
           const mx2 = (A.x + B.x) / 2, my2 = (A.y + B.y) / 2;
           for(let q = 0; q < Math.min(12, 3 + imp | 0); q++)
@@ -359,10 +373,8 @@ function update(dt){
                   q % 3 ? "#FFC46B" : "#C9CED4", 0.2, "spark");
           if(imp > 9){ A.scuff(S, imp * 0.7); }
         }
-        if(imp > 9){
-          const nose = Math.abs(ds2) < 2.2 ? "side" : (ds2 > 0 ? "front" : "rear");
-          const tail = Math.abs(ds2) < 2.2 ? "side" : (ds2 > 0 ? "rear" : "front");
-          A.hurt(imp * 0.75, nose, S); B.hurt(imp * 0.75, tail, S);
+        if(imp > 3){
+          A.hurt(imp * 0.75, "front", S, { dx:ux, dy:uy }); B.hurt(imp * 0.75, "rear", S, { dx:-ux, dy:-uy });
         }
         if(A === S.player || B === S.player) S.shake = Math.min(1, S.shake + imp * 0.04);
         
@@ -381,11 +393,14 @@ function update(dt){
   }
   S.shake = Math.max(0, S.shake - dt * 2.6);
   try{ AUDIO.frame(S, dt); }catch(e){}
-  // your own accident plays out before the classification comes up
+  // your own accident plays out, in slow motion from a cinematic camera, before the classification comes up
   if(S.crashCam > 0){
-    S.crashCam -= dt;
+    S.crashCam -= rdt; S.crashT = (S.crashT || 0) + rdt;
+    if(G3.ok && S.crashKind === "wreck" && !S.cine && S.crashT < 0.5){ CINE.begin(G3, S, "crash"); $("#hud").hidden = true; }
+    const want = S.crashKind === "wreck" ? (S.crashT < 4.6 ? 0.2 : 0.55) : 1;
+    S.slow = lerp(S.slow == null ? 1 : S.slow, want, 1 - Math.exp(-rdt * 7));
     const settled = !S.player.wrecked && S.player.speed < 1.2;
-    if(S.crashCam <= 0 || (settled && S.crashCam < 5.6)){ S.crashCam = 0; endSession(); }
+    if(S.crashCam <= 0 || (settled && S.crashT > 3.0)){ S.crashCam = 0; S.slow = 1; endSession(); }
   }
 
   // camera
@@ -467,18 +482,27 @@ function endSession(){
   }
   S.results = res;
   if(S.champ && S.mode === "race") applyChampionship(res);
-  const sess = S; setTimeout(() => { if(S === sess) showResults(res); }, 900);
-  showMsg(S.player.dnf ? "DNF" : S.mode === "qualy" ? "CHEQUERED FLAG" : "FINISH",
-    S.player.dnf ? (S.player.retiredBy || "Retired") : S.mode !== "race" ? "Session over" : S.player.pos === 1 ? "Race win" : `P${S.player.pos}`, 2.4);
-  $("#flag").classList.add("on"); setTimeout(() => $("#flag").classList.remove("on"), 1400);
+  const sess = S;
+  // a retirement and a win each get a cutscene; everything else goes straight to the results
+  const kind = (G3.ok && !G3.lost && S.mode === "race")
+    ? (S.player.dnf ? "dnf" : (res[0] && res[0].car === S.player && !res[0].dq && !res[0].dnf) ? "win" : null) : null;
+  if(kind){
+    setTimeout(() => { if(S === sess) CINE.begin(G3, S, kind, () => { if(S === sess) showResults(res); }); }, kind === "win" ? 1800 : 200);
+  } else setTimeout(() => { if(S === sess) showResults(res); }, 900);
+  if(kind !== "dnf"){
+    showMsg(S.player.dnf ? "DNF" : S.mode === "qualy" ? "CHEQUERED FLAG" : "FINISH",
+      S.player.dnf ? (S.player.retiredBy || "Retired") : S.mode !== "race" ? "Session over" : S.player.pos === 1 ? "Race win" : `P${S.player.pos}`, 2.4);
+    $("#flag").classList.add("on"); setTimeout(() => $("#flag").classList.remove("on"), 1400);
+  }
 }
 
 function loop(t){
   requestAnimationFrame(loop);
   const dt = Math.min(0.033, (t - lastT) / 1000 || 0.016); lastT = t;
   if(!S){ return; }
-  if(!paused && !S.menuOpen && S.state !== "done") update(dt);
+  if(!paused && !S.menuOpen && S.state !== "done") update(dt * (S.slow == null ? 1 : S.slow), dt);
   else if(!paused && S.state === "done") { S.clock += dt; stepParts(dt); }
+  if(S.cine && !paused) CINE.update(G3, S, dt);
   renderWorld(S);
   if(R.tv && S.tv){
     const ctx = R.ctx; ctx.save(); ctx.setTransform(R.dpr, 0, 0, R.dpr, 0, 0);

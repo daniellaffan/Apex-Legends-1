@@ -222,3 +222,15 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 #toast.on{opacity:1}
 .foot{color:var(--dimmer);font-size:11px;line-height:1.6;margin-top:26px;max-width:62ch}
 .foot b{color:var(--dim);font-weight:600}
+
+/* ---- cutscenes ---- */
+#cine{position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden}
+#cine[hidden]{display:none}
+.cine-bar{position:absolute;left:0;right:0;height:11vh;background:#000}
+.cine-bar.top{top:0}.cine-bar.bot{bottom:0}
+.cine-txt{position:absolute;left:6vw;bottom:15vh;opacity:0;transform:translateY(10px);transition:opacity .6s,transform .6s}
+.cine-txt.on{opacity:1;transform:none}
+#cine-cap{font:900 italic clamp(40px,7vw,96px)/0.95 'Saira Condensed',sans-serif;letter-spacing:.02em;text-transform:uppercase;color:#fff;text-shadow:0 3px 24px rgba(0,0,0,.6)}
+#cine-sub{margin-top:8px;font:600 clamp(14px,1.6vw,22px) 'Barlow',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#FFB020}
+#cine-skip{position:absolute;right:4vw;bottom:13vh;font:600 13px 'Barlow',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#fff;opacity:0;transition:opacity .4s}
+#cine-fade{position:absolute;inset:0;background:#000;opacity:0}
