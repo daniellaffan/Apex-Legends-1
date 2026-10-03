@@ -22,7 +22,14 @@ import './tracks/mexico.js';
 import './tracks/build.js';
 import { LAUNCH_HI, LAUNCH_LO } from './car/physics.js';
 import './ai/driver.js';
-import { AUDIO, CARVIEW, CFG, G3, R, S, bindTouch, buildSetup, champState, closePitMenu, endSession, loop, setPaused, setS, show, showStandings, startChampWeekend, startSession, togglePause } from './legacy-rest.js';
+import { R } from './render2d/view.js';
+import './render2d/sphere.js';
+import './render2d/textures.js';
+import './render2d/props.js';
+import './render2d/car.js';
+import './render2d/world.js';
+import './render2d/particles.js';
+import { AUDIO, CARVIEW, CFG, G3, S, bindTouch, buildSetup, champState, closePitMenu, endSession, loop, setPaused, setS, show, showStandings, startChampWeekend, startSession, togglePause } from './legacy-rest.js';
 
 /* ---------- 8. boot ------------------------------------------------------- */
 function boot(){
