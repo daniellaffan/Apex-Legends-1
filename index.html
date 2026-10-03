@@ -1,0 +1,215 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>Apex Rivals '26</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+
+<div id="app">
+  <canvas id="view"></canvas>
+
+  <!-- ============ HUD ============ -->
+  <div id="hud" hidden>
+    <div class="h-tl">
+      <div class="plate"><div class="k">Pos</div><div class="v" id="h-pos">1<small>/22</small></div></div>
+      <div class="plate"><div class="k">Lap</div><div class="v" id="h-lap">1<small>/5</small></div></div>
+    </div>
+    <div class="h-tc">
+      <div class="lap" id="h-time">--:--.---</div>
+      <div class="sec"><i id="s1"></i><i id="s2"></i><i id="s3"></i></div>
+      <div class="last" id="h-last">Best —</div>
+      <div class="cond" id="h-cond" hidden></div>
+    </div>
+    <div class="h-tr" id="h-board"></div>
+    <div class="h-bl">
+      <div class="tyre"><div class="cmp" id="h-cmp">S</div><div class="meter"><i id="h-wear" style="width:100%"></i></div></div>
+      <div class="dmgbox" id="h-dmg" hidden><div class="k">Car damage</div>
+        <div class="meter"><i id="h-dmgbar" style="width:0%"></i></div>
+        <div class="chips" id="h-chips"></div></div>
+      <div class="energy" id="h-energy"><div class="k"><span>Override</span><span id="h-ebat">100%</span></div><div class="meter"><i id="h-ebar" style="width:100%"></i></div></div>
+    </div>
+    <div class="h-br">
+      <canvas id="mini" width="150" height="150"></canvas>
+      <div class="speedo"><div class="v"><span class="gear" id="h-gear">N</span><span id="h-spd">0</span></div><div class="u">KM/H</div>
+        <div class="tach" id="h-tachbar"><b id="h-tachzone"></b><i id="h-tach"></i></div></div>
+    </div>
+    <div class="lights" id="lights" hidden><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="msg" id="msg" hidden><div class="big" id="msg-b"></div><div class="small" id="msg-s"></div></div>
+    <div class="flag" id="flag"></div>
+    <div class="limiter" id="h-lim" hidden>PIT LIMITER · 140</div>
+    <div class="radio" id="h-radio" hidden><b id="h-radio-who">RACE ENGINEER</b><span id="h-radio-txt"></span></div>
+    <div class="h-bc" id="h-status" hidden>
+      <svg viewBox="0 0 168 74" width="188" height="83" aria-label="Car condition">
+        <rect id="sv-floor" x="30" y="16" width="86" height="42" rx="5"/>
+        <rect id="sv-podL" x="46" y="9" width="40" height="11" rx="4"/>
+        <rect id="sv-podR" x="46" y="54" width="40" height="11" rx="4"/>
+        <rect id="sv-rear" x="4" y="14" width="11" height="46" rx="2"/>
+        <rect id="sv-gbox" x="16" y="29" width="15" height="16" rx="3"/>
+        <rect id="sv-eng" x="33" y="25" width="26" height="24" rx="4"/>
+        <ellipse id="sv-pod" cx="76" cy="37" rx="11" ry="8"/>
+        <polygon id="sv-nose" points="104,29 146,33 146,41 104,45"/>
+        <rect id="sv-wing" x="144" y="8" width="13" height="58" rx="2"/>
+        <rect class="sv-susp" x="36" y="3" width="22" height="3" rx="1.5"/>
+        <rect class="sv-susp" x="36" y="68" width="22" height="3" rx="1.5"/>
+        <rect class="sv-susp" x="106" y="3" width="22" height="3" rx="1.5"/>
+        <rect class="sv-susp" x="106" y="68" width="22" height="3" rx="1.5"/>
+        <rect class="sv-tyre" x="30" y="0" width="30" height="10" rx="3"/>
+        <rect class="sv-tyre" x="30" y="64" width="30" height="10" rx="3"/>
+        <rect class="sv-tyre" x="102" y="0" width="28" height="9" rx="3"/>
+        <rect class="sv-tyre" x="102" y="65" width="28" height="9" rx="3"/>
+        <rect class="sv-brake" x="40" y="3" width="10" height="4" rx="2"/>
+        <rect class="sv-brake" x="40" y="67" width="10" height="4" rx="2"/>
+        <rect class="sv-brake" x="110" y="2" width="9" height="4" rx="2"/>
+        <rect class="sv-brake" x="110" y="67" width="9" height="4" rx="2"/>
+      </svg>
+    </div>
+  </div>
+
+  <div id="touch" hidden>
+    <div class="tpad" id="t-l">◄</div><div class="tpad" id="t-r">►</div>
+    <div class="tpad" id="t-brk">BRK</div><div class="tpad" id="t-gas">GAS</div>
+    <div class="tpad" id="t-boost">OVR</div>
+  </div>
+  <div id="toast"></div>
+
+  <!-- ============ PIT MENU ============ -->
+  <div id="pitmenu" hidden>
+    <div class="pbox">
+      <h3>Pit stop</h3>
+      <p id="pit-sub">Choose your service — the crew are waiting</p>
+      <span class="eyebrow" style="display:block;margin-bottom:7px">Tyres</span>
+      <div class="seg" id="pit-tyres"></div>
+      <span class="eyebrow" style="display:block;margin:15px 0 7px">Repairs</span>
+      <div id="pit-repairs"></div>
+      <div class="pit-total"><span>Stationary time</span><b id="pit-time">2.4s</b></div>
+      <div class="actions">
+        <button class="btn primary" id="pit-go" style="flex:1">Box now</button>
+        <button class="btn ghost" id="pit-skip">Drive through</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PAUSE ============ -->
+  <div id="pause" hidden>
+    <div class="pbox">
+      <h3>Session paused</h3>
+      <p id="pause-sub">Marina Bay · Race · Lap 2 of 5</p>
+      <div class="keys">
+        <b>← →</b><span>Steer</span>
+        <b>↑ / W</b><span>Throttle</span>
+        <b>↓ / S</b><span>Brake &amp; reverse</span>
+        <b>Shift</b><span>Override boost (spends battery)</span>
+        <b>Space</b><span>Handbrake</span>
+        <b>P</b><span>Call for the pits — the lane is closed until you do</span>
+        <b>R</b><span>Recover car to track</span>
+        <b>T</b><span>Broadcast cameras on / off</span>
+        <b>M</b><span>Mute / unmute sound</span>
+        <b>Esc</b><span>Pause</span>
+        <b>Pit lane</b><span>Drive in off the main straight · limiter holds 140 km/h</span>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="pb-resume">Resume</button>
+        <button class="btn" id="pb-restart">Restart</button>
+        <button class="btn ghost" id="pb-quit">Quit to paddock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TITLE ============ -->
+  <section class="screen" id="screen-title">
+    <div class="wrap">
+      <div class="sub">FIA Formula One · New-generation regulations</div>
+      <h1 class="hero-mark">Apex<br>Rivals<span class="yr">'26</span></h1>
+      <p class="tag">Isometric wheel-to-wheel racing under the 2026 rules: lighter, narrower cars, active aero on the straights, and a manual override boost you have to earn back under braking. Twelve circuits, twenty-two cars, one championship.</p>
+      <div class="menu">
+        <button class="btn primary" data-go="quick">Quick race<small>Pick a grid slot and go</small></button>
+        <button class="btn" data-go="champ">Championship<small id="m-champ">12 rounds · qualifying + race</small></button>
+        <button class="btn" data-go="tt">Time trial<small>Empty track, chase the ghost</small></button>
+        <button class="btn ghost" data-go="standings">Standings &amp; records</button>
+      </div>
+      <div class="strip" id="title-strip"></div>
+      <p class="foot"><b>Circuits are stylised interpretations</b> — the corner sequences, elevation and colour palettes are built to read at an isometric angle rather than to survey-grade accuracy. Driver line-ups reflect the 2026 grid as announced; unconfirmed seats are filled with the most likely candidate.</p>
+    </div>
+  </section>
+
+  <!-- ============ SETUP ============ -->
+  <section class="screen" id="screen-setup" hidden>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="mark">Race <i>setup</i></div>
+        <div class="sub" id="setup-mode">Quick race</div>
+        <div style="flex:1"></div>
+        <button class="btn ghost" data-back>← Back</button>
+      </div>
+      <div class="cols">
+        <div>
+          <div class="field"><span class="eyebrow">Constructor</span><div class="grid-teams" id="teams"></div></div>
+          <div class="field"><span class="eyebrow">Driver</span><div class="drivers" id="drivers"></div></div>
+          <div class="field" id="field-track"><span class="eyebrow">Circuit</span><div class="tracklist" id="tracks"></div></div>
+        </div>
+        <div>
+          <div class="field"><span class="eyebrow">Race distance</span><div class="seg" id="opt-laps" data-opt="laps"></div></div>
+          <div class="field"><span class="eyebrow">Rival pace</span><div class="seg" id="opt-diff" data-opt="diff"></div></div>
+          <div class="field"><span class="eyebrow">Starting tyre</span><div class="seg" id="opt-tyre" data-opt="tyre"></div></div>
+          <div class="field"><span class="eyebrow">Conditions</span><div class="seg" id="opt-weather" data-opt="weather"></div></div>
+          <div class="field"><span class="eyebrow">Assists</span><div class="opts">
+            <div class="seg" id="opt-line" data-opt="line"></div>
+            <div class="seg" id="opt-damage" data-opt="damage"></div>
+          </div></div>
+          <div class="field"><span class="eyebrow">Picture</span><div class="opts">
+            <div class="seg" id="opt-fx" data-opt="fx"></div>
+            <div class="seg" id="opt-detail" data-opt="detail"></div>
+          </div></div>
+          <div class="field" id="field-grid"><span class="eyebrow">Grid slot</span><div class="seg" id="opt-grid" data-opt="grid"></div></div>
+          <div class="actions">
+            <button class="btn primary" id="go-race" style="flex:1">Head out</button>
+          </div>
+          <p class="foot">Races of ten laps or more carry the <b>two-compound rule</b>: you must run at least two different tyre compounds or you are classified last. The pit window opens on the main straight — press <b>P</b> as you approach.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <section class="screen" id="screen-results" hidden>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="mark" id="res-title">Race <i>result</i></div>
+        <div class="sub" id="res-sub"></div>
+        <div style="flex:1"></div>
+        <button class="btn ghost" data-back>← Paddock</button>
+      </div>
+      <div class="scroll"><table class="tbl" id="res-tbl"></table></div>
+      <div class="actions" id="res-actions"></div>
+    </div>
+  </section>
+
+  <!-- ============ STANDINGS ============ -->
+  <section class="screen" id="screen-standings" hidden>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="mark">Champion<i>ship</i></div>
+        <div class="sub" id="st-sub"></div>
+        <div style="flex:1"></div>
+        <button class="btn ghost" data-back>← Back</button>
+      </div>
+      <div class="cols">
+        <div><span class="eyebrow" style="display:block;margin-bottom:8px">Drivers</span>
+          <div class="scroll"><table class="tbl" id="st-drv"></table></div></div>
+        <div><span class="eyebrow" style="display:block;margin-bottom:8px">Constructors</span>
+          <div class="scroll"><table class="tbl" id="st-con"></table></div>
+          <span class="eyebrow" style="display:block;margin:22px 0 8px">Lap records</span>
+          <div class="scroll"><table class="tbl" id="st-rec"></table></div>
+        </div>
+      </div>
+      <div class="actions"><button class="btn ghost" id="st-reset">Reset championship</button></div>
+    </div>
+  </section>
+</div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
