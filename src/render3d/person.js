@@ -87,7 +87,7 @@ G3.person = function(o){
     const kn = P[n + "Kn"] = grp(hi, 0, -0.46, 0);
     kn.add(ball(0.063, suit, 0, 0, 0, 1, 1, 1, 0.72, 0));
     kn.add(cyl(0.062, 0.048, 0.45, suit, 0, -0.225, 0, 1, 1, 7));
-    const ft = grp(kn, 0, -0.44, 0);
+    const ft = P[n + "Ft"] = grp(kn, 0, -0.44, 0);
     ft.add(mk(0.26, 0.075, 0.115, dark, 0.06, -0.045, 0, 0.6));                              // the boot
     ft.add(mk(0.10, 0.06, 0.105, dark, -0.04, 0.0, 0, 0.6));                                 // the ankle
     ft.add(mk(0.27, 0.018, 0.12, "#E8E8EA", 0.06, -0.085, 0, 0.8));                          // the sole
@@ -103,6 +103,25 @@ G3.person = function(o){
     P.lEl.rotation.set(0, 0, p.le || 0); P.rEl.rotation.set(0, 0, p.re || 0);
     P.lHi.rotation.set(0, 0, p.lh || 0); P.rHi.rotation.set(0, 0, p.rh || 0);
     P.lKn.rotation.set(0, 0, -(p.lk || 0)); P.rKn.rotation.set(0, 0, -(p.rk || 0));
+    // a planted foot stays flat on the floor whatever the shin does (flat: 0 leaves it hanging from the shin, 1 levels it)
+    const fl = p.flat || 0;
+    P.lFt.rotation.set(0, 0, -fl * ((p.hz || 0) + (p.lh || 0) - (p.lk || 0))); P.rFt.rotation.set(0, 0, -fl * ((p.hz || 0) + (p.rh || 0) - (p.rk || 0)));
+  };
+  /* Two-bone IK in the person's own forward/up plane: the angles that put a hand (kind "arm") or an ankle ("leg") of
+     side n ("l" or "r") on a world point. The joint is wherever the pose already put the shoulder or hip, so apply the
+     body's pose and update the root's matrices first. Returns s (the shoulder or hip angle, relative to what it hangs
+     from, as the pose's ls/lh) and e (the elbow or knee bend, as le/lk). The elbow bends forward-up, the knee forward. */
+  P.ikAngles = (n, kind, world, pose) => {
+    const arm = kind === "arm", jt = arm ? P[n + "Sh"] : P[n + "Hi"];
+    const j = P.root.worldToLocal(jt.getWorldPosition(new THREE.Vector3())), t = P.root.worldToLocal(world.clone());
+    const l1 = arm ? 0.30 : 0.46, l2 = arm ? 0.325 : 0.44;
+    const phi = arm ? ((pose.hz || 0) - (pose.lean || 0)) : (pose.hz || 0);
+    const dx = t.x - j.x, dy = t.y - j.y;
+    const d = clamp(Math.hypot(dx, dy), Math.abs(l1 - l2) + 1e-3, l1 + l2 - 1e-3);
+    const thd = Math.atan2(dx, -dy);
+    const a1 = Math.acos(clamp((l1 * l1 + d * d - l2 * l2) / (2 * l1 * d), -1, 1));
+    const flex = Math.PI - Math.acos(clamp((l1 * l1 + l2 * l2 - d * d) / (2 * l1 * l2), -1, 1));
+    return { s:(arm ? thd - a1 : thd + a1) - phi, e:flex };
   };
   P.pose({});
   return P;

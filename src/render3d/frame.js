@@ -17,6 +17,7 @@ G3.frame = function(S){
 
   for(const e of this.cars){
     const c = e.c, g = e.g;
+    if(S.cine && S.cine.carFree && c === S.player) continue;           // the retirement cutscene poses this car itself (on the crane)
     /* The car model's nose is local +x, so pitch is a rotation about local z and
        roll about local x. Its wheels are 3.13 m apart, so the body sits on the
        straight line between the road under the rear axle and the road under the

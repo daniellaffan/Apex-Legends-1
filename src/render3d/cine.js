@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { $, TAU, clamp, lerp } from '../config/util.js';
 import { G3 } from './g3.js';
 import './person.js';
+import { TRUCK, planTruck } from './recovery.js';
 import { spawn } from '../render2d/particles.js';
 
 /* ---------- cinematics --------------------------------------------------------
@@ -169,58 +170,77 @@ const CINE = {
     return cam;
   },
 
-  /* ===== the driver climbs out ===== */
+  /* ===== the retirement: a crane lifts the wreck onto a recovery truck, and the driver climbs out up there =====
+     The truck is parked in the world (inside the barrier, clear of the car, see planTruck), the car is lifted level
+     and swung onto the bed, and everything the driver does after that happens in the CAR's own frame on a level bed
+     (nose +x, y up, z out of the right side, bed top at y 0): so there is no slope to float over, whichever way the
+     crash left the car. Hands and feet are placed by a two-bone IK (hands on the halo, feet on the sidepods and the bed). */
   dnfInit(G, S){
-    const c = S.cine, p = S.player, e = G.cars.find(x => x.c === p), g = e.g;
+    const c = S.cine, p = S.player, T = S.track, e = G.cars.find(x => x.c === p), g = e.g;
     g.updateMatrixWorld(true);
-    c.car = g; c.base = g.matrixWorld.clone();
-    c.q = new THREE.Quaternion(); g.getWorldQuaternion(c.q);
-    c.dur = 13.6;
-    /* Which side he climbs out of, and where he walks, are decided in the WORLD, not by the car's own axes: the car can
-       finish pointing anywhere. Both side-of-car standing spots are tested for room to the barrier; the one with more
-       room wins (capped at 6 m), and when both are roomy the one facing away from the track, so the car shields him. */
-    const T = S.track, node = p.node, sg = Math.sign(p.off || 1) || 1;
-    const outward = V(T.nx[node] * sg, 0, T.ny[node] * sg), tan = V(T.tx[node], 0, T.ty[node]);
-    const rightW = V(0, 0, 1).applyQuaternion(c.q); rightW.y = 0; rightW.normalize();
-    c.S0 = 0.84;                                    // the driver's scale: the cockpit helmet is 0.78 m up, and this puts his head there
+    c.car = g; c.carFree = true;                                       // frame.js stops posing this car
+    c.q0 = g.getWorldQuaternion(new THREE.Quaternion()); c.p0 = g.getWorldPosition(new THREE.Vector3());
+    c.restore = { pos:g.position.clone(), quat:g.quaternion.clone() };
+    c.S0 = 0.84;                                  // the driver's scale: this puts the seated helmet where the cockpit's own is
+    c.tD = 6.2; c.dur = c.tD + 13.8;
+    const nose = V(1, 0, 0).applyQuaternion(c.q0), yaw0 = Math.atan2(nose.z, nose.x), node = p.node;
+    // park the truck
+    // the wreck's footprint in its own heading, whatever its tilt (it may be on its side)
+    let fx0 = 1e9, fx1 = -1e9, fz0 = 1e9, fz1 = -1e9; const cy = Math.cos(yaw0), sy = Math.sin(yaw0);
+    for(const lx of [-2.7, 2.7]) for(const ly of [0, 1.1]) for(const lz of [-1.05, 1.05]){
+      const w = V(lx, ly, lz).applyQuaternion(c.q0), a = w.x * cy + w.z * sy, b = -w.x * sy + w.z * cy;
+      fx0 = Math.min(fx0, a); fx1 = Math.max(fx1, a); fz0 = Math.min(fz0, b); fz1 = Math.max(fz1, b);
+    }
+    const ccx = c.p0.x + cy * (fx0 + fx1) / 2 - sy * (fz0 + fz1) / 2, ccz = c.p0.z + sy * (fx0 + fx1) / 2 + cy * (fz0 + fz1) / 2;
+    const plan = planTruck({ x:c.p0.x, z:c.p0.z, yaw:yaw0, cx:ccx, cz:ccz, half:[(fx1 - fx0) / 2, (fz1 - fz0) / 2] }, Math.atan2(T.ty[node], T.tx[node]), (x, z) => this.dnfRoom(S, { x, z }).room);
+    const R = c.truck = G.recoveryTruck(); c.plan = plan;
+    const gz = (x, z) => { let h = NaN; try{ h = T.surfZ(x, z, node); }catch(err){} return h === h ? h : c.p0.y; };
+    const at = (lx, lz) => V(plan.x + Math.cos(plan.h) * lx - Math.sin(plan.h) * lz, 0, plan.z + Math.sin(plan.h) * lx + Math.cos(plan.h) * lz);
+    const hgt = (lx, lz) => { const v = at(lx, lz); return gz(v.x, v.z); };
+    const pf = at(5.1, 0), pr = at(-2.5, 0), pL = at(0, -1.35), pR = at(0, 1.35);
+    pf.y = (hgt(5.1, -1.35) + hgt(5.1, 1.35)) / 2; pr.y = (hgt(-2.5, -1.35) + hgt(-2.5, 1.35)) / 2; pL.y = hgt(0, -1.35); pR.y = hgt(0, 1.35);
+    const fwd = pf.clone().sub(pr).normalize(), rgt = pR.clone().sub(pL).normalize(), up = rgt.clone().cross(fwd).normalize();
+    const rgt2 = fwd.clone().cross(up).normalize(), fwd2 = up.clone().cross(rgt2).normalize();
+    const tm = new THREE.Matrix4().makeBasis(fwd2, up, rgt2);
+    R.root.quaternion.setFromRotationMatrix(tm);
+    R.root.position.set(plan.x, (pf.y + pr.y + pL.y + pR.y) / 4, plan.z);
+    G.world.add(R.root); G.world.add(R.rig); R.root.updateMatrixWorld(true);
+    c.tm = R.root.matrixWorld.clone();
+    // which side he climbs out of: the one with room, away from the track when both have it
+    const out = V(T.nx[node] * (Math.sign(p.off || 1) || 1), 0, T.ny[node] * (Math.sign(p.off || 1) || 1));
     let best = null;
     for(const sd of [1, -1]){
-      const sp = V(0.32, 0, sd * 1.55).applyMatrix4(c.base), r = this.dnfRoom(S, sp);
-      const score = Math.min(r.room, 6) + 0.8 * rightW.clone().multiplyScalar(sd).dot(outward);
-      if(!best || score > best.score) best = { sd, score };
+      const w = V(0, 0, sd * 4.8).applyMatrix4(c.tm), r = this.dnfRoom(S, w), dirW = V(0, 0, sd).transformDirection(c.tm);
+      const sc = Math.min(r.room, 6) + 0.8 * dirW.dot(out);
+      if(!best || sc > best.sc) best = { sd, sc };
     }
     c.side = best.sd;
-    // the walk-off: along the track, against the traffic if there is room, with a little outward drift
-    const sp0 = V(0.32, 0, c.side * 1.55).applyMatrix4(c.base);
-    // candidates: along the track either way (with a little outward drift), or straight away from the car's side.
-    // A path that would cross the car's own footprint is out.
-    const inv = c.base.clone().invert(), hitsCar = d => { for(let m = 0.5; m <= 9; m += 0.5){ const q = sp0.clone().addScaledVector(d, m).applyMatrix4(inv); if(q.x > -1.5 && q.x < 4.3 && Math.abs(q.z) < 1.3) return true; } return false; };
-    const away = rightW.clone().multiplyScalar(c.side);
-    const cands = [[-1, 0.9], [1, 0.9]].map(([dir, k]) => ({ d:tan.clone().multiplyScalar(dir * k).add(outward.clone().multiplyScalar(0.35)).normalize(), pref:dir < 0 ? 0.5 : 0 }))
-      .concat([{ d:away.clone(), pref:-0.5 }, { d:away.clone().multiplyScalar(0.8).addScaledVector(tan, 0.6).normalize(), pref:-0.3 }, { d:away.clone().multiplyScalar(0.8).addScaledVector(tan, -0.6).normalize(), pref:-0.3 }]);
-    let wd = away.clone(), wr = -1e9;
-    for(const cd of cands){
-      if(hitsCar(cd.d)) continue;
-      const r = this.dnfRoom(S, sp0.clone().addScaledVector(cd.d, 8)).room + cd.pref;
-      if(r > wr){ wr = r; wd = cd.d; }
-    }
-    c.walkDir = wd;
+    // the car's resting place on the bed: nose forward or back, whichever is the shorter swing
+    const trYaw = Math.atan2(fwd2.z, fwd2.x);
+    c.yawT = Math.cos(yaw0 - trYaw) >= 0 ? trYaw : trYaw + Math.PI;
+    c.pT = V(0, TRUCK.BED_Y + 0.02, 0).applyMatrix4(c.tm);
+    c.qT = c.tm.clone().multiply(new THREE.Matrix4().makeRotationY(c.yawT === trYaw ? 0 : Math.PI)); c.qT = new THREE.Quaternion().setFromRotationMatrix(c.qT);
+    c.qL0 = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -yaw0);          // the car's own heading, level
+    c.peak = Math.max(c.pT.y + 2.5, c.p0.y + 2.2);
+    c.hStow = V(-2.3, 5.0, 0).applyMatrix4(c.tm);                    // the hook's rest, above the back of the bed
     const t = p.team, d = p.drv;
     c.person = G.person({ suit:t.body, accent:t.accent, helmet:d.cam || "#F2C230", skin:G.skinFor(d.n), hair:G.hairFor(d.n) });
     c.person.root.scale.setScalar(c.S0);
     G.world.add(c.person.root);
-    // the helmet he will throw
-    c.helm = { pos:V(0, 0, 0), vel:V(0, 0, 0), thrown:false, held:true };
-    // everyone else leaves the shot
+    c.helm = { vel:V(0, 0, 0), thrown:false };
     c.hidden = [];
     for(const x of G.cars) if(x.c !== p){ c.hidden.push([x.g, x.g.visible]); x.g.visible = false; }
     if(g.userData.parts && g.userData.parts.drv) g.userData.parts.drv.visible = false;
-    c.walkX = 0;
+    c.carM = g.matrixWorld.clone();
+    c.sway = 0;
     SFX.cheer(0.01, 0.0001);
   },
   dnfCleanup(G, S){
     const c = S.cine; if(!c || !c.person) return;
     G.world.remove(c.person.root);
+    if(c.truck){ G.world.remove(c.truck.root); G.world.remove(c.truck.rig); }
+    if(c.car && c.restore){ c.car.position.copy(c.restore.pos); c.car.quaternion.copy(c.restore.quat); }
+    c.carFree = false;
     for(const [g, v] of c.hidden || []) g.visible = v;
     const p = c.car && c.car.userData.parts; if(p && p.drv) p.drv.visible = true;
     c.person = null;
@@ -230,125 +250,187 @@ const CINE = {
     const T = S.track, i = T.near(wp.x, wp.z, S.player.node), off = (wp.x - T.x[i]) * T.nx[i] + (wp.z - T.y[i]) * T.ny[i];
     return { room:T.half + T.roAt(i, off) + 2.6 - 1.0 - Math.abs(off), off, i };
   },
-  /* the whole performance, in car-local coordinates (x along the nose, z out of the right side) */
+
+  /* the car on its way: sits, swings out to the hook, is lifted level, swung over the bed and lowered. t in seconds. */
+  dnfCar(c, t){
+    const T0 = 1.3, T1 = 2.2, T2 = 3.5, T3 = 5.0, T4 = 6.0;
+    const pos = c.p0.clone(), q = c.q0.clone();
+    let k;
+    if(t > T1){ k = ease(seg(t, T1, T2)); pos.y = lerp(c.p0.y, c.peak, k); q.slerp(c.qL0, k); }
+    if(t > T2){
+      k = ease(seg(t, T2, T3)); pos.x = lerp(c.p0.x, c.pT.x, k); pos.z = lerp(c.p0.z, c.pT.z, k);
+      q.copy(c.qL0).slerp(c.qT, k);
+      if(t > T3){ k = ease(seg(t, T3, T4)); pos.y = lerp(c.peak, c.pT.y, k); }
+    }
+    // the pendulum: it swings as it is carried, and settles on the bed
+    const carried = ease(seg(t, T1, T1 + 0.6)) * (1 - ease(seg(t, T3, T4 + 0.3)));
+    const sway = Math.sin((t - T1) * 2.6) * 0.07 * carried;
+    q.multiply(new THREE.Quaternion().setFromAxisAngle(V(1, 0, 0), sway)).multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 0, 1), sway * 0.5));
+    if(t > T4){ const b = Math.exp(-(t - T4) * 7) * Math.sin((t - T4) * 22) * 0.025; pos.y += b; }
+    return { pos, q, hooked:t > T1 - 0.3 && t < T4 + 0.4, t0:T0, t1:T1, t2:T2, t3:T3, t4:T4 };
+  },
+  /* the driver's performance, in the car's frame (nose +x, bed top y 0, z out of the right side), seconds after the car lands.
+     Each key: hips (x, y, z), yaw (0 faces the nose; +PI/2 faces out of the right side), a pose of angles, and optional IK:
+     hands (weight + a target each) and feet. s is the side he climbs out of. */
   dnfKeys(s, S0){
+    const POD = 0.51, ANK = 0.094 * S0, K = (t, hx, hy, hz, yaw, pose, ik) => ({ t, hx, hy, hz, yaw, pose, ik:ik || {} });
     const seat = { lean:-0.45, nod:0.15, ls:1.15, rs:1.15, le:0.8, re:0.8, lh:1.45, rh:1.45, lk:0.4, rk:0.4 };
-    const K = (t, x, y, z, yaw, pose) => ({ t, x, y, z, yaw, pose });
-    const GY = 0.93 * S0 - 0.03;                     // hips this high: feet on the ground
+    const rails = { hw:1, hl:[0.40, 0.87, -0.25], hr:[0.40, 0.87, 0.25] };
+    const pods = (w) => ({ fw:w, fl:[-0.10, POD + ANK, -0.45], fr:[-0.10, POD + ANK, 0.45] });
+    // a point relative to someone standing at (hx, hz) facing yaw: forward, lateral (to his right), height
+    const rel = (hx, hz, yaw, f, l, u) => [hx + Math.cos(yaw) * f - Math.sin(yaw) * l, u, hz + Math.sin(yaw) * f + Math.cos(yaw) * l];
+    const stand = 0.82, HP = Math.PI / 2 * s;
+    const outFeet = (hx, hz, w, f) => ({ fw:w, fl:rel(hx, hz, HP, f, -0.12, ANK), fr:rel(hx, hz, HP, f, 0.12, ANK) });
+    const bedFeet = (hx, hz, yaw) => ({ fw:1, fl:rel(hx, hz, yaw, 0.04, -0.09, ANK), fr:rel(hx, hz, yaw, 0.04, 0.09, ANK) });
+    const sitX = -1.55, sitZ = s * 1.09;
     return [
-      K(0.0, 0.62, 0.06, 0, 0, seat),
-      K(1.0, 0.62, 0.06, 0, 0, { ...seat, nod:0.65, lean:-0.30, ls:1.0, rs:1.0, le:1.0, re:1.0 }),
-      K(1.8, 0.62, 0.06, 0, 0, { ...seat, nod:0.45, lean:-0.36, ls:1.45, rs:1.45, le:0.4, re:0.4 }),          // fist on the wheel
-      K(2.3, 0.62, 0.10, 0, 0, { ...seat, nod:0.4, lean:-0.25, ls:0.55, rs:0.55, le:0.5, re:0.5 }),
-      K(3.1, 0.52, 0.62, s * 0.02, s * 0.5, { lean:0.10, nod:0.3, ls:0.35, rs:0.35, lsa:0.3, rsa:0.3, le:0.15, re:0.15, lh:1.25, rh:1.25, lk:0.9, rk:0.9 }),
-      K(3.8, 0.45, 0.80, s * 0.40, s * 1.05, { lean:0.12, nod:0.3, ls:0.3, rs:0.3, lsa:0.35, rsa:0.35, le:0.1, re:0.1, lh:1.2, rh:0.75, lk:0.9, rk:0.5 }),
-      K(4.5, 0.32, GY + 0.06, s * 1.45, s * 0.4, { lean:0.28, nod:0.5, ls:0.1, rs:0.1, le:0.15, re:0.15, lh:0.15, rh:0.1, lk:0.15, rk:0.1 }),
-      K(5.2, 0.32, GY, s * 1.55, 0, { lean:0.30, nod:0.6, ls:0.05, rs:0.05, le:0.12, re:0.12 }),             // stands, head down
-      K(5.9, 0.32, GY, s * 1.55, 0, { lean:0.15, nod:0.15, ls:1.35, rs:1.35, le:2.1, re:2.1 }),               // hands to the helmet
-      K(6.5, 0.32, GY, s * 1.55, 0, { lean:0.22, nod:0.5, ls:0.4, rs:0.4, le:0.35, re:0.35, rs2:0 }),         // helmet off, in the hand
-      K(7.0, 0.32, GY, s * 1.55, 0, { lean:0.5, nod:0.3, ls:0.4, rs:-1.0, le:0.35, re:0.5 }),                 // wind up
-      K(7.3, 0.32, GY, s * 1.55, 0, { lean:-0.12, nod:0.0, ls:0.4, rs:1.6, le:0.35, re:0.2 }),                // throw
-      K(8.0, 0.32, GY, s * 1.55, -s * 1.45, { lean:0.18, nod:0.5, ls:1.5, rs:1.5, le:2.3, re:2.3 }),          // hands on head, looks at the car
-      K(9.0, 0.32, GY, s * 1.55, -s * 1.45, { lean:0.28, nod:0.65, ls:1.4, rs:1.4, le:2.4, re:2.4 }),
-      K(9.8, 0.32, GY, s * 1.55, -s * 0.4, { lean:0.30, nod:0.6, ls:0.1, rs:0.1, le:0.1, re:0.1 }),
+      K(0.0, 0.62, 0.06, 0, 0, { ...seat, lean:-0.30, nod:0.65, ls:1.0, rs:1.0, le:1.0, re:1.0 }),                       // slumped in the seat
+      K(0.8, 0.62, 0.06, 0, 0, { ...seat, lean:-0.40, nod:0.15 }),
+      K(1.5, 0.60, 0.10, 0, 0, { ...seat, lean:-0.28, nod:0.1, lh:1.3, rh:1.3, lk:0.7, rk:0.7 }, { ...rails, hw:1 }),     // reaches for the halo
+      K(2.2, 0.48, 0.32, 0, 0, { lean:0.10, nod:0.2, lh:1.25, rh:1.25, lk:1.4, rk:1.4 }, rails),                          // pulls himself up
+      K(2.8, 0.20, 0.68, 0, 0, { lean:0.50, nod:0.25, lh:1.1, rh:1.1, lk:1.5, rk:1.5 }, { ...rails, ...pods(0.6) }),      // feet come up onto the sidepods
+      K(3.3, -0.05, 0.93, 0, 0, { lean:0.82, nod:0.3 }, { ...rails, ...pods(1) }),                                        // crouched on the car, still holding on
+      K(3.8, -0.05, 1.25, 0, 0, { lean:0.35, nod:0.15, ls:0.4, rs:0.4, le:0.4, re:0.4 }, { ...rails, hw:0.45, ...pods(1) }),
+      K(4.3, -0.05, 1.33, 0, 0, { lean:0.08, nod:-0.12, ls:0.45, rs:0.45, le:0.25, re:0.25 }, { ...rails, hw:0, ...pods(1) }), // stands on the car
+      K(4.9, -0.05, 1.33, 0, 0, { lean:0.0, nod:-0.2, ls:0.3, rs:0.3, le:0.2, re:0.2 }, { ...rails, hw:0, ...pods(1) }),   // takes it in
+      K(5.2, -0.05, 1.12, 0, HP, { lean:0.32, nod:0.1, ls:-0.5, rs:-0.5, le:0.3, re:0.3 }, { ...rails, hw:0, ...pods(1) }),   // turns and bends his knees
+      K(5.5, -0.05, 1.30, s * 0.10, HP, { lean:0.35, nod:0.0, ls:1.1, rs:1.1, le:0.2, re:0.2, lh:1.0, rh:1.0, lk:1.1, rk:1.1 }, { ...pods(0) }),   // the leap
+      K(5.85, -0.05, 1.42, s * 0.85, HP, { lean:0.25, nod:0.0, ls:1.3, rs:1.3, le:0.3, re:0.3, lh:0.9, rh:0.9, lk:1.1, rk:1.1 }, {}),
+      K(6.25, -0.05, 0.62, s * 1.36, HP, { lean:0.55, nod:0.3, ls:-0.2, rs:-0.2, le:0.4, re:0.4 }, outFeet(-0.05, s * 1.36, 1, 0.04)),  // lands, knees bent
+      K(6.7, -0.05, stand, s * 1.38, HP, { lean:0.28, nod:0.45, ls:0.1, rs:0.1, le:0.15, re:0.15 }, outFeet(-0.05, s * 1.38, 1, 0.04)),
+      K(7.1, -0.05, stand, s * 1.38, HP, { lean:0.15, nod:0.15, ls:1.35, rs:1.35, le:2.1, re:2.1 }, outFeet(-0.05, s * 1.38, 1, 0.04)),    // hands to the helmet
+      K(7.55, -0.05, stand, s * 1.38, HP, { lean:0.22, nod:0.5, ls:0.4, rs:0.4, le:0.35, re:0.35 }, outFeet(-0.05, s * 1.38, 1, 0.04)),   // helmet off, in the hand
+      K(7.95, -0.05, stand, s * 1.38, HP, { lean:0.5, nod:0.3, ls:0.4, rs:-1.0, le:0.35, re:0.5 }, outFeet(-0.05, s * 1.38, 1, 0.04)),    // wind up
+      K(8.2, -0.05, stand, s * 1.38, HP, { lean:-0.12, nod:0.0, ls:0.4, rs:1.6, le:0.35, re:0.2 }, outFeet(-0.05, s * 1.38, 1, 0.04)),    // throw
+      K(8.9, -0.05, stand, s * 1.38, HP, { lean:0.18, nod:0.5, ls:1.5, rs:1.5, le:2.3, re:2.3 }, outFeet(-0.05, s * 1.38, 1, 0.04)),     // hands on head
+      K(9.5, -0.05, stand, s * 1.38, Math.PI, { lean:0.30, nod:0.6, ls:0.1, rs:0.1, le:0.1, re:0.1 }, outFeet(-0.05, s * 1.38, 1, 0.04)),   // turns on the spot to walk down the bed
+      K(9.75, -0.05, stand, s * 1.38, Math.PI, { lean:0.30, nod:0.6, ls:0.1, rs:0.1, le:0.1, re:0.1 }, {}),
+      K(10.7, sitX + 0.05, stand, s * 1.2, Math.PI, { lean:0.30, nod:0.6, ls:0.1, rs:0.1, le:0.1, re:0.1 }, {}),
+      K(11.2, sitX, stand, sitZ, HP, { lean:0.22, nod:0.5, ls:0.1, rs:0.1, le:0.1, re:0.1 }, outFeet(sitX, sitZ, 1, 0.04)),                // back to the tyre
+      K(11.8, sitX, 0.52, sitZ, HP, { lean:0.05, nod:0.45, ls:0.5, rs:0.5, le:0.9, re:0.9 }, outFeet(sitX, sitZ, 1, 0.30)),               // sits down
+      K(12.5, sitX, 0.13, sitZ, HP, { lean:-0.30, nod:0.5, ls:0.35, rs:0.35, le:1.1, re:1.1 }, { ...outFeet(sitX, sitZ, 1, 0.40), hw:1, hl:rel(sitX, sitZ, HP, 0.36, -0.14, 0.36), hr:rel(sitX, sitZ, HP, 0.36, 0.14, 0.36) }),
+      K(13.8, sitX, 0.13, sitZ, HP, { lean:-0.34, nod:0.62, ls:0.35, rs:0.35, le:1.1, re:1.1 }, { ...outFeet(sitX, sitZ, 1, 0.40), hw:1, hl:rel(sitX, sitZ, HP, 0.36, -0.14, 0.36), hr:rel(sitX, sitZ, HP, 0.36, 0.14, 0.36) }),
     ];
   },
   dnfSample(keys, t){
     let a = keys[0], b = keys[0];
     for(let i = 0; i < keys.length; i++){ if(keys[i].t <= t) a = keys[i]; if(keys[i].t >= t){ b = keys[i]; break; } b = keys[i]; }
     const k = a === b ? 0 : ease((t - a.t) / (b.t - a.t));
-    return { x:lerp(a.x, b.x, k), y:lerp(a.y, b.y, k), z:lerp(a.z, b.z, k), yaw:lerp(a.yaw, b.yaw, k), pose:G3.lerpPose(a.pose, b.pose, k) };
+    const L3 = (u, v) => (u && v) ? [lerp(u[0], v[0], k), lerp(u[1], v[1], k), lerp(u[2], v[2], k)] : (v || u || null);
+    const ia = a.ik, ib = b.ik;
+    return { hx:lerp(a.hx, b.hx, k), hy:lerp(a.hy, b.hy, k), hz:lerp(a.hz, b.hz, k), yaw:lerp(a.yaw, b.yaw, k), pose:G3.lerpPose(a.pose, b.pose, k),
+      hw:lerp(ia.hw || 0, ib.hw || 0, k), hl:L3(ia.hl, ib.hl), hr:L3(ia.hr, ib.hr),
+      fw:lerp(ia.fw || 0, ib.fw || 0, k), fl:L3(ia.fl, ib.fl), fr:L3(ia.fr, ib.fr) };
   },
   dnfTick(G, S, dt){
     const c = S.cine;
     if(!c.person) this.dnfInit(G, S);
-    const P = c.person, t = c.t, s = c.side, p = S.player;
-    const keys = c.keys || (c.keys = this.dnfKeys(s, c.S0));
-    const sm = this.dnfSample(keys, Math.min(t, 9.8));
-    let { x, y, z, yaw } = sm; let pose = sm.pose;
-    // after the throw he walks off along the track edge (in the world, not along the car), head down
-    const walking = t > 9.8;
-    if(walking){
-      const w = t - 9.8; c.walkX = Math.min(w * 1.15, 12);
-      const ph = w * 5.4, sw = Math.sin(ph);
-      pose = { lean:0.30, nod:0.6, ls:-sw * 0.3, rs:sw * 0.3, le:0.15, re:0.15, lh:sw * 0.5, rh:-sw * 0.5, lk:Math.max(0, -sw) * 0.7, rk:Math.max(0, sw) * 0.7 };
-      y += Math.abs(sw) * 0.02 * c.S0;
-      x = 0.32; z = s * 1.55;                               // the standing spot; the walk is added in the world below
+    const P = c.person, t = c.t, s = c.side, p = S.player, S0 = c.S0, tau = Math.max(0, t - c.tD);
+    // 1. the car, and the crane that is carrying it
+    const cp = this.dnfCar(c, Math.min(t, c.tD)), g = c.car;
+    g.position.copy(cp.pos); g.quaternion.copy(cp.q); g.updateMatrixWorld(true); c.carM = g.matrixWorld.clone();
+    const lugs = [[1.1, 0.5, -0.5], [1.1, 0.5, 0.5], [-1.0, 0.6, -0.45], [-1.0, 0.6, 0.45]].map(a => V(...a).applyMatrix4(c.carM));
+    let hook;
+    if(t < cp.t1 - 0.3){                       // out from over the bed to a point above the wreck
+      const k = ease(seg(t, 0.0, cp.t0)); hook = c.hStow.clone().lerp(V(c.p0.x, c.p0.y + 1.95, c.p0.z), k);
+    } else if(t < c.tD - 0.4){                 // carried: straight above the car
+      hook = V(cp.pos.x, cp.pos.y + 1.95, cp.pos.z);
+    } else {                                   // let go, and up and out of the way
+      const k = ease(seg(t, c.tD - 0.4, c.tD + 1.0)); hook = V(cp.pos.x, cp.pos.y + 1.95, cp.pos.z).lerp(c.hStow, k);
     }
-    P.pose(pose);
-    // the helmet: on, in the hand, then in the air
+    c.truck.slingOn = t < c.tD - 0.1;
+    c.truck.aim(hook, lugs); c.truck.blink(t);
+    // 2. the driver, in the car's frame
+    const keys = c.keys || (c.keys = this.dnfKeys(s, S0));
+    const sm = this.dnfSample(keys, tau);
+    let { hx, hy, hz, yaw } = sm; let pose = { ...sm.pose };
+    // the walk down the bed (the legs are swung by hand there)
+    if(tau > 9.75 && tau < 10.8){
+      const w = tau - 9.75, ph = w * 5.6, sw = Math.sin(ph);
+      pose = { lean:0.30, nod:0.6, ls:-sw * 0.3, rs:sw * 0.3, le:0.15, re:0.15, lh:sw * 0.5, rh:-sw * 0.5, lk:Math.max(0, -sw) * 0.7, rk:Math.max(0, sw) * 0.7 };
+      hy += Math.abs(sw) * 0.02 * S0;
+    }
+    // place him: hips at (hx, hy, hz) in the car's frame, turned by yaw
+    const lp = V(hx, hy - 0.93 * S0, hz).applyMatrix4(c.carM);
+    P.root.position.copy(lp);
+    P.root.quaternion.copy(g.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -yaw));
+    P.root.updateMatrixWorld(true);
+    // hands and feet by IK, blended with the hand-made pose by their weights
+    P.pose(pose); P.root.updateMatrixWorld(true);
+    const out = { ...pose, flat:sm.fw };
+    const limb = (n, kind, w, tgt) => {
+      if(!(w > 0.001) || !tgt) return;
+      const wp = V(tgt[0], tgt[1], tgt[2]).applyMatrix4(c.carM), r = P.ikAngles(n, kind, wp, pose);
+      if(kind === "arm"){ out[n + "s"] = lerp(pose[n + "s"] || 0, r.s, w); out[n + "e"] = lerp(pose[n + "e"] || 0, r.e, w); }
+      else { out[n + "h"] = lerp(pose[n + "h"] || 0, r.s, w); out[n + "k"] = lerp(pose[n + "k"] || 0, r.e, w); }
+    };
+    limb("l", "arm", sm.hw, sm.hl); limb("r", "arm", sm.hw, sm.hr);
+    limb("l", "leg", sm.fw, sm.fl); limb("r", "leg", sm.fw, sm.fr);
+    P.pose(out); P.root.updateMatrixWorld(true);
+    // 3. the helmet: on, in the hand, then thrown out over the side of the truck
     const H = P.helm;
-    if(t < 5.95){ P.setHelmet(true); }
+    if(tau < 7.45){ P.setHelmet(true); }
     else if(!c.helm.thrown){
       if(H.parent !== P.rHand){ P.rHand.add(H); H.position.set(0.04, -0.14, 0); H.rotation.set(0, 0, 0); H.scale.setScalar(1.0); P.bare.visible = true; H.visible = true; }
-      if(t > 7.2){
+      if(tau > 8.12){
         c.helm.thrown = true;
         H.updateMatrixWorld(true);
         const wp = V(0, 0, 0); H.getWorldPosition(wp); G.world.add(H);
-        H.position.copy(wp); H.quaternion.identity(); H.scale.setScalar(c.S0);
-        // away from the car, along the ground, hard
-        const out = V(0.6, 0, s).normalize().applyQuaternion(c.q);
-        c.helm.vel.set(out.x * 5.5, 3.5, out.z * 5.5); c.helm.spin = V(7, 3, 9);
+        H.position.copy(wp); H.quaternion.identity(); H.scale.setScalar(S0);
+        const o = V(0, 0.0, s).transformDirection(c.carM);
+        c.helm.vel.set(o.x * 5.2, 3.4, o.z * 5.2); c.helm.spin = V(7, 3, 9);
         SFX.hit();
       }
     }
     if(c.helm.thrown){
       const hv = c.helm.vel, hp = H.position;
       hv.y -= 21 * dt; hp.addScaledVector(hv, dt); H.rotation.x += c.helm.spin.x * dt; H.rotation.z += c.helm.spin.z * dt;
-      let floorY = c.base.elements[13] + 0.1;
+      // the floor: the bed while it is over it, the ground once it is past
+      let floorY = c.pT.y - 0.02 + 0.12;
       try{ const z0 = S.track.surfZ(hp.x, hp.z, p.node); if(z0 === z0) floorY = z0 + 0.15; }catch(e){}
+      const lh = hp.clone().applyMatrix4(c.tm.clone().invert());
+      if(Math.abs(lh.x) < TRUCK.BED_X && Math.abs(lh.z) < TRUCK.BED_Z) floorY = V(lh.x, TRUCK.BED_Y, lh.z).applyMatrix4(c.tm).y + 0.12;
       if(hp.y < floorY){ hp.y = floorY; if(hv.y < -1.5){ hv.y = -hv.y * 0.45; hv.x *= 0.7; hv.z *= 0.7; c.helm.spin.multiplyScalar(0.55); SFX.hit(); } else hv.y = 0; hv.x *= 0.96; hv.z *= 0.96; }
     }
-    // into the world
-    const lp = V(x, y - 0.93 * c.S0, z).applyMatrix4(c.base);
-    const qy = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -yaw), qCar = c.q.clone().multiply(qy);
-    if(walking){
-      const wd = c.walkDir;
-      lp.addScaledVector(wd, c.walkX);
-      // never past the barrier: lose any excess along the track's normal
-      const r = this.dnfRoom(S, lp);
-      if(r.room < 0){ const T = S.track, sgn = Math.sign(r.off) || 1; lp.x += T.nx[r.i] * sgn * r.room; lp.z += T.ny[r.i] * sgn * r.room; }
-      // stay on the ground he is walking on
-      try{ const z0 = S.track.surfZ(lp.x, lp.z, p.node); if(z0 === z0 && Math.abs(z0 - c.base.elements[13]) < 2.5) lp.y = z0 - 0.03; }catch(e){}
-      // turn from how he stood to the way he is walking
-      c.walkQ = c.walkQ || (() => { const a = Math.atan2(wd.z, wd.x); return new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -a); })();
-      if(!c.standQ){ const q0 = c.q.clone().multiply(new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -(-s * 0.4))); c.standQ = q0; }
-      qCar.copy(c.standQ).slerp(c.walkQ, ease(seg(t, 9.8, 10.8)));
-    }
-    P.root.position.copy(lp);
-    P.root.quaternion.copy(qCar);
-    // the car smoulders
+    // 4. the wreck smoulders
     if(Math.random() < dt * 24){
-      const sp = V(-0.1, 0.5, 0).applyMatrix4(c.base);
+      const sp = V(-0.1, 0.5, 0).applyMatrix4(c.carM);
       spawn(sp.x, sp.z, sp.y, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.2, 1.5 + Math.random() * 1.2, 2.6, "#4A4E54", 0.55, "smoke");
     }
-    // captions
-    if(t > 0.8 && t < 4.8) this.caption("RETIRED", `${p.drv.last} · ${p.retiredBy || "Retired"}`);
-    else if(t >= 4.8 && t < 9.4) this.caption("", "");
-    else if(t >= 9.4) this.caption("DNF", `${S.track.name} · Lap ${Math.max(1, p.lap)}`);
+    // 5. captions
+    if(t > 0.8 && t < 5.2) this.caption("RETIRED", `${p.drv.last} · ${p.retiredBy || "Retired"}`);
+    else if(t >= 5.2 && t < c.dur - 4.6) this.caption("", "");
+    else if(t >= c.dur - 4.6) this.caption("DNF", `${S.track.name} · Lap ${Math.max(1, p.lap)}`);
   },
   dnfCam(G, S){
     const c = S.cine, cam = G.camTV, t = c.t, s = c.side;
-    if(!c.person) return cam;
-    const L = (x, y, z) => V(x, y, z).applyMatrix4(c.base);
+    if(!c.person || !c.tm) return cam;
+    const tau = t - c.tD, TL = (x, y, z) => V(x, y, z).applyMatrix4(c.tm), CL = (x, y, z) => V(x, y, z).applyMatrix4(c.carM);
     const hp = V(0, 0, 0); c.person.head.getWorldPosition(hp);
+    const carC = V(0, 0.6, 0).applyMatrix4(c.carM);
     const sh = this.shake(t, 0.012);
     let pos, look, fov = 34;
-    if(t < 1.9){
-      const k = t / 1.9;
-      pos = L(lerp(8.5, 5.6, k), lerp(0.9, 1.3, k), s * lerp(9.5, 6.6, k)); look = L(0.45, 0.7, 0); fov = 34 - k * 4;
-    } else if(t < 5.0){
-      const k = (t - 1.9) / 3.1, a = lerp(0.35, 1.05, ease(k));
-      pos = L(0.4 + Math.sin(a) * 4.6, lerp(1.3, 1.6, k), s * Math.cos(a) * 4.6); look = lerp3(L(0.4, 0.8, 0), hp, 0.55); fov = 32;
-    } else if(t < 7.8){
-      const k = (t - 5.0) / 2.8;
-      pos = L(3.9 - k * 0.5, 1.45, s * (2.1 + k * 0.4)); look = hp.clone().add(V(0, -0.1, 0)); fov = 27 - k * 3;
-    } else if(t < 9.8){
-      const k = (t - 7.8) / 2.0;
-      pos = L(-3.4 - k * 0.8, 1.2, s * (3.4 + k * 0.6)); look = lerp3(hp, L(0.3, 0.9, 0), 0.4); fov = 34;
-    } else {
-      const k = (t - 9.8) / 3.8;
-      pos = L(-5.6 - k * 2.4, 2.2 + k * 3.2, s * (4.2 + k * 1.5)); look = lerp3(hp, L(0.3, 0.8, 0), 0.25); fov = 38;
+    if(t < 2.2){                                           // the whole scene: truck, crane and wreck
+      const k = t / 2.2;
+      pos = TL(lerp(9.5, 8.0, k), lerp(3.6, 3.2, k), s * lerp(10.5, 9.0, k)); look = lerp3(TL(-1.5, 1.4, 0), carC, 0.5); fov = 40;
+    } else if(t < c.tD){                                   // round it as it is lifted, swung and lowered
+      const k = (t - 2.2) / (c.tD - 2.2), a = lerp(0.35, 1.25, ease(k));
+      pos = TL(Math.cos(a) * 10.5 - 1.5, lerp(3.4, 2.6, k), s * Math.sin(a) * 10.5); look = carC.clone().add(V(0, 0.4, 0)); fov = lerp(36, 32, k);
+    } else if(tau < 2.9){                                  // in the cockpit
+      const k = tau / 2.9;
+      pos = CL(lerp(3.0, 2.2, k), lerp(1.5, 1.6, k), s * lerp(3.0, 2.4, k)); look = lerp3(hp, CL(0.3, 0.8, 0), 0.25); fov = lerp(30, 26, k);
+    } else if(tau < 5.0){                                  // climbing, standing on the car
+      const k = (tau - 2.9) / 2.1;
+      pos = CL(lerp(1.6, 0.8, k), lerp(1.2, 1.9, k), s * lerp(4.2, 5.0, k)); look = hp.clone().add(V(0, -0.15 - k * 0.2, 0)); fov = 30;
+    } else if(tau < 6.7){                                  // the hop down
+      const k = (tau - 5.0) / 1.7;
+      pos = CL(lerp(-0.6, 0.6, k), lerp(1.8, 1.3, k), s * lerp(5.4, 5.6, k)); look = lerp3(hp, CL(-0.05, 0.9, s * 1.0), 0.35); fov = 32;
+    } else if(tau < 9.3){                                  // the helmet, and the throw
+      const k = (tau - 6.7) / 2.6;
+      pos = CL(lerp(2.6, 3.2, k), lerp(1.5, 1.7, k), s * lerp(3.4, 3.8, k)); look = hp.clone().add(V(0, -0.1, 0)); fov = lerp(27, 30, k);
+    } else {                                               // the long walk and the sit: pulling back to show the truck
+      const k = (tau - 9.3) / (c.dur - c.tD - 9.3);
+      pos = lerp3(CL(-1.0, 1.5, s * 3.6), TL(-7.5, 3.8, s * 8.5), ease(k)); look = lerp3(hp, CL(-1.2, 0.6, s * 1.0), 0.45 + 0.3 * k); fov = lerp(32, 40, k);
     }
     pos.add(sh);
     try{ const z0 = S.track.surfZ(pos.x, pos.z, S.player.node); if(z0 === z0) pos.y = Math.max(pos.y, z0 + 0.35); }catch(e){}
