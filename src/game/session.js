@@ -360,9 +360,9 @@ function update(dt, rdt){
           A.spinV = (A.spinV || 0) + tA; B.spinV = (B.spinV || 0) + tB;
           const kick = clamp(imp * 0.10, 0.2, 2.6);
           A.spinV -= kick * Math.sign(ds2 || 1) * 0.4; B.spinV += kick * Math.sign(ds2 || 1) * 0.4;
-          if(imp > 6 && Math.abs(tA) > 0.9 && A.spinT <= 0 && !A.wrecked) A.startSpin(S, clamp(A.spinV, -7, 7) || tA);
-          if(imp > 6 && Math.abs(tB) > 0.9 && B.spinT <= 0 && !B.wrecked) B.startSpin(S, clamp(B.spinV, -7, 7) || tB);
-          if(imp > 11){
+          if(imp > 9 && Math.abs(tA) > 1.5 && A.spinT <= 0 && !A.wrecked) A.startSpin(S, clamp(A.spinV, -7, 7) || tA);
+          if(imp > 9 && Math.abs(tB) > 1.5 && B.spinT <= 0 && !B.wrecked) B.startSpin(S, clamp(B.spinV, -7, 7) || tB);
+          if(imp > 15){
             if(A.spinT <= 0 && !A.wrecked) A.startSpin(S, (tA || kick) * 1.2);
             if(B.spinT <= 0 && !B.wrecked) B.startSpin(S, (tB || -kick) * 1.2);
           }

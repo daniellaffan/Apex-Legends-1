@@ -352,12 +352,12 @@ class Car {
       const latDem = Math.abs(yaw * vf) / Math.max(g, 1);
       const brkDem = this.brk * BRAKE * this.perf.brake * surf * wetK * (vf > 0.4 ? 1 : 0) / Math.max(g, 1);
       const use = Math.hypot(latDem, brkDem + this.thr * 0.12 * (spdNow < 30 ? 1.8 : 0.4));
-      let over = use > 1.12 ? (use - 1.05) * 5 : 0;
-      if(surf < 0.7 && spdNow > 42 && Math.abs(this.steer) > 0.45) over += (1 - surf) * 3.2 * Math.abs(this.steer);
-      if(Math.abs(vs) > 8 && Math.abs(vf) > 20) over += Math.abs(vs) / 14;       // already well sideways
-      if(this.hand > 0.5 && spdNow > 30 && Math.abs(this.steer) > 0.3) over += 2.2;
+      let over = use > 1.28 ? (use - 1.15) * 5 : 0;
+      if(surf < 0.7 && spdNow > 50 && Math.abs(this.steer) > 0.6) over += (1 - surf) * 2.0 * Math.abs(this.steer);
+      if(Math.abs(vs) > 11 && Math.abs(vf) > 20) over += Math.abs(vs) / 16;       // already well sideways
+      if(this.hand > 0.5 && spdNow > 30 && Math.abs(this.steer) > 0.5) over += 1.2;
       if(over > 0) this.lossT += over * dt; else this.lossT = Math.max(0, this.lossT - dt * 2.2);
-      if(this.lossT > 0.45 && spdNow > 20){
+      if(this.lossT > 0.8 && spdNow > 20){
         this.lossT = 0;
         const dir = Math.abs(yaw) > 0.05 ? Math.sign(yaw) : (vs !== 0 ? -Math.sign(vs) : (Math.random() < 0.5 ? -1 : 1));
         this.startSpin(S, dir * (3.2 + Math.min(spdNow, 80) * 0.035 + Math.random() * 1.2));
@@ -442,7 +442,7 @@ class Car {
         // the contact is on the corner that touched: a front corner pushes the nose off
         // the wall, a rear one swings the nose into it. Either way, at speed, it spins.
         const lf = hitL.lf, lr = hitL.lr, spd0 = Math.hypot(this.vx, this.vy) + into;
-        if(into > 1.2 && spd0 > 25 && this.spinT <= 0 && !this.wrecked){
+        if(into > 3.5 && spd0 > 30 && this.spinT <= 0 && !this.wrecked){
           const side = Math.abs(lf) < 0.15 ? 1 : (lf > 0 ? -1 : 1);
           const dirS = side * (Math.sign(lr) || 1);
           this.startSpin(S, dirS * clamp(2.4 + into * 0.18 + spd0 * 0.03, 2.6, 7));
