@@ -1007,3 +1007,6 @@ Existing world kept. Seam to fix.
 - OK to add `ELEV_VISUAL = 1.25`, or do you want 1.0?
 - OK on the track order and the personality sheets, or edits?
 - Zandvoort and Interlagos elevation: I could not confirm those two from a clean source, accept estimates flagged as estimates?
+
+## Track atmosphere hook
+`def.atmo = { near, k, tint }` (src/render3d/build.js) sets per-track haze: near = fog start offset, k = visible-distance scale, tint = fog and sky colour. First user: Spa (mist, denser conifer). Spa visuals are a first pass only (no landmark kit or adverts yet); not seen in a browser.

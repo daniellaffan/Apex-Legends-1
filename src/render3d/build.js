@@ -196,6 +196,13 @@ G3.build = function(S){
   const baseDrop = surveyed ? 0 : 0.37;
   G3.fadeU.value = 1; G3.fadeEdgeU.value = 1;
   this.fogNear = null; this.fogSpanK = null;
+  // per-track haze as data: atmo:{ near, k, tint } (k scales the visible distance, tint is a fog colour)
+  const atmo = T.def.atmo;
+  if(atmo){
+    if(atmo.near != null) this.fogNear = atmo.near;
+    if(atmo.k != null) this.fogSpanK = atmo.k;
+    if(atmo.tint && this.scene.fog){ this.scene.fog.color.copy(this.col(atmo.tint)); this.scene.background = this.col(atmo.tint); }
+  }
   /* the ground the circuit sits on — a surveyed circuit brings its own */
   if(!ownGround){
   const bb = T.bounds, pad = (T.def.streets ? 3400 : 520), GX = 150;

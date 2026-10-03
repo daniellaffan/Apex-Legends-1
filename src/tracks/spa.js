@@ -7,6 +7,8 @@ const spa =
           wall:"#AEB5BB", line:"#EFEFEF", accent:"#2E5A2A", water:"#3F6478" },
     pit:{ side:1 },
     barrier:"armco", runoff:18,
+    // Ardennes mist: the forest fades out early, in a cool grey-green
+    atmo:{ near:40, k:0.55, tint:"#B7C2C4" },
     // Spa: a public road through the Ardennes — conifer on every side, meadow
     // wherever the valley opens out
     land:[ {t:"blob", n:96, near:18, far:125, size:[9,26], col:"#2C4A2A"},
@@ -30,8 +32,10 @@ const spa =
             {t:"lm", k:"chalet", n:8, a:0.65, b:0.73, side:"out", off:110, h:[12,12], col:"#6E6258"},
             {t:"lm", k:"chalet", n:4, a:0.35, b:0.39, side:"out", off:90, h:[12,12], col:"#6E6258"},
             {t:"lm", k:"chalet", n:3, a:0.02, b:0.05, side:"in", off:120, h:[12,12], col:"#7A6A5C"},
-            {t:"tree", n:180, a:0, b:1, side:1, off:48, h:[14,26], col:"#2C4A2A"},
-            {t:"tree", n:140, a:0, b:1, side:-1, off:52, h:[14,24], col:"#264725"},
+            {t:"tree", n:260, a:0, b:1, side:1, off:42, h:[14,28], col:"#2C4A2A"},
+            {t:"tree", n:220, a:0, b:1, side:-1, off:44, h:[14,26], col:"#264725"},
+            {t:"tree", n:120, a:0.08, b:0.2, side:"out", off:30, h:[16,28], col:"#22401F"},
+            {t:"tree", n:120, a:0.48, b:0.9, side:"in", off:60, h:[14,24], col:"#2A4728"},
             {t:"arch", n:2, a:0.22, b:0.6, side:0, off:0, h:[10,10], col:"#D8352A"},
             {t:"billboard", n:12, a:0, b:1, side:-1, off:28, h:[12,16], col:"#2E5A2A"},
             {t:"marshal", n:14, a:0, b:1, side:1, off:26, h:[3,3], col:"#D8DCE0"} ] };
