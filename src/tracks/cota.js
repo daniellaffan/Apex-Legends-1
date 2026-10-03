@@ -17,7 +17,9 @@ const cota =
            {t:"blob", n:30, near:48, far:280, size:[16,44], col:"#BDB08A"},
            {t:"parcel", n:32, near:22, far:135, size:[15,42], col:"#9A9288", angle:0.6, jitter:0.07} ],
     layout:"S300 L104/23 S121 R45/102 L50/62 R44/55 L46/47 R47/62 S120 L38/41 R75/50 L30/90 S197 L45/55 S273 L106/22 S874 L100/20 S98 R95/35 L29/65 R94/36 S101 L27/69 L33/72 L29/88 S188 L53/36 S344 L69/39 S448",
-    elev:elevPW([[0,4],[0.06,36],[0.09,38],[0.16,10],[0.22,14],[0.30,6],[0.38,4],[0.62,2],[0.70,6],[0.80,4],[1,4]]),
+    // Real range 133 ft = 40.5 m, with the Turn 1 climb about 85 ft = 26 m: the line sits 26 m under the Turn 1 apex.
+    // The rest of the lap sits between those; the shape is from the old profile, rescaled.
+    elev:elevPW([[0,14.5],[0.075,40.5],[0.16,10],[0.22,14],[0.30,6],[0.38,4],[0.62,0],[0.70,5],[0.80,4],[1,14.5]]),
     scene:[ {t:"lm", k:"cotatower", n:1, a:0.71, b:0.71, side:"in", off:92, h:[77,77], col:"#E8ECF0"},
             {t:"lm", k:"amphitheatre", n:1, a:0.745, b:0.745, side:"in", off:160, h:[26,26], col:"#F0F2F4"},
             {t:"lm", k:"pitbuilding", n:1, a:0.985, b:0.985, side:-1, off:42, h:[24,24], col:"#C2C8CE"},

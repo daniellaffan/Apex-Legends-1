@@ -18,7 +18,10 @@ const spa =
            {t:"parcel", n:26, near:40, far:230, size:[16,46], col:"#7E9A52", angle:1.1, jitter:0.16},
            {t:"blob", n:20, near:80, far:420, size:[28,76], col:"#4A6B34"} ],
     layout:"S123 R170/14 S250 L30/75 R45/69 L25/120 S1122 R90/40 L51/46 R40/68 S183 R155/27 S133 L44/79 S112 L108/90 S277 R70/55 L48/60 S195 R104/50 S179 R29/150 S427 L48/220 S318 R60/16 L60/14 S136",
-    elev:elevPW([[0,52],[0.035,54],[0.10,22],[0.14,52],[0.25,66],[0.37,70],[0.44,58],[0.54,36],[0.62,30],[0.69,14],[0.75,12],[0.86,36],[0.96,50],[1,52]]),
+    // Real range 102 m (lowest near Stavelot, highest around Les Combes/Malmedy). Corner positions come from the layout
+    // (La Source u.03, Eau Rouge bottom u.09, Raidillon crest u.14, Les Combes u.37-.40, Pouhon u.52-.56, Stavelot u.70,
+    // Blanchimont u.85-.89). The heights BETWEEN the two reported extremes are an ESTIMATE, not surveyed data.
+    elev:elevPW([[0,45],[0.092,18],[0.146,61],[0.40,102],[0.745,0],[1,45]]),
     scene:[ {t:"lm", k:"pitbuilding", n:1, a:0.985, b:0.985, side:1, off:42, h:[24,24], col:"#A9B0B7"},
             {t:"grandstand", n:1, a:0.115, b:0.115, side:"out", off:24, h:[22,22], col:"#A9B0B7", wid:130},
             {t:"grandstand", n:1, a:0.03, b:0.03, side:"out", off:24, h:[14,14], col:"#A9B0B7", wid:80},

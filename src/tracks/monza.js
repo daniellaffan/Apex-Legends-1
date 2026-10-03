@@ -1,4 +1,5 @@
 import { TAU } from '../config/util.js';
+import { elevPW } from './shared.js';
 
 const monza =
   { id:"monza", name:"Monza", loc:"Autodromo Nazionale Monza", laps:[4,8,14], len:5793, width:15.1, night:false, sun:1.1, rain:0.15,
@@ -17,7 +18,9 @@ const monza =
            {t:"parcel", n:30, near:14, far:76, size:[6,16], col:"#B2A78C", angle:0.25, jitter:0.32},
            {t:"blob", n:18, near:55, far:280, size:[20,54], col:"#8E9A6E"} ],
     layout:"S620 R65/17 L70/20 S258 R90/242 S300 L64/23 R55/27 S416 R80/50 S145 R75/40 S554 L20/400 S303 L55/50 R70/50 L50/61 S920 R170/88 S553",
-    elev:u => 2 * Math.sin(u * TAU * 3) + 1,
+    // Real range about 10 m. Where the high and low points sit is an ESTIMATE (no reliable profile found): highest in the
+    // Lesmo / Serraglio stretch, lowest through the Parabolica.
+    elev:elevPW([[0,2],[0.45,10],[0.92,0],[1,2]]),
     scene:[ {t:"banking", n:6, a:0.17, b:0.27, side:"out", off:84, h:[10,12], col:"#9E9384"},
             {t:"banking", n:5, a:0.72, b:0.83, side:"out", off:92, h:[10,12], col:"#9E9384"},
             {t:"lm", k:"villareale", n:1, a:0.55, b:0.55, side:"in", off:520, h:[24,24], col:"#E4CFA4"},

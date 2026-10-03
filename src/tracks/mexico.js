@@ -1,4 +1,5 @@
 import { TAU } from '../config/util.js';
+import { elevPW } from './shared.js';
 
 const mexico =
   { id:"mexico", name:"Mexico City", loc:"Autódromo Hermanos Rodríguez", laps:[4,9,16], len:4304, width:14.9, night:false, sun:1.0, rain:0.20,
@@ -18,7 +19,8 @@ const mexico =
            {t:"parcel", n:52, near:290, far:900, size:[20,52], col:"#8C6E58", angle:0.75, jitter:0.07},
            {t:"parcel", n:34, near:420, far:1200, size:[28,76], col:"#7E6250", angle:0.75, jitter:0.07} ],
     layout:"S1074 R113/31 S59 L78/33 R95/28 S220 R46/95 S168 L60/54 R74/39 S286 L53/53 R43/83 L56/48 S110 L47/67 R28/87 S208 R114/40 S112 L68/23 R72/25 L47/27 S89 R64/38 S83 R70/70 S309",
-    elev:u => 1.2 * Math.sin(u * TAU * 2),
+    // Real range about 8 m. The shape is an ESTIMATE (no reliable profile found): a gentle rise through the infield esses.
+    elev:elevPW([[0,4],[0.35,8],[0.80,0],[1,4]]),
     scene:[ {t:"stadium", n:1, a:0.8, b:0.8, side:0, off:0, h:[16,16], col:"#B9BFC6"},
             {t:"lm", k:"baseball", n:1, a:0.8, b:0.8, side:"in", off:70, h:[10,10], col:"#5E8A46"},
             {t:"lm", k:"pitbuilding", n:1, a:0.975, b:0.975, side:1, off:42, h:[24,24], col:"#AEB5BC"},
