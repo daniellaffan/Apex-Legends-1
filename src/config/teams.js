@@ -1,0 +1,53 @@
+/* ---------- 1. data ------------------------------------------------------- */
+// pace: dry base performance multiplier. Livery: body / carbon / accent / wheel.
+const TEAMS = [
+  { id:"rbr", name:"Oracle Red Bull Racing", short:"Red Bull", pace:0.995,
+    body:"#141A38", carbon:"#0D1020", accent:"#E32619", accent2:"#FFD400", wheel:"#FFD400", finish:"matte",
+    drivers:[ {n:1, last:"Verstappen", abbr:"VER", cam:"#FFD400", skill:0.995, aggr:0.92},
+              {n:30, last:"Lawson", abbr:"LAW", cam:"#1A1A1A", skill:0.936, aggr:0.74} ] },
+  { id:"fer", name:"Scuderia Ferrari", short:"Ferrari", pace:0.992,
+    body:"#D5131C", carbon:"#8E0D14", accent:"#FFFFFF", accent2:"#FFE800", wheel:"#E8E8E8", finish:"gloss",
+    drivers:[ {n:16, last:"Leclerc", abbr:"LEC", cam:"#FFFFFF", skill:0.978, aggr:0.83},
+              {n:44, last:"Hamilton", abbr:"HAM", cam:"#FFE800", skill:0.982, aggr:0.80} ] },
+  { id:"mer", name:"Mercedes-AMG Petronas", short:"Mercedes", pace:0.989,
+    body:"#B9C2CA", carbon:"#1A1E22", accent:"#00D7B9", accent2:"#0B0E12", wheel:"#C6CDD4", finish:"satin",
+    drivers:[ {n:63, last:"Russell", abbr:"RUS", cam:"#FFFFFF", skill:0.972, aggr:0.78},
+              {n:12, last:"Antonelli", abbr:"ANT", cam:"#FFE800", skill:0.944, aggr:0.86} ] },
+  { id:"mcl", name:"McLaren Formula 1 Team", short:"McLaren", pace:0.998,
+    body:"#FF7A00", carbon:"#17191C", accent:"#CFD6DC", accent2:"#0B0E12", wheel:"#2A2D31", finish:"gloss",
+    drivers:[ {n:4, last:"Norris", abbr:"NOR", cam:"#FFFFFF", skill:0.984, aggr:0.82},
+              {n:81, last:"Piastri", abbr:"PIA", cam:"#F2C230", skill:0.980, aggr:0.79} ] },
+  { id:"ast", name:"Aston Martin Aramco", short:"Aston Martin", pace:0.98,
+    body:"#00594F", carbon:"#023630", accent:"#B4FF39", accent2:"#0B0E12", wheel:"#0E3A33", finish:"satin",
+    drivers:[ {n:14, last:"Alonso", abbr:"ALO", cam:"#FFFFFF", skill:0.968, aggr:0.90},
+              {n:18, last:"Stroll", abbr:"STR", cam:"#F2C230", skill:0.926, aggr:0.70} ] },
+  { id:"aud", name:"Audi F1 Team", short:"Audi", pace:0.971,
+    body:"#C8102E", carbon:"#101215", accent:"#C7CDD3", accent2:"#FFFFFF", wheel:"#15171A", finish:"gloss",
+    drivers:[ {n:27, last:"Hülkenberg", abbr:"HUL", cam:"#FFFFFF", skill:0.950, aggr:0.76},
+              {n:5, last:"Bortoleto", abbr:"BOR", cam:"#F2C230", skill:0.930, aggr:0.84} ] },
+  { id:"wil", name:"Atlassian Williams Racing", short:"Williams", pace:0.975,
+    body:"#1B4FE0", carbon:"#0B1B4A", accent:"#E8EDF3", accent2:"#37D6E8", wheel:"#0E1B3D", finish:"gloss",
+    drivers:[ {n:55, last:"Sainz", abbr:"SAI", cam:"#FFFFFF", skill:0.964, aggr:0.81},
+              {n:23, last:"Albon", abbr:"ALB", cam:"#F2C230", skill:0.952, aggr:0.75} ] },
+  { id:"alp", name:"BWT Alpine F1 Team", short:"Alpine", pace:0.958,
+    body:"#0F5FD8", carbon:"#0A1A33", accent:"#FF4FA3", accent2:"#FFFFFF", wheel:"#12335F", finish:"gloss",
+    drivers:[ {n:10, last:"Gasly", abbr:"GAS", cam:"#FFFFFF", skill:0.946, aggr:0.80},
+              {n:43, last:"Colapinto", abbr:"COL", cam:"#F2C230", skill:0.922, aggr:0.85} ] },
+  { id:"haa", name:"MoneyGram Haas F1 Team", short:"Haas", pace:0.963,
+    body:"#E4E7EA", carbon:"#1C1F24", accent:"#C8102E", accent2:"#0B0E12", wheel:"#2A2D31", finish:"satin",
+    drivers:[ {n:31, last:"Ocon", abbr:"OCO", cam:"#FFFFFF", skill:0.944, aggr:0.77},
+              {n:87, last:"Bearman", abbr:"BEA", cam:"#F2C230", skill:0.934, aggr:0.83} ] },
+  { id:"rbu", name:"Visa Cash App Racing Bulls", short:"Racing Bulls", pace:0.967,
+    body:"#1B2A6B", carbon:"#101838", accent:"#E4002B", accent2:"#FFFFFF", wheel:"#E4002B", finish:"gloss",
+    drivers:[ {n:6, last:"Hadjar", abbr:"HAD", cam:"#FFFFFF", skill:0.940, aggr:0.82},
+              {n:22, last:"Tsunoda", abbr:"TSU", cam:"#F2C230", skill:0.938, aggr:0.88} ] },
+  { id:"cad", name:"Cadillac Formula 1 Team", short:"Cadillac", pace:0.952,
+    body:"#1C1F24", carbon:"#101215", accent:"#C9A227", accent2:"#E8EDF3", wheel:"#C9A227", finish:"gloss",
+    drivers:[ {n:11, last:"Pérez", abbr:"PER", cam:"#FFFFFF", skill:0.948, aggr:0.78},
+              {n:77, last:"Bottas", abbr:"BOT", cam:"#F2C230", skill:0.940, aggr:0.72} ] },
+];
+
+
+const POINTS = [25,18,15,12,10,8,6,4,2,1];
+
+export { POINTS, TEAMS };
