@@ -1011,6 +1011,173 @@ Existing world kept. Seam to fix.
 ## Track atmosphere hook
 `def.atmo = { near, k, tint }` (src/render3d/build.js) sets per-track haze: near = fog start offset, k = visible-distance scale, tint = fog and sky colour. First user: Spa (mist, denser conifer). Spa visuals are a first pass only (no landmark kit or adverts yet); not seen in a browser.
 
+---
+
+# COTA (Austin) overhaul — research, mismatches, decisions
+
+## Research (Part 1). Sources and how sure I am
+
+| Fact | Value I found | Source | Confidence |
+|---|---|---|---|
+| Lap and corners | 3.4 mi / 5.513 km, 20 turns, counter-clockwise | [Jalopnik turn-by-turn guide](https://jalopnik.com/circuit-of-the-americas-a-turn-by-turn-guide-5856083), SI guide | high |
+| Elevation range | 133 ft (about 40.5 m), highest to lowest point | same Jalopnik guide; F1/Pirelli pages repeat it | high for the range; **where the lowest point is, I did not find**. I kept it on the back straight / T12 as before (estimate) |
+| T1 climb | about 85 ft (26 m) and about 11 % at the steep part; T1 is the highest point of the track | Jalopnik / search summaries of Racer and Pirelli; "11 percent" appears in one summary only | medium. Sources differ between 11 % and 16 % in older notes (see section 0a). I used 11 % on the steepest stretch |
+| T1 | blind, uphill braking zone into a left-hand hairpin ("Big Red") | Jalopnik, NASCAR turn guide | high |
+| Esses | T3 left, T4 right, T5 left (then T6), compared with Maggotts-Becketts-Chapel at Silverstone | NASCAR turn-by-turn analysis | high |
+| T11 | left-hand hairpin ("Bobby Pin"), no big elevation change | NASCAR guide | high |
+| Back straight | **0.63 mile = 1.01 km** in the NASCAR guide; the game's version is longer (see mismatches) | NASCAR guide; other pages quote about 1.2 km | sources disagree, I show both |
+| T12 | sharp left, big stadium grandstand, good view of most of the track | NASCAR guide | high |
+| T19-T20 | T19 a left after a long right, "flick downhill"; T20 is a 90-degree left onto the front straight | NASCAR guide | medium (T19 direction wording is odd in the source) |
+| Pit lane | entry at T20, **exit goes directly into the apex of T1**; pit entry on the left (inside of T20) | Jalopnik, a search summary of track-map pages | medium-high. I found no box count or lane length; I did not guess them |
+| Tower | **on the outside of the track near turns 16-18**, 251 ft (76.5 m) at its highest, observation deck 22 stories up, external double-helix stair of 419 steps, glass floor panel | [official COTA tower page](https://circuitoftheamericas.com/blog/2024/2/20/all-about-the-cota-tower/) | high for height/place. A search summary also said "inside of the right-hand corner", which contradicts "outside"; I used the official wording |
+| Amphitheatre | in the infield, opened 2012; capacity 14,000 (Wikipedia, via search) vs a 20,000 plan quoted before it opened (Jalopnik) | [Wikipedia](https://en.wikipedia.org/wiki/Germania_Insurance_Amphitheater) | capacity disagrees; its exact spot in the infield I did **not** confirm |
+| Run-off | Recent changes: asphalt verges at T6, T13, T14, T15 narrowed by 1.5 m and replaced with turf; gravel-style insert on one exit (a summary says "Turn 11", but T11 is the hairpin, so I do not trust the number); T2-T10 and T12-T16 resurfaced | [The Drive](https://www.thedrive.com/news/cota-adds-gravel-to-crack-down-on-f1-track-limits-violations), F1technical | medium. **I found no published full run-off map.** The mix of tarmac, gravel and grass in `cota.js` is my reading (flagged "guess" per zone) |
+| Two service tunnels under the track for transporters | yes | Jalopnik | high (not modelled) |
+
+Not confirmed at all: exact grandstand capacities, hospitality box layout, where the paddock buildings stand relative to the pit lane, the Ferris wheel (fan zone) position.
+
+## Mismatches against the game (measured by `scripts/cota-audit.mjs`, not by eye)
+
+1. Direction: **already correct** — the `turtle()` handedness fix landed after the 0a audit above, so COTA now winds anticlockwise (net turn -360). Nothing to reverse, and no mirror was applied.
+2. Tower side: the game had it on the inside (`side:"in"`); the official page says outside. Moved.
+3. Pit zone: the game's pit lane ran from lap 0.86 to 0.10 (the shared default), 1.3 km, entry well before T20. Real: entry at T20, exit into the T1 apex. Set to 0.885 -> 0.075.
+4. Elevation: shape was cosine-eased between 10 points (flat at every knot, so the climb stopped and started). Range was already right (0 to 40.5 m). Replaced by a closed spline with continuous gradient.
+5. Run-off: one untyped 18 m everywhere. Replaced by per-corner zones.
+6. Layout questions I did **not** change (asked in the report): see the report.
+
+## Results (Parts 2 to 5)
+
+All numbers below are printed by code in this repo, not read off a picture:
+`node scripts/cota-audit.mjs` (track), `node scripts/cota-audit-world.mjs` (plan), `node scripts/cota-world3d.mjs`
+(the real world build in Node with clearance and clipping audits) and `node scripts/census.mjs <track> [detail]`
+(the real `G3.build` with a stubbed DOM: draw calls and triangles for any circuit).
+
+### Direction and elevation, before and after
+
+| | Before (main 700b822) | After |
+|---|---|---|
+| Winding | net turn -360 deg, signed area -1,470,452: anticlockwise | identical (it was already right; see "Mismatches" 1) |
+| Lap length | 5515.8 m (real 5513 m) | 5515.8 m |
+| Height range | 0.00 to 40.47 m = 133 ft | 0.00 to 40.43 m = 133 ft (real 133 ft) |
+| Lowest / highest at | u 0.618 / u 0.075 | u 0.599 / u 0.080 (the crest of Turn 1) |
+| Steepest gradient | -10.2 % (the Esses drop); gradient dropped to zero at every control point | 11.6 % climbing to Turn 1 (u 0.063), continuous everywhere |
+| Lap seam | height -0.013 m, gradient 0.18 % then 0.43 % | height -0.065 m (= one node of the 0.9 % gradient), gradient 0.93 % then 0.90 % |
+
+Heights now (m): start line 14.5, Turn 1 crest 40.4, Turn 1 exit 36.6, Esses T3 15.8, T5 10.2, end of Esses 10.3,
+Turn 11 hairpin 4.0, end of back straight (T12) 0.0, T16-18 5.0, final corner T20 7.4.
+
+**Visual exaggeration:** one shared constant `ELEV_VISUAL` in `src/tracks/shared.js`, applied in `buildTrack` for every
+circuit. It is **1.0**, so displayed = real for every track. At 1.0 the climb is 26 m over 436 m (6 % on average,
+11.6 % at its steepest, flattening into a crest exactly under the Turn 1 hairpin), which is what hides the corner.
+Set it to something like 1.25 to exaggerate every circuit at once; I did not, because nobody asked for the other
+eleven tracks to change.
+
+The profile is `elevSpline` in `src/tracks/shared.js`: a closed piecewise cubic with Fritsch-Carlson slopes, so
+there is no overshoot between control points and height and slope both wrap at the line. Track, terrain, barriers,
+kerbs, scenery, the pit lane and the car's ride height all read `T.z`, so they cannot disagree.
+
+### What is built (world/cota.js, planned by cota-plan.js, geometry in cota-kit.js)
+
+Terrain: 12 m height grid (16 m in Lite), rolling hills plus a hazy ridgeline at the back, interpolated (never
+snapped to nodes); vertex colours: dusty gold, sage, sandy and bare patches, scrub, red-brown earth round the
+run-off edges and car parks, white limestone on slopes and as outcrops, a dry creek bed, three ponds. Plants,
+all instanced with two detail levels (full near the circuit, one blob far off): live oak, cedar elm, mesquite,
+juniper, prickly pear, yucca, dry grass, bluebonnet and paintbrush patches. Every plant is tested against the
+circuit (barrier line + a margin that grows with the crown), the fence, and every footprint.
+
+Structures (merged into 300 m chunks, vertex colours, `MeshLambertMaterial`): ten tiered stands that follow the
+circuit's own curve (main straight with roof, the Turn 1 hill with a tall stand and a grass bank above it, two at
+the Esses, Turn 11, a roofed one at Turn 12, a deep roofed bowl at Turn 19, one inside Turn 20, one at Turn 16);
+catch fencing in front of each; pit building (garages, striped awnings, set-back floor, glass hospitality deck,
+timing tower); start/finish gantry; the observation tower; the amphitheatre; hospitality cabins and transporters;
+tents; food trucks; warehouses; car parks with parked cars; TV towers; marshal posts; flag poles; fence and
+service roads; big screens; paddock sign; water towers and radio masts on the horizon.
+
+Life: crowds with cowboy hats (about 9,800 fans, some waving an arm), flags and bunting that ripple, a Ferris wheel
+in the fan zone, three hot-air balloons, a plane and a helicopter circling, colour-cycling bulbs and a firework burst
+over the tower, a sky dome with a warm horizon haze and high thin clouds, a warm low sun (`sunH 0.62`, so shadows are long).
+
+### Performance (real `G3.build`, no GPU, so draw calls and triangles; frame time could not be measured, see below)
+
+| Circuit | Draw calls if all drawn | Triangles if all drawn | Triangles within 450 m of Turn 1 / Esses / back straight |
+|---|---|---|---|
+| COTA before | 1,229 | 92,431 | 72,645 / 71,130 / 68,953 |
+| COTA after (full detail) | 1,022 | 1,353,889 | 373,008 / 383,064 / 362,893 |
+| COTA after (Lite) | 966 | 538,528 | 186,141 / 169,159 / not printed |
+| Suzuka | 1,899 | 3,127,023 | 553,057 / 586,636 / 1,175,605 |
+| Silverstone | 5,980 | 1,893,312 | 213,623 / 211,035 / 190,612 |
+| Zandvoort | 6,258 | 3,801,558 | 575,693 / 822,707 / 504,443 |
+
+So COTA went from the lightest scene in the game to the lightest of the detailed ones: fewer draw calls than before
+(the old scene was about 1,200 separate baked meshes; this one is 294 instanced chunks and 40 merged structure chunks,
+each with its own culling bounds), and about 15 times the triangles, still below Suzuka, Silverstone and Zandvoort.
+Plan time in Node is about 450 ms (Lite 250 ms), build total about 550 ms; the browser will be slower.
+
+### Not done, not verified, or only partly done (honest list)
+
+- **No screenshots and no frame times.** Browsers cannot run on this machine (Qustodio kills them), so the visual
+  check is yours. Everything above is geometry I measured in Node. Shaders were not compiled by a GPU: I expanded the
+  patched Lambert vertex shader text and read it, and the same tint-mask pattern is used by Suzuka's world, which
+  has also not been seen in a browser yet.
+- No headless AI/pit lap sim: `session.js` is tied to the UI. The pit zone is data (`in 0.885`, `out 0.075`) read by
+  the same code every circuit uses; the elevation is gentler than before (max gradient 11.6 % vs the old 15 % in the
+  earlier 36 m version), and the direction, start line and lap counting did not change at all.
+- Barriers: still one type (Armco) plus the new catch fencing in front of stands. Tyre walls and concrete walls where
+  the real circuit has them: I could not find where, so I did not invent them.
+- Kerb widths, light gantries along the straights and drainage ditches: not changed or added.
+- Pit box positions and lane length: not found. The lane runs from T20 to the T1 apex (1,050 m in the game, which is
+  probably longer than the real lane); garages are centred on the building by the start line (my assumption).
+- Run-off mix: my reading, flagged per zone in `cota.js`; the real figures I found were only the turf trims at
+  T6/T13-15 and a gravel insert on one exit.
+- The amphitheatre's exact position in the infield and its capacity (14,000 vs 20,000).
+- The main-straight stand's side: opposite the pits (right), which is my reading.
+
+### Layout questions (I did not change these)
+
+1. Back straight: the game has 1,169 m between T11 and T12; the NASCAR guide says 0.63 mile = 1,014 m, other pages
+   say about 1.2 km. Which do you want?
+2. Turns 19 and 20: the game has a 455 m straight between them (the layout's `S344` scaled). I believe the real
+   corners are much closer together than that. I have not confirmed the real distance.
+3. The pit lane is 1,050 m long (T20 apex to T1 apex). Real length unknown.
+4. The other seven layout-string circuits were audited as "mirrored" in 0a above, but the turtle fix has since landed
+   (COTA's winding was already right when I measured). Worth re-running the audit for the rest.
+
+### Visual checklist for you (npm run dev, then the circuit "Austin")
+
+1. Start line, look up the straight: the climb should hide Turn 1; at the crest the stands, the bank above them and
+   the open sky appear. Fans on the bank should wave.
+2. Esses: should roll downhill, with two stands on the outside; nothing floating or buried at the treads.
+3. Back straight: a long low run with TV towers on the right, wide tarmac either side, fence and gravel service road.
+4. Turn 11 hairpin and Turn 12: stand on the outside; check nothing is inside the tarmac run-off.
+5. Final stadium at Turn 19 and the stand inside Turn 20; the tower should be on the outside of the T16-18 sweep, its
+   bulbs cycling colour and a burst of sparks over it every ~4 s.
+6. Pits: garages in front of the new pit building, striped awnings, timing tower, paddock sign over the entrance.
+7. Console: look for `cota ...` warnings (the world is built inside try/catch, so a bug shows as a warning and a
+   plain circuit, not a crash). `window.__cota.audit()` reruns the clearance audit; `window.__cota.stats` shows counts.
+
+---
+
+# DNF climb-out: direction, size and look
+
+- **Direction.** The old exit was written in car-local axes: out of the side facing the track, then a walk of up to 12 m along the car's nose. The car can finish pointing anywhere, so the driver could walk through the barrier or out into the run-off wall. Now the exit side and the walk are chosen in the world (`CINE.dnfInit` in `render3d/cine.js`): both standing spots beside the car are tested for room to the barrier line (capped at 6 m, ties go to the side facing away from the track), then the walk goes along the track edge (against the traffic if there is room, with a little outward drift) or straight away from the car, whichever clears the car's own footprint and has the most room. Each frame the position is pulled back inside the barrier and he faces the way he walks.
+- **Check.** `node scripts/dnf-test.mjs [track]` runs the real `dnfInit`/`dnfTick` for 400 car positions and headings (some pressed against the barrier). COTA: old logic ended past the barrier in 65 of 400 runs (worst 9.4 m), new in 0, and 0 frames inside the car. Monaco: old 137 of 400 (worst 17.2 m), new 0.
+- **Size.** The standing driver was 2.01 m with the helmet, about 1.2 times the car (the car is scaled 0.92). In the DNF scene he is now scaled 0.84 (1.69 m with helmet), which puts the seated helmet at height 0.73 m, x 0.36, against the cockpit's own helmet at 0.72 m, x 0.32 (`node scripts/driver-size.mjs`). The podium drivers are untouched.
+- **Look.** `render3d/person.js`: rounded tapering limbs, a waist that narrows into the chest, shoulder pads, cuffs, belt, collar and zip; gloves with a thumb; boots with a sole; a head with hair, ears, nose, eyes and brows; a helmet with a dark visor band, chin bar, stripe in the team's colour and a rear fin. Joints did not move, so every pose still works. About 1,900 triangles per driver.
+- Not seen in a browser (see above): the walk path, the camera positions (unchanged, relative to the exit side) and the new look need your eyes. If a camera shot ends up behind the barrier on a tight spot, tell me which circuit and corner.
+
+---
+
+# DNF, take 2: the recovery truck
+
+The first version posed the driver in the crashed car's own frame, so when the wreck sat tilted or in the air he stood on thin air. Now:
+
+- **Crane and truck** (`render3d/recovery.js`): a flatbed with a crane parks beside the wreck (`planTruck`: a ring of candidate spots, facing along the track either way; valid when everything it covers is inside the barrier, it does not overlap the car's real, possibly tilted, footprint, and the crane can reach). The hook goes out over the wreck, the slings take up, the car is lifted level, swung over the bed and lowered with a little pendulum and settle, then the hook goes back up. The boom is pointed at the hook by IK every frame.
+- **Driver on the bed** (`render3d/cine.js`, `dnfKeys`): everything after the landing is in the car's frame on a level bed, so nothing can float. Sequence: slumped in the seat, sits up, both hands on the halo rails, pulls himself up, feet onto the sidepods, crouches holding on, stands on the car, turns and hops off, lands, takes off the helmet, throws it out over the side of the truck, hands on head, walks down the bed to the rear tyre, turns and sits with his back against it. About 20 s in total (6.2 s lift, 13.8 s driver).
+- **Hands and feet** by two-bone IK (`P.ikAngles` in `person.js`) blended with the hand-made pose by a weight per key; planted feet are kept flat.
+- `frame.js` skips posing the player's car while the cutscene owns it (`S.cine.carFree`); the car goes back where it was when the cutscene ends.
+- **Check:** `node scripts/dnf-test.mjs [track]` runs the real code for 300 wrecks per track (rolled, on their side, airborne, against the barrier). Austin: truck inside the barrier in 300/300 (worst room 5.3 m), never overlapping the car, car lands within 6 mm of the bed centre and 0.25 deg of level, soles within 7 mm of the bed (never above it), hands within 6 cm of the halo rails, hips never inside the car after the hop. Monaco: same, with soles up to 3.6 cm low for one moment as he turns on the sloping bed.
+- **Not seen in a browser.** The truck is boxes and cylinders in the game's flat-shaded style; the camera shots are rewritten for the new scene (they are the cutscene's own shots, relative to the truck and car; no gameplay camera changed). The foot targets on the sidepods (height 0.51 m) come from the car's `POD` table, the rails from `CAR_SPEC`; if his feet look a little off the bodywork, those two numbers in `dnfKeys` are the knobs.
+
 # Spa-Francorchamps: research, and how the game compares (2026-10-03)
 
 How this was done: the real lap is the OpenStreetMap `highway=raceway` ways chained into one loop

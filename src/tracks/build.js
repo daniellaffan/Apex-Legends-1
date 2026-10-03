@@ -1,6 +1,6 @@
 import { RAD, TAU, angWrap, clamp, dist, lerp, mulberry } from '../config/util.js';
 import { TEAMS } from '../config/teams.js';
-import { ELEV_VISUAL, bankZ } from './shared.js';
+import { bankZ, ELEV_VISUAL } from './shared.js';
 
 /* ---------- 2. track builder --------------------------------------------- */
 function parseLayout(str){

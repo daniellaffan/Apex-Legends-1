@@ -128,8 +128,32 @@ const ADS = {
     ["MAYO MAYOR",        "Elected on the fries vote",               "#F4F0E0", "#B8121A", "#E8B33A", "scissors"],
     ["DAMP SOCKS DEPOT",  "Camping at Spa? You will need us",        "#2A2A2E", "#DCE2EA", "#8A93A0", "umbrella"],
   ],
+  /* Austin's set: made-up Texan brands; the jokes are about brisket, boots, hats,
+     tacos, rodeo, oil and the size of everything */
+  COTA:[
+    ["BRISKET BOOST",        "Fourteen hours low and slow. Pit stop: 2.1s",   "#5A1E0E", "#FFE2C0", "#FF8A3A", "fire"],
+    ["SPIN-OUT BOOTS",       "Made for walking back from Turn 1",             "#3A2210", "#F4E0C0", "#E8A040", "arrow"],
+    ["TEN-GALLON TYRES",     "Fits a hat. Fits a horse. Fits a Hoss",         "#141820", "#F2F2F2", "#F2C230", "wheel"],
+    ["BIG HOSS TRUCKS",      "Bed holds one horse. Two if they're friends",   "#8A1A14", "#FFF0D8", "#FFD24A", "flag"],
+    ["TACO TURN-IN",         "Breakfast, lunch and the cool-down lap",        "#E8A020", "#2A1606", "#B8321A", "dots"],
+    ["GUSHER OIL & LUBE",    "Strike it rich at the next pit stop",           "#0E2A3A", "#E8F2FF", "#4AA8FF", "bolt"],
+    ["LONE STAR LARIATS",    "Rope a podium. Terms apply to bulls",           "#1E3A6A", "#FFFFFF", "#E8242C", "ring"],
+    ["HOWDY HEDGES",         "Prickly pear trimming. Ouch is extra",          "#2E5A2A", "#F4FFE8", "#C8E87A", "leaf"],
+    ["RODEO RETIREMENTS",    "Eight seconds is plenty. Rest up here",         "#6A3A12", "#FFE8C8", "#FFB45A", "mountain"],
+    ["CHILI CRASH COOK-OFF", "Red flag if it's too mild",                     "#A8200E", "#FFF0D0", "#FFC048", "fire"],
+    ["BLUEBONNET BAKERY",    "Pie so good the marshals stop to eat",          "#2A3E7A", "#F2EEFF", "#9AA8FF", "stack"],
+    ["Y'ALL-WEATHER TENTS",  "Rain, shine or a very large cloud of dust",     "#E8D8B0", "#4A3010", "#B8683E", "umbrella"],
+    ["DUSTY DRS DENTAL",     "We open wide at the end of the straight",       "#0F3F3A", "#B8FFF0", "#5FE8CC", "tooth"],
+    ["COYOTE CAR WASH",      "Howling clean in under a lap",                  "#4A2A14", "#F8E8D0", "#D8A060", "wind"],
+    ["CACTUS CUSHIONS",      "Seat covers for the sensitive",                 "#1E5A2A", "#F2F2F2", "#F2C230", "cone"],
+    ["PEPPER PIT LANE",      "Hot sauce. Speed limit: 80, flavour: none",     "#B8121A", "#FFE9C4", "#FFC23A", "wheel"],
+    ["HAT TRICK HATS",       "Win three. Wear three. Stack them",             "#2A1A0E", "#FFE8C8", "#E8A040", "stack"],
+    ["SWEET TEA SPONSORS",   "So sweet it counts as a tyre compound",         "#F4E4C8", "#7A3A0A", "#E8902E", "dots"],
+    ["BARBECUE BARRIER",     "Smoke signals for the second stint",            "#3A1410", "#FFD0A0", "#FF7A2A", "screen"],
+    ["PUMPJACK PRESS",       "News that goes up and down. Mostly up",         "#1A1D28", "#E8ECF4", "#FF3D62", "arrow"],
+  ],
   use(set){
-    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "spa" ? this.SPA : this.VEGAS;
+    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : this.VEGAS;
     if(this.LIST === want) return;
     this.dispose(); this.LIST = want;
   },

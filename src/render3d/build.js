@@ -14,6 +14,7 @@ import { SILVER } from './worlds/silverstone.js';
 import { ZAND } from './worlds/zandvoort.js';
 import { SUZUKA } from './worlds/suzuka.js';
 import { SPA } from './worlds/spa.js';
+import { COTA } from './worlds/cota.js';
 import { WEATHER } from './weather.js';
 import { CRASH } from './crash.js';
 import { CFG } from '../config/settings.js';
@@ -126,7 +127,7 @@ G3.build = function(S){
   }
   for(const t of this.texes.values()) t.dispose();
   this.mats.clear(); this.texes.clear(); PTEX.dispose();
-  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : T.def.world === "spa" ? "spa" : "vegas");
+  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : T.def.world === "cota" ? "cota" : T.def.world === "spa" ? "spa" : "vegas");
   while(this.scene.children.length) this.scene.remove(this.scene.children[0]);
   this.rend.renderLists.dispose();
   this.world = new THREE.Group(); this.scene.add(this.world);
@@ -184,8 +185,8 @@ G3.build = function(S){
   // a surveyed circuit brings its own ground, land and landmarks
   const surveyed = T.def.world === "monaco" || T.def.world === "silverstone" || T.def.world === "zandvoort";
   const monacoW = T.def.world === "monaco";
-  // Suzuka and Spa are not surveyed paths, but their worlds lay their own terrain and planting
-  const ownGround = surveyed || T.def.world === "suzuka" || T.def.world === "spa";
+  // Suzuka, COTA and Spa are not surveyed paths, but their worlds lay their own terrain and planting
+  const ownGround = surveyed || T.def.world === "suzuka" || T.def.world === "cota" || T.def.world === "spa";
   /* The wide grass strip under the run-off and the road is one quad per node, 55 m
      across, and the bands drawn over it are narrower quads. On a curve their two
      triangles split along different diagonals, so on a slope they sit at different
@@ -506,6 +507,13 @@ G3.build = function(S){
   if(T.def.world === "spa"){
     try{ SPA.build(this, this.world, T, S); this.spa = SPA; }
     catch(e){ console.warn("spa", e.message, e.stack); }
+  }
+
+  /* Austin: the Hill Country, the tower, the stands, the paddock, the sky */
+  this.cota = null;
+  if(T.def.world === "cota"){
+    try{ COTA.build(this, this.world, T, S); this.cota = COTA; }
+    catch(e){ console.warn("cota", e.message, e.stack); }
   }
 
   /* the cars */
