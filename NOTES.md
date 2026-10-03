@@ -1295,6 +1295,165 @@ Measured on the game lap (1001 nodes, 7,007 m):
    L27/R38/L19 (real L18/R50/L25).
 8. **Corner radii.** The layout string adds up to 4,597 m and is stretched ×1.52 to 7,004 m, so every
    radius is 1.52× too large (La Source about 21 m).
+9. **The Bus Stop sits 95 m from the foot of Eau Rouge**, 20 m higher. At the real circuit they are
+   several hundred metres apart. The 3D ground between them is a long even slope (about 35 %).
 
-The fix for 1-8 would be the one Suzuka got: build Spa from the surveyed OSM path (already chained,
+The fix for 1-9 would be the one Suzuka got: build Spa from the surveyed OSM path (already chained,
 6,972 m, clockwise). That changes where every corner is, so I have not done it.
+
+## Part 2: direction and heights (done 2026-10-03)
+
+- **Direction**: already clockwise before this work (the handedness fix of `0eeb4ae`), still clockwise.
+  Net turn +360°, signed area +1,110,045 m² (+ is clockwise with y pointing south; calibrated on the
+  surveyed clockwise circuits). Nothing had to be reversed, so the start line, grid, lap counting, AI,
+  kerbs and the sides of everything are as they were.
+- **Heights**: `src/tracks/survey/spa.js`. The real heights along the real lap, pinned corner by corner
+  to the game's corners (17 apex pairs), the grade capped at 18.5 % on Raidillon and 12 % elsewhere
+  (needed where a game section is shorter than the real one), scaled to the published 102.2 m, and
+  stored as 400 samples round the lap, eased between. The table is periodic, so the end of the lap
+  meets the start exactly (seam 0.0000 m).
+- **One global height factor**: `ELEV_VISUAL` in `src/tracks/shared.js`, **1.0**, so displayed = real.
+  (The COTA work added the same constant at the same time; there is one copy.) The physics reads the
+  slope, so a factor above 1 would change how every circuit drives; I left it at 1.
+
+| | before | after (real = displayed, ×1.0) |
+|---|---|---|
+| Winding | clockwise | clockwise |
+| Lap | 7,007 m | 7,007 m |
+| Min / max | 0.0 (u 0.745) / 102.0 (u 0.400, Les Combes) | 0.0 (u 0.742, Paul Frère) / 102.1 (u 0.398, Malmedy) |
+| Start line | 45.0 | 51.0 |
+| La Source | 38.5 (lower than the line) | 60.2 (the straight climbs to it, as it really does) |
+| Eau Rouge (bottom) | 18.1 | 26.0 (34 m under La Source) |
+| Top of Raidillon | 35.6 | 45.4 |
+| Les Combes | 100.9 | 95.0 |
+| Pouhon | 71.3 | 37.1 (well down the hill, as it is) |
+| Steepest | 17.8 % | 17.9 % (Raidillon) |
+| Pit lane | in 0.86, out 0.10 (defaults) | right side, in 0.967 (Bus Stop), out 0.048 (after La Source), box 0.999 |
+
+Checks: an AI car laps in 94-96 s, takes the pit lane on lap 2 (in at the Bus Stop, stops at the box,
+rejoins after La Source; +8.5 s), lap counting works, the car stays within 0.2 m of the road surface.
+The other eleven circuits build exactly as before (every node's x, z and speed compared).
+
+# Spa world (2026-10-03)
+
+Files: `src/render3d/worlds/spa-plan.js` (pure numbers: terrain, land cover, placement, audit, runs
+in Node), `spa-kit.js` (building and plant geometry), `spa.js` (the three.js world and its animation),
+data in `src/tracks/survey/spa.js`. Hooked into `render3d/build.js` (own ground, build call, advert
+set) and `frame.js` (per-frame step, and the existing cut-away dither is now on for Spa as well as
+Monaco). Check with `node scripts/spa-audit.mjs [detail]` and `node scripts/census.mjs spa`.
+
+## How the real place gets onto the game's lap
+
+The game's lap is not the real shape, so the real valley is carried across in **lap coordinates**:
+a point at lap distance s, offset o beside the game's track is matched to the point at the
+corner-pinned real distance and the same offset beside the real track. Past 330-430 m that gives
+way to one overall fit (scale 0.79, turn -104°) for the far hills.
+
+- **Ground**: EU-DEM 25 m sampled every 40 m round the real lap and every 30 m across it out to
+  ±480 m (5,742 samples), plus a 12 km square at 250 m for the hills. Heights are used relative to
+  the real track beside them, so the road always meets its own verge. The model reads only about
+  0.4 m higher in forest than in the open at forest edges, so it is used as bare ground.
+- **Banks and cuttings**: past the verge the ground eases into the real lie of the land over 46 m,
+  never rising faster than 55 % or falling faster than 95 % from the verge (so the overhead camera
+  sees over it). Where two parts of the lap run close, the ground slopes evenly from one barrier to
+  the other.
+- **Land cover**: OpenStreetMap forest, meadow, scrub, houses, farmyards, car parks, campsites and
+  water rasterised at 25 m (53 % forest, 39 % meadow). Trees, fields, villages and car parks go where
+  the real ones are relative to each corner.
+- **Water and roads**: the real Eau Rouge, Hockai, Rohon and other streams, the roads and the
+  forest tracks, carried across the same way. The streams run in carved channels that never flow
+  uphill. The Eau Rouge crosses the game's track at node 95 (u 0.095), the foot of the dip, where a
+  stone culvert with an arch stands either side.
+
+## What is built
+
+- **Forest**: Norway spruce (the bulk), Scots pine, beech, oak and birch, in drifting groves; 7 % of
+  the broadleaves already turning. Clearings, tree lines along field edges, the odd tree in a meadow;
+  thinner right by the barrier, taller up the hills. 37,047 full trees within 360 m of the barrier,
+  12,350 cheaper ones beyond; 9,642 ferns and bracken, 2,077 shrubs, 3,228 wildflower patches, 73
+  hedge runs along lanes, hay bales, cows and sheep in the fields.
+- **Buildings** (all with slate gable roofs, windows, doors, chimneys or setbacks; no plain boxes):
+  171 houses and 39 farms with barns where OpenStreetMap has houses and farmyards; the village church
+  where Francorchamps's is mapped; an abbey with a spire on the horizon towards Stavelot; a fictional
+  stone hotel with a bell turret at La Source ("Hotel du Virage"); the old hotel on the right at the
+  foot of Eau Rouge ("Hotel du Ruisseau"); a low old pit row on the run down to it; hospitality
+  chalets at the top of Raidillon.
+- **Circuit**: the pit building (garages in team colours, a glazed hospitality floor and balcony, a
+  roof terrace), a paddock with team trucks and a hospitality unit, a covered main stand across from
+  the pits, nine more stands and ten crowded grass banks where the real ones are (13,400 spectators,
+  about one in six waving a flag), 20 marshal posts, 7 TV towers, the start-light gantry (it lights
+  with the session's count and goes out at the start), tyre walls along every gravel trap (3,842
+  stacks), catch fencing at Eau Rouge-Raidillon, Pouhon and Blanchimont, 329 advert panels, a big
+  "PADDOCK" sign from plain shapes.
+- **Adverts**: a Spa set in `hoardings.js`, all invented: Cocoa Brakes, Waffle Wizard ("Dough not
+  slow"), Double Frites ("Fried twice, like Pouhon"), Abbey Ale, Peloton Potatoes, Drizzle Insurance
+  ("It's sunny at Les Combes. Not here"), Speculoos Slicks, Damp Socks Depot and others.
+- **Campsites**: 751 tents, frame tents, camper vans and flagpoles on the mapped campsites and the
+  meadows behind La Source, Les Combes and Blanchimont (which fields is my choice). 1,782 parked
+  cars in the mapped car parks near the circuit.
+- **Atmosphere**: soft overcast light (sun 1.0, cool), cloud shadows drifting over everything, which
+  close over in the rain; cool green-grey haze; mist sheets drifting in the Eau Rouge valley; the far
+  hills and three rings of hazy blue-green ridgelines for the shots that look out.
+- **Details**: chimney smoke from about one house in six, three hot-air balloons drifting round, a
+  cyclist riding a lane near the circuit, flags waving on the stands and campsites, fans waving on
+  the banks, cows and sheep in the fields.
+- **Detail setting**: Lite uses a 12 m ground grid, about 60 % of the trees, no undergrowth or mist.
+
+## Checks (Node; no browser here)
+
+- **Clearance** (`auditSpa`, against every segment of the centreline): 49,397 trees, closest canopy
+  2.02 m past the barrier line, none over it; houses at least 115 m away; stands, banks, pits and
+  posts at least 0.61 m clear; tents and cars 9.95 m. Lite: trees 2.11 m. The pits are measured to
+  the wall the cars feel on their own straight and to the barriers everywhere else.
+- **Clipping**: no ground vertex inside the barrier line rises above the lowest road ribbon (4,962
+  checked); behind the Armco the ground rises at most 3.5 m over the road (a cutting at Raidillon).
+- **Frame**: the world's own frame step ran 600 frames (start lights, smoke, balloons, cyclist, mist)
+  with no errors.
+- **Build**: `npm run build` gives one 3.7 MB HTML file.
+
+## Performance
+
+Measured through the real `G3.build` in Node, counting what the game's overhead camera (same maths as
+`frame.js`, slow-speed zoom, 1280 × 800) and the shadow camera would draw, with three.js's own frustum
+test. Frame times could not be measured: no browser here.
+
+| | draw calls per frame | triangles per frame | build |
+|---|---|---|---|
+| Spa before | 83-240 (418 on the grid with 20 cars) | 80-150k | 0.16 s |
+| Spa after | 140-220 (436 on the grid) | 270-590k | 1.5 s (1.2 s of it the plan) |
+| Spa after, Lite | 167-197 | 250-360k | 0.9 s |
+| Suzuka | 135-170 | 210-660k | 0.6 s |
+| COTA | 106-131 | 160-265k | 0.6 s |
+
+On the coarser `scripts/census.mjs` measure (everything within 450 m) Spa is heavier than Suzuka:
+about 600 draw calls and 1.3 M triangles, against about 420 and 0.57 M. The one real browser reading
+before this work: old Spa at La Source, 90 calls, 79k triangles, 2.3 ms GPU, 1.5 ms CPU per render.
+
+What keeps it there: everything repeated is instanced in 200 m chunks with their own bounds; buildings
+merge into one mesh per chunk; tree trunks and cones are open-ended (their caps are never seen from
+above, which halves a spruce); only trees within 60 m of the barrier cast shadows; trees beyond 360 m
+are a cheaper shape; undergrowth only within 70 m.
+
+## Not done / owed
+
+- **Seen in a browser**: nothing in this section. The visual checklist is below.
+- **Materials**: the brief says MeshLambertMaterial; the game moved to MeshStandardMaterial for every
+  surface (see `G3.mat`). The Spa world uses vertex-coloured, flat-shaded Standard materials like
+  Suzuka, which looks the same as Lambert at this roughness.
+- **Banking**: none, for want of figures (see Not confirmed).
+
+## Visual checklist (please)
+
+Drive a time trial at Spa (`npm run dev`) and look at:
+1. **La Source**: the hairpin's gravel and tarmac, the stand outside it, the stone hotel with its
+   turret, the pit lane running inside the hairpin and out after it (the lane follows the track's
+   inside here; tell me if it looks wrong).
+2. **Eau Rouge and Raidillon**: the dip and climb, the stream and the culvert at the bottom, the mist,
+   the catch fencing, the red-seated stand and the chalets at the top, the banks of fans.
+3. **Kemmel**: the long climb through the spruce, adverts on the Armco.
+4. **Les Combes, Pouhon, Blanchimont, Bus Stop**: gravel traps and tyre walls, stands and banks.
+5. **The pits**: garages facing the lane with no Armco in between, the paddock, the main stand.
+6. **Anything clipping** through the track, barriers, stands or buildings, trees over the run-off,
+   trees hiding the car (they should dither away as the car passes behind them).
+7. **Frame rate** at Eau Rouge and Blanchimont, Full and Lite.
+8. **Rain**: the grass and trees should darken and the cloud shadows close over.
