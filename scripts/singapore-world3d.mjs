@@ -67,3 +67,12 @@ console.log('animation: ran', frames, 'frames (400 s)', err ? 'THREW: ' + err.st
   }
   console.log('view from the overhead lens: road points hidden by a building:', hidden, 'of', pts, '(' + (100 * hidden / pts).toFixed(1) + '%)', worst ? 'first at ' + JSON.stringify(worst) : '');
 }
+
+/* the instance-colour pitfall: a material shared by InstancedMeshes with and without instanceColor makes three r128 throw every frame
+   (the game then drops to 2D). Node never draws, so scan for it. */
+{
+  const users = new Map();
+  world.traverse(o => { if (!o.isInstancedMesh) return; const m = o.material, e = users.get(m) || { withC: 0, withoutC: 0 }; if (o.instanceColor) e.withC++; else e.withoutC++; users.set(m, e); });
+  const bad = [...users.values()].filter(e => e.withC && e.withoutC).length;
+  console.log('instance-colour scan:', users.size, 'materials on instanced meshes,', bad, 'shared between coloured and uncoloured meshes', bad ? '  <-- FIX' : '(ok)');
+}

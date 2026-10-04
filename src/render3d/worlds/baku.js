@@ -251,7 +251,7 @@ const BAKU = {
     // boats, instanced, drifting; a few moored along the pier stay put
     const V = N.vesselGeos(), im = instMat("plain", this.U), COLS = ["#F4F4F6", "#FFE6B8", "#C8E0FF", "#F4D0C0"];
     const small = S.boats.filter(b => b.kind !== 2), ferries = S.boats.filter(b => b.kind === 2);
-    const mk = (geo, cnt) => { const mesh = new THREE.InstancedMesh(geo, im, Math.max(cnt, 1)); mesh.frustumCulled = false; mesh.userData.dynamic = true; g.add(mesh); return mesh; };
+    const mk = (geo, cnt) => { const mesh = new THREE.InstancedMesh(geo, instMat("plain", this.U), Math.max(cnt, 1)); mesh.setColorAt(0, new THREE.Color(1, 1, 1)); mesh.frustumCulled = false; mesh.userData.dynamic = true; g.add(mesh); return mesh; };
     anim.boatsSmall = { mesh:mk(V.boat, small.length), list:small, scale:1.1 }; anim.boatsFerry = { mesh:mk(V.ferry, ferries.length), list:ferries, scale:1.0 };
     for(const o of [anim.boatsSmall, anim.boatsFerry]) o.list.forEach((b, i) => o.mesh.setColorAt(i, new THREE.Color(COLS[b.c % 4]).convertSRGBToLinear()));
     if(S.pier){ const p = S.pier, ca = Math.cos(p.ang), sa = Math.sin(p.ang), moored = []; for(let k = 12; k < p.len - 8; k += 17) for(const sd of [-1, 1]) if(((k * 7 + sd) | 0) % 3) moored.push({ x:p.x + ca * k - sa * sd * 7.5, y:p.y + sa * k + ca * sd * 7.5, z:SEA_Y + 0.05, ry:-p.ang, h:1.1, w:1, tint:COLS[(k + sd + 8) % 4] });
