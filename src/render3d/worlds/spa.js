@@ -370,7 +370,8 @@ const SPA = {
     // catch fencing: Eau Rouge and Raidillon both sides, Blanchimont and Pouhon on the outside
     const fh = 4.2;
     const fmat = new THREE.MeshStandardMaterial({ map:PTEX.fence(), alphaMap:PTEX.fence(), transparent:true, alphaTest:0.28, side:THREE.DoubleSide, roughness:0.6, metalness:0.5, color:G.col("#B8C0C8"), depthWrite:true });
-    const zones = [[-1, 0.084, 0.128], [1, 0.084, 0.128], [1, 0.848, 0.902], [1, 0.515, 0.568]];
+    // (side, from, to): a world that inherits this one gives its own as fenceZones
+    const zones = this.fenceZones || [[-1, 0.084, 0.128], [1, 0.084, 0.128], [1, 0.848, 0.902], [1, 0.515, 0.568]];
     const posts = [];
     for(const [sd, a, b] of zones){
       const f = i => boAt(sd, i) + sd * 0.35, sel = i => inU(i, a, b);
@@ -393,7 +394,7 @@ const SPA = {
     this.stats.tyres = tyres.length;
     /* adverts on the Armco: along the straights, past the stands and at the big corners,
        panels 6 m by 1.1 m on the outside, facing the cars */
-    const runs = [[0.94, 0.02, -1], [0.05, 0.085, -1], [0.13, 0.30, 1], [0.13, 0.30, -1], [0.36, 0.40, -1], [0.43, 0.47, -1], [0.52, 0.56, 1], [0.84, 0.90, 1], [0.95, 0.975, -1]];
+    const runs = this.adRuns || [[0.94, 0.02, -1], [0.05, 0.085, -1], [0.13, 0.30, 1], [0.13, 0.30, -1], [0.36, 0.40, -1], [0.43, 0.47, -1], [0.52, 0.56, 1], [0.84, 0.90, 1], [0.95, 0.975, -1]];
     const ad = new THREE.Group();
     let count = 0;
     for(const [a, b, sd] of runs){
@@ -488,7 +489,8 @@ const SPA = {
     // the camera's direction is fixed (45 round, 35.26 up): the sheets face it
     const el = 35.264 * Math.PI / 180, az = Math.PI * 0.25, dir = new THREE.Vector3(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-    const seeds = [];
+    // (a world that inherits this one can hand over its own seed points as mistSeeds)
+    const seeds = (this.mistSeeds || []).slice();
     for(const s of P.streams){ if(!/Eau Rouge/.test(s.name)) continue;
       for(let k = 0; k < s.pts.length; k += 3){ const p = s.pts[k], cu = this.culvertAt; if(!cu || Math.hypot(p[0] - cu.x, p[1] - cu.y) > 320) continue; seeds.push([p[0], p[1], s.z[k]]); } }
     if(!seeds.length && this.culvertAt) seeds.push([this.culvertAt.x, this.culvertAt.y, this.culvertAt.z - 2]);

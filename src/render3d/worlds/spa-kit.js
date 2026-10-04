@@ -185,7 +185,7 @@ const KIT = {
      ones a roof on columns, tilted up towards the track. Returns where the seats are. */
   stand(h){
     const parts = [], l = h.wid, rows = h.rows, D = 0.85, R = 0.48, base = 1.6;
-    const seatCol = h.main ? "#2F5E9E" : h.name === "raidillon" ? "#C8302A" : "#5A6470";
+    const seatCol = h.seat || (h.main ? "#2F5E9E" : h.name === "raidillon" ? "#C8302A" : "#5A6470");
     parts.push(bx(l, base, rows * D + 1.2, P.concreteDk, 0, 0, -rows * D / 2 + 0.6));
     for(let r = 0; r < rows; r++){
       const z = 0.6 - (r + 0.5) * D, y = base + r * R;

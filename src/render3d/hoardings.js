@@ -152,8 +152,32 @@ const ADS = {
     ["BARBECUE BARRIER",     "Smoke signals for the second stint",            "#3A1410", "#FFD0A0", "#FF7A2A", "screen"],
     ["PUMPJACK PRESS",       "News that goes up and down. Mostly up",         "#1A1D28", "#E8ECF4", "#FF3D62", "arrow"],
   ],
+  /* Interlagos's set: made-up Brazilian brands; the jokes are about coffee, football, samba,
+     juice, traffic jams, barbecue, rain and the climb up to the line */
+  INTERLAGOS:[
+    ["CAFEZINHO TURBO",    "Small cup. Big power unit",                "#3A1E12", "#F4E0C0", "#E8A040", "fire"],
+    ["SENNA S SAMBA",      "Left, right, and shake it down the hill",  "#2E8B45", "#FFF6C8", "#F4D23A", "wave"],
+    ["MARGINAL JAM CO.",   "We sell the traffic you sat in",           "#1A1D28", "#E8ECF4", "#E8C04A", "cone"],
+    ["CHURRASCO PIT STOP", "Twelve meats in 2.4 seconds",              "#6A1E10", "#FFE2C0", "#FF8A3A", "fork"],
+    ["GOLAÇO GLOVES",      "Keepers' gloves. Also for wet laps",       "#F4D23A", "#0E3A22", "#2E8B45", "flag"],
+    ["SUCO DO LAGO",       "Fruit juice. Not from the lake",           "#E8742A", "#FFF0D8", "#F4D23A", "dots"],
+    ["UMBRELLA URGENTE",   "Sun at 2, storm at 2:05",                  "#2F5FB8", "#FFFFFF", "#F4D23A", "umbrella"],
+    ["PÃO DE QUEIJO PRO",  "Cheese bread with downforce",              "#F4E4B0", "#6A3A0A", "#E8902E", "stack"],
+    ["SUBIDA STAIRMASTER", "Train like the climb to the line",         "#0F3F3A", "#B8FFF0", "#5FE8CC", "mountain"],
+    ["BICO DE PATO SPA",   "Hairpin treatments, tight finish",         "#7A1540", "#FFD9E8", "#FF7AA8", "scissors"],
+    ["HELI-TÁXI JÁ",       "Over the jam in four minutes",             "#0B2C6B", "#FFFFFF", "#3E86FF", "arrow"],
+    ["GARRA BOOTS",        "Studs for the bumps in Turn 1",            "#1E1E22", "#F2F2F2", "#F4D23A", "tooth"],
+    ["MERGULHO SWIMWEAR",  "For when you dive into the lake section",  "#14324A", "#E8F2FF", "#4AA8FF", "wave"],
+    ["AÇAÍ ACELERA",       "Purple fuel for green flags",              "#4A1A5A", "#F4E0FF", "#C88AF0", "bolt"],
+    ["JUNÇÃO JUNCTION",    "Furniture that joins you up the hill",     "#8A5A2A", "#FFF0D8", "#F4C890", "lock"],
+    ["TORCIDA TICKETS",    "Loud seats. Very loud seats",              "#2E8B45", "#F4D23A", "#F2F2F2", "screen"],
+    ["CHUVA CHEGANDO",     "Weather app. It says rain. It's right",    "#3A4250", "#DCE2EA", "#8AA8D8", "umbrella"],
+    ["PASTEL DA PISTA",    "Fried at Laranjinha, eaten at Pinheirinho","#F4D23A", "#3A2410", "#C0392B", "ring"],
+    ["FEIJOADA FUEL",      "Saturday's stew, Sunday's stint",          "#2A1A12", "#F4D8B0", "#D8A060", "fire"],
+    ["BALÃO BALLOONS",     "Rides over the bowl. Mind the storm",      "#F2F2EE", "#2E8B45", "#F4D23A", "wind"],
+  ],
   use(set){
-    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : this.VEGAS;
+    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "interlagos" ? this.INTERLAGOS : this.VEGAS;
     if(this.LIST === want) return;
     this.dispose(); this.LIST = want;
   },
