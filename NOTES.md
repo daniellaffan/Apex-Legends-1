@@ -2007,3 +2007,31 @@ now overridable (Interlagos builds as before). Check with `node scripts/mexico-a
 4. **Turns 1 to 3** and the baseball stadium beyond; **the esses** and their banks.
 5. **Anything clipping**, stands too close to the track, trees hiding the car, the frame rate in the stadium
    (the heaviest place), and whether 3D ever switches off (the reason now shows on screen).
+
+---
+
+# Monza (Autodromo Nazionale) overhaul: research, mismatches, decisions
+
+## Research (Part 1). Sources and how sure I am
+
+| Fact | Value I found | Source | Confidence |
+|---|---|---|---|
+| Length, corners | **5.793 km**, 11 turns | [Wikipedia](https://en.wikipedia.org/wiki/Monza_Circuit), [f1-fansite](https://www.f1-fansite.com/f1-circuits/autodromo-nazionale-monza/) | high |
+| Direction | **clockwise** | f1-fansite, others | high |
+| Corner order | Variante del Rettifilo (the first chicane), Curva Grande, Variante della Roggia, the two Curve di Lesmo, Variante Ascari, Curva Parabolica (Alboreto) | Wikipedia | high |
+| Main straight | **1.12 km** | Wikipedia | high |
+| Elevation | **about 10 m** change in all (F1's "highs and lows" list); no profile and no high/low locations found | [F1 highs and lows](https://www.formula1.com/en/latest/features/2016/10/highs-and-lows---which-f1-track-has-the-most-elevation-changes-.html), f1-fansite | medium for the range, none for the shape |
+| Banking | the **Pista di Alta Velocita**, a 4.25 km oval with banked curves (Curva Nord and Sud); the banking is **about 30 deg** (Wikipedia) or "21 degrees, 80 per cent gradient at its steepest" (an F1 history piece): **sources disagree**; unused since 1969, decayed. It loops in and around the road circuit: it is **seen in the background as cars exit the Parabolica, and on the flyover bridge they pass under on the way to the Variante Ascari** | Wikipedia, [F1 on Italian banking](https://www.formula1.com/en/latest/features/2015/9/high-risk--high-interest---a-brief-history-of-italian-banking.html) | medium |
+| Pit lane | entry **at the end of the Parabolica**, exit **on the Rettifilo straight** after the line; one briefing quotes a lane of **418 m**; grandstands on the inside of the Parabolica exit near the pit entry. The side (the pits are on the infield side, the right, on a clockwise lap) and box positions: not confirmed | GT4 briefing PDFs via search, enterf1 | medium for entry/exit, low for the rest |
+| Setting | the **royal park** of Monza (a walled woodland); capacity 118,865 | Wikipedia | high |
+| Race | the Italian GP is run in early September in the afternoon, hot; I did not confirm the start time this time (15:00 is my recollection) | - | low |
+| Run-off | I found no per-corner map; the layout string's single 14 m run-off is the game's only data | - | low |
+
+## Mismatches against the game (`node scripts/track-audit.mjs monza`, not by eye)
+
+1. **Direction: correct** (net turn +360, area +867,585: clockwise). Nothing reversed.
+2. **Length:** 5,794.3 m (real 5,793). The layout string reads in the real order (R-L Rettifilo, R Curva Grande, L-R Roggia, R Lesmo 1, R Lesmo 2, a long gentle left Serraglio, L-R-L Ascari, the back straight, R Parabolica), 11 turns hidden in 9 corner runs.
+3. **Main straight:** 658 m after the line + 553 m before it = 1.21 km (real 1.12 km): close.
+4. **Elevation:** the old profile was a three-point cosine curve (start 2 m, 10 m at u 0.45, 0 m at u 0.92), range 10.00 m (real about 10 m) but with a flat spot at every knot. Where the high and low really are I could not find; I kept the old estimate. New: a closed spline with the flyover underpass dip.
+5. **Pit lane:** the game's zone ran from u 0.860 to 0.100 (the shared default), **1,393 m**; real: about 418 m, from the end of the Parabolica to the Rettifilo.
+6. The old scene put its two "banking" props at u 0.17-0.27 and 0.72-0.83, as raised slabs on the outside. The real banking is seen from the Parabolica exit and the Ascari flyover; positions by lap fraction only.
