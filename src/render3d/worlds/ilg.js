@@ -94,15 +94,17 @@ Object.assign(ILG, {
     const crowd = (s, seats, density) => {
       for(const [lx, ly, lz] of seats){ if(Math.random() > density) continue;
         const [x, y, z] = this.toWorld(s, lx + (Math.random() - 0.5) * 0.2, ly, lz);
-        const it = { x, y, z, h:0.92 + Math.random() * 0.14, w:1, ry:-s.ang + Math.PI + (Math.random() - 0.5) * 0.6, tint:CROWD[Math.floor(Math.random() * CROWD.length)] };
+        const pal = this.crowdCols || CROWD;
+        const it = { x, y, z, h:0.92 + Math.random() * 0.14, w:1, ry:-s.ang + Math.PI + (Math.random() - 0.5) * 0.6, tint:pal[Math.floor(Math.random() * pal.length)] };
         (Math.random() < 0.2 ? W : F).push(it); } };
-    const flagCols = ["#F4D23A", "#2E8B45", "#2F5FB8", "#F2F2EE"];
+    // (a world that inherits this one can bring its own crowd and flag colours)
+    const flagCols = this.flagCols || ["#F4D23A", "#2E8B45", "#2F5FB8", "#F2F2EE"];
     for(const s of P.S){
       let r = null;
       switch(s.kind){
         case "pits": r = KIT.pits(s, TEAMS); break;
         case "paddock": r = KIT.paddock(s, TEAMS); break;
-        case "stand": r = KIT.stand(s); crowd(s, r.seats, s.main ? 0.9 : 0.8);
+        case "stand": r = KIT.stand(s); crowd(s, r.seats, s.density || (s.main ? 0.9 : 0.8));
           for(let x = -s.wid / 2 + 4; x < s.wid / 2; x += 8){ const [fx, fy, fz] = this.toWorld(s, x, r.top + 2.2, -s.rows * 0.85 - 0.4);
             flags.push({ x:fx, y:fy, z:fz, ry:-s.ang, h:2.4, w:1, tint:flagCols[Math.floor(Math.random() * 4)] }); }
           if(s.main || s.name === "senna") this.flareSpots.push(this.toWorld(s, 0, r.top * 0.6, -s.rows * 0.4), this.toWorld(s, s.wid * 0.3, r.top * 0.5, -s.rows * 0.3));

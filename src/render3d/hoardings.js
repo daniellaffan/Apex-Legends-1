@@ -197,8 +197,32 @@ const ADS = {
     ["LION CITY LAUNDRY",     "Whites stay white. Almost.",                   "#E8E4D8", "#1A3A5A", "#3E86C8", "flag"],
     ["SKYLINE STEAMERS",      "Dumplings with a view",                        "#2A1030", "#FFC8E8", "#FF66B8", "mountain"],
   ],
+  /* Mexico City's set: made-up Mexican brands; the jokes are about tacos, altitude, traffic, salsa,
+     the Day of the Dead, churros, the metro, lucha libre and mariachi */
+  MEXICO:[
+    ["TACO TORQUE",          "Al pastor, spun at 300 km/h",                 "#C8242A", "#FFF0D8", "#F4A21C", "fire"],
+    ["ALTITUDE ATTITUDE",    "Oxygen bar. Breathe for two laps",            "#2E6AC0", "#FFFFFF", "#9ED8F0", "mountain"],
+    ["PERIFÉRICO PARKING",   "Your car's second home, rush hour included",  "#1A1D28", "#E8ECF4", "#F4D23A", "cone"],
+    ["SALSA VERDE VELOCITY", "Mild, medium, Peraltada",                     "#1E7A3A", "#F2FFE8", "#9CC84A", "leaf"],
+    ["CATRINA COSMETICS",    "Look your best on the Day of the Dead",       "#7A2A8A", "#FFE8F4", "#E4007C", "ring"],
+    ["CHURRO CHICANE",       "Crunchy outside, soft through the middle",    "#8A5A2A", "#FFF0D8", "#F4C890", "stack"],
+    ["METRO MANIA",          "Three million people a day. Bring elbows",    "#F08A1E", "#1E1E22", "#F2F2EE", "arrow"],
+    ["LUCHA LIBRE LEGAL",    "We fight your tickets in a mask",             "#E4007C", "#FFFFFF", "#F4D23A", "lock"],
+    ["MARIACHI ON DEMAND",   "Twelve trumpets in twenty minutes",           "#1E1E22", "#F2E8D4", "#C8A45A", "screen"],
+    ["MARIGOLD & SONS",      "Cempasúchil by the truckload",                "#F4A21C", "#3A2410", "#C8242A", "dots"],
+    ["FORO SOL FOAM",        "Fingers for 30,000 people",                   "#2E8B45", "#FFFFFF", "#D8352A", "flag"],
+    ["ELOTE EXPRESS",        "Corn on a stick, lime in a hurry",            "#F4D23A", "#3A2410", "#2E8B45", "fork"],
+    ["THIN AIR TYRES",       "Grip for when the air gives up",              "#2A2A2E", "#DCE2EA", "#8AA8D8", "wheel"],
+    ["PULQUE PIT CREW",      "Slow drink, fast stops. Not at once",         "#E8E4DA", "#3A6A2A", "#8AB84A", "wind"],
+    ["HOT SAUCE HELMETS",    "Rated for 2,000,000 Scoville",                "#C8242A", "#FFE9C4", "#FFC23A", "tooth"],
+    ["TRAJINERA TRANSPORT",  "Colourful boats, zero downforce",             "#2F78B8", "#FFFFFF", "#E4007C", "wave"],
+    ["PAN DE MUERTO",        "Sweet bread with a skull on top",             "#B8733A", "#FFF0D8", "#F4A21C", "umbrella"],
+    ["GUACAMOLE GRIP",       "Smash it at the apex",                        "#3E7A26", "#F4FFE8", "#B8D84A", "scissors"],
+    ["MOLE MOTORS",          "Thirty ingredients, one engine",              "#3A1E12", "#F4E0C0", "#C8864A", "bolt"],
+    ["TORTA TELEMETRY",      "Data on what you ate at Turn 1",              "#F2F2EE", "#C8242A", "#2E8B45", "screen"],
+  ],
   use(set){
-    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "singapore" ? this.SINGAPORE : set === "interlagos" ? this.INTERLAGOS : this.VEGAS;
+    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "singapore" ? this.SINGAPORE : set === "interlagos" ? this.INTERLAGOS : set === "mexico" ? this.MEXICO : this.VEGAS;
     if(this.LIST === want) return;
     this.dispose(); this.LIST = want;
   },

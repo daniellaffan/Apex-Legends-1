@@ -190,7 +190,7 @@ G3.frame = function(S){
   }
   {
     const cu = this.cutU, cm = this.cam;
-    cu.uCutOn.value = ((this.monaco || this.spa || this.ilg || this.singapore) && cm === this.camIso && !p.dnf) ? 1 : 0;
+    cu.uCutOn.value = ((this.monaco || this.spa || this.ilg || this.singapore || this.mex) && cm === this.camIso && !p.dnf) ? 1 : 0;
     if(cu.uCutOn.value){
       cm.updateMatrixWorld();
       cu.uCutV.value.copy(cm.matrixWorld);
@@ -206,6 +206,7 @@ G3.frame = function(S){
   if(this.spa){ try{ this.spa.frame(S, this); }catch(e){ console.warn("spa frame", e.message); this.spa = null; } }
   if(this.singapore){ try{ this.singapore.frame(S, this); }catch(e){ console.warn("singapore frame", e.message); this.singapore = null; } }
   if(this.ilg){ try{ this.ilg.frame(S, this); }catch(e){ console.warn("interlagos frame", e.message); this.ilg = null; } }
+  if(this.mex){ try{ this.mex.frame(S, this); }catch(e){ console.warn("mexico frame", e.message); this.mex = null; } }
   /* Bloom is what the composer is for, and a daytime circuit has next to none.
      Without it the frame goes straight to the screen: the renderer's own ACES
      and sRGB steps (the same curve, which divides by 0.6 inside, hence the

@@ -12,7 +12,10 @@ import { flat, lin, merge, paint } from './suzuka.js';
 const grad = (lo, hi, y0, y1) => { const A = lin(lo), B = lin(hi); return (x, y) => A.clone().lerp(B, Math.min(1, Math.max(0, (y - y0) / (y1 - y0)))); };
 const box = (l, h, w, col, x, y, z, mask, ry) => { const g = new THREE.BoxGeometry(l, h, w); if(ry) g.rotateY(ry); g.translate(x || 0, (y || 0) + h / 2, z || 0); return paint(g, typeof col === "function" ? col : flat(col), () => mask || 0); };
 
-function ilgGeos(){
+/* opts: tank, the colour of the rooftop water tanks; rebar, the steel left sticking up for the next floor */
+function ilgGeos(opts){
+  opts = opts || {};
+  const TANK = opts.tank || "#3A6AA8";
   const G = {};
   // open-ended: the caps underneath are never seen from above
   const trunk = (r0, r1, h, col, lean) => { const t = new THREE.CylinderGeometry(r1, r0, h, 5, 1, true); t.translate(0, h / 2, 0); if(lean) t.rotateZ(lean); return paint(t, flat(col || "#6A5440"), () => 0); };
@@ -61,7 +64,8 @@ function ilgGeos(){
   // 0: a flat concrete slab roof, a blue water tank and a satellite dish
   G.house0 = floors => { const parts = [box(1, floors, 1, wall, 0, 0, 0, 1), box(1.04, 0.08, 1.04, "#8A8680", 0, floors, 0)];
     windows(parts, floors); parts.push(box(0.16, 0.6, 0.02, "#5A3A2A", 0.05, 0, 0.505));
-    parts.push(box(0.22, 0.16, 0.22, "#3A6AA8", 0.26, floors + 0.08, -0.22));
+    parts.push(box(0.22, 0.16, 0.22, TANK, 0.26, floors + 0.08, -0.22));
+    if(opts.rebar) for(const [x, z] of [[-0.48, -0.48], [0.48, -0.48], [-0.48, 0.48], [0.48, 0.48]]) parts.push(box(0.03, 0.22, 0.03, "#5A4A40", x, floors + 0.08, z));
     const d = new THREE.CircleGeometry(0.08, 8); d.rotateX(-0.6); d.translate(-0.3, floors + 0.2, 0.3); parts.push(paint(d, flat("#E8E8E8"), () => 0));
     return merge(parts); };
   // 1: a terracotta pitched roof
@@ -75,7 +79,7 @@ function ilgGeos(){
   // 2: a rooftop terrace with a low wall, a tank, and washing on a line
   G.house2 = floors => { const parts = [box(1, floors, 1, wall, 0, 0, 0, 1), box(1.02, 0.06, 1.02, "#9A9288", 0, floors, 0)];
     for(const [l, w, x, z] of [[1, 0.06, 0, 0.48], [1, 0.06, 0, -0.48], [0.06, 1, 0.48, 0], [0.06, 1, -0.48, 0]]) parts.push(box(l, 0.18, w, wall, x, floors, z, 1));
-    windows(parts, floors); parts.push(box(0.2, 0.2, 0.2, "#3A6AA8", -0.28, floors + 0.06, -0.26));
+    windows(parts, floors); parts.push(box(0.2, 0.2, 0.2, TANK, -0.28, floors + 0.06, -0.26));
     parts.push(box(0.6, 0.012, 0.012, "#3A3A3A", 0.05, floors + 0.36, 0.1));
     for(let k = 0; k < 4; k++) parts.push(box(0.1, 0.14, 0.01, ["#E8E8E8", "#D8352A", "#2F78B8", "#E8C02A"][k], -0.18 + k * 0.15, floors + 0.22, 0.1));
     return merge(parts); };
