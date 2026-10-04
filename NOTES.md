@@ -1763,3 +1763,154 @@ The first Singapore build put 1,434 buildings up to 280 m tall around the circui
 - **Cutaway:** the overhead lens's see-through shader (`G3.cutMat`, as at Monaco, Spa and Interlagos) is now on every Singapore building material, so anything that does stand between the lens and the car dissolves in a disc around it.
 - **Flat glowing slabs removed:** the coloured plates on roofs (crowns, hotel tops, art-deco tiers, the heliport pad, the dome base) were unlit full slabs, which from above read as huge coloured squares. They are now thin glowing outlines, and only 30 % of heliport roofs get one.
 - Anyone building another city world (Interlagos has houses and towers too): run the same view test against it.
+
+# Mexico City (Autódromo Hermanos Rodríguez) (2026-10-04)
+
+How this was done: the OpenStreetMap raceway ways chained into one lap (4,306 m against the official
+4,304 m), heights every 20 m from SRTM 30 m and ASTER 30 m (OpenTopoData), OSM land cover, grandstands,
+stadiums and the pit lane. The game lap is the existing layout string, measured with `buildTrack()` in
+Node. Nothing was seen in a browser (the user checks visually).
+
+Sources: [oversteer48](https://oversteer48.com/autodromo-hermanos-rodriguez-circuit-layouts/) ·
+[f1-fansite](https://www.f1-fansite.com/f1%20circuits/autodromo-hermanos-rodriguez-layout-records/) ·
+[Wikipedia](https://en.wikipedia.org/wiki/Aut%C3%B3dromo_Hermanos_Rodr%C3%ADguez) ·
+[Wikipedia, Estadio GNP Seguros](https://en.wikipedia.org/wiki/Estadio_GNP_Seguros) ·
+[Rio Times, 2026 guide](https://www.riotimesonline.com/mexico-city-grand-prix-2026-f1-guide/) ·
+[f1technical](https://f1technical.net/news/25717) · OpenStreetMap · OpenTopoData.
+
+## Confirmed
+
+- **Layout**: 4.304 km, 17 turns, **clockwise**; the 2015 layout that leaves the old Peraltada and runs
+  through the Foro Sol (OSM: "Estadio GNP Seguros", 299 × 262 m). The old Peraltada road is still mapped
+  beside the new one.
+- **Corners** (OSM geometry): T1 right 89°, T2 left 70°, T3 right 93°, the back straight, T4 left 95°, T5
+  right 114°, T6 right 133°, the esses (left 67°, right 38°, left 61°, right 68°, left 47°), T12, the stadium
+  (right 79°, left 136°, right 58°), the Peraltada (right 76°, right 106°), the 1.2 km main straight.
+- **Height**: 8 m from top to bottom (oversteer48, f1-fansite). Altitude: several articles say 2,285 m, others
+  2,240 m; SRTM puts the ground at about 2,225-2,245 m along the lap, so **about 2,230-2,240 m**.
+- **Pit lane** (OSM): on the **right**. In from the inside of the Peraltada, about 800 m along the right of
+  the main straight past the garages, out onto the straight well before Turn 1 (f1technical: the pit exit is
+  between the pits and Turn 1).
+- **Surroundings** (OSM): the Magdalena Mixhuca sports city (the 1968 Olympic park) round the circuit; the
+  Palacio de los Deportes (a copper-clad dome) about 300 m outside the Peraltada; the baseball stadium
+  (Estadio Alfredo Harp Helú) in the infield near Turn 1; the athletics stadium (Estadio Jesús Martínez
+  "Palillo") outside the start of the main straight; the Olympic velodrome and a smaller one; grandstands
+  along the outside of the main straight and round the Foro Sol; a helipad in the paddock; the city round
+  it, mostly unmapped as land use (2,880 streets within 3 km).
+- **Crowds**: 110,000; the Foro Sol stands hold over 30,000 (Grada 14 and 15).
+- **Race**: 30 October to 1 November 2026, race Sunday 14:00 local; the Day of the Dead weekend.
+
+## Not confirmed
+
+- **The shape of the height profile**: SRTM and ASTER disagree along the lap (19.8 m and 28 m of "range",
+  17 % "grades" on an old lakebed) because of trees and stands. Only their long trend is used (a 150 m Gaussian
+  of the two averaged), scaled to the published 8 m. The range is published; **the shape is low-confidence**
+  (highest round the Peraltada and the start of the main straight, lowest in the esses).
+- **Run-off corner by corner**: my reading (tarmac at Turns 1-5 and round the stadium, gravel outside the
+  Peraltada and the esses).
+- **The 1968 rowing canal** is in Xochimilco, not here; left out.
+- **The volcanoes**: Popocatépetl and Iztaccíhuatl are placed in their real directions on the horizon; how
+  often they show through the haze is not confirmed.
+
+## The game against the real circuit (none of these changed)
+
+1. **Shape**: 293 m RMS off the real lap after the best fit (max 636 m), the furthest of any circuit so far.
+2. **Main straight to Turn 1**: 1,695 m against 1,425 m (from the last Peraltada apex).
+3. **Corners**: Turn 1 131° (real 89°); the esses run left-right-left-left-right (real left-right-left-right-
+   left); a 52° kink on the back straight that is not real; no counterpart of the real T6 right (133°); an
+   extra small left in the stadium.
+4. **Section lengths**: T9 to T11 196 m (real 285 m), T11 to the stadium 392 m (575 m), Peraltada T16 to T17
+   175 m (56 m), T2 to T3 63 m (85 m).
+5. As at Spa and Interlagos, building from the surveyed OSM path (chained, 4,306 m, clockwise) would fix 1-4.
+
+## Part 2: direction and heights
+
+Already clockwise; nothing reversed. `ELEV_VISUAL` stays 1.0 (real = displayed).
+
+| | before | after |
+|---|---|---|
+| Min / max | 0.0 (u 0.80) / 8.0 (u 0.35, T1-T3) | 0.0 (u 0.61, the esses) / 8.0 (u 0.915, Peraltada exit) |
+| Start line | 4.0 | 4.9 |
+| T1 / T3 | 7.8 / 8.0 | 0.8 / 1.3 |
+| Into the stadium / T13 | 0.1 / 0.0 | 2.8 / 3.9 |
+| Peraltada / T17 | 0.8 / 2.0 | 7.2 / 7.8 |
+| Steepest | 0.7 % | 2.3 % |
+| Pit lane | right, defaults in 0.86, out 0.10 | right, in 0.885 (Peraltada), out 0.081, box 0.976 |
+
+Seam 0.0000 m. An AI car laps in 70.7 s and pits; a stop costs about 25 s (32 s before).
+
+# Mexico City world
+
+Files: `worlds/mex-plan.js` (plan and `auditMex`), `mex-kit.js` (landmarks, trees, papel picado, flag),
+`mex.js` (`MEX = Object.create(ILG)`: it inherits Interlagos's world, and so Spa's), data in
+`tracks/survey/mexico.js`. Interlagos's crowd, flag and water-tank colours and a stand's crowd density are
+now overridable (Interlagos builds as before). Check with `node scripts/mexico-audit.mjs` and
+`node scripts/census.mjs mexico`.
+
+## The autódromo
+
+- **The Foro Sol**: a full bowl round the stadium section: 37 tall covered stands, each facing the middle
+  and stepped back until it clears every barrier, seats in green, white and red; in the middle the baseball
+  diamond (outfield, dirt infield, bases, mound) and the podium (three steps under an arch in green, white
+  and red), since the race ends here; flares in the stands; confetti over the podium.
+- **Main straight**: five covered stands on the outside where they are mapped, the pits and paddock on the
+  right, the paddock sign, a screen, food stalls, papel picado along the backs of the stands.
+- **Turn 1**: a big covered stand and two more round Turns 2 and 3; banks round the esses.
+- **The paddock helipad** where it is mapped, with a helicopter parked on it, rotor turning.
+- **The sports city's landmarks**, where the real ones map to: the **Palacio de los Deportes** (a low dome of
+  copper panels, each its own shade, a few gone green, on a glazed plinth), the **baseball stadium** (a
+  horseshoe under a white canopy; its real place falls on the game's sprawling infield, so it moved outside
+  Turn 3), the **athletics stadium** (an oval with a red track), the **Olympic velodrome** (banked oval) and a
+  smaller **roofed velodrome**.
+- **The old Peraltada**: the bypassed banked road drawn as faded asphalt with ghost kerbs.
+- **Day of the Dead fan zone** behind the main stands: two giant catrinas under a marigold arch, a mariachi
+  stage with its band, a 60 m monumental flag (green, white and red bands, no emblem) waving, papel picado.
+- **Crowds**: 36,500 spectators in green, white, red, rosa mexicano and marigold.
+- **Adverts**, all invented: Taco Torque ("Al pastor, spun at 300 km/h"), Altitude Attitude ("Oxygen bar.
+  Breathe for two laps"), Periférico Parking, Salsa Verde Velocity ("Mild, medium, Peraltada"), Churro
+  Chicane, Lucha Libre Legal ("We fight your tickets in a mask"), Thin Air Tyres, and others.
+
+## Round it
+
+- **Planting**: the sports city's lawns and groves of ash, eucalyptus, weeping pirul, Mexican cypress and a
+  few palms (3,263 near the circuit); marigold, white and pink flowers.
+- **The city**: 9,000 low concrete houses with black water tanks and rebar on the flat roofs, walls in rosa
+  mexicano, ochre, cobalt, terracotta and more; apartment blocks with helipads; warehouses; 40 football
+  pitches with games on; 1,345 parked cars and buses.
+- **Sky and light**: thin, clear, hard light (sun 1.35), a blue fill, brown haze low over the city, few slow
+  cloud shadows. For the shots that look out: a deep blue dome with a smog band, fair-weather clouds, the
+  city's towers to the west, and Popocatépetl and Iztaccíhuatl, snow-capped, in their real directions.
+- **Details**: helicopters (one parked), grackles round the trees, pigeons over the dome, balloons, flares,
+  confetti, the mariachi band, the football games, the waving flag and papel picado.
+
+## Checks (Node)
+
+- Lap: clockwise, 4,307 m, 0-8.0 m, seam 0.0000 m.
+- Clearance (every centreline segment): 3,615 trees, closest canopy 2.2 m past the barrier line, none over;
+  houses at least 4.1 m clear; stands, banks, pits, posts and landmarks at least 0.54 m; cars 10.2 m. One bank
+  and one screen were not built for want of room.
+- Clipping: no ground inside the barrier line above the road ribbons (3,282 vertices); behind the Armco the
+  ground is at most 2.3 m above the road.
+- Instance colours: no material shared by instanced meshes with and without colour (the Interlagos trap).
+- The real game loop in Node (`startSession('race')`, AI, contacts): 145 s of racing and 85 s of crashing
+  into walls, 3D all the way; 1,500 frames of `G3.frame` with lights, a field and rain: no throws.
+- `npm run build`: one 4.6 MB file.
+
+## Performance (Node estimate of what the overhead camera draws)
+
+| | draw calls per frame | triangles per frame | build |
+|---|---|---|---|
+| Mexico before | 96-166 | about 64k | 0.3 s |
+| Mexico after | 135-222 | 180-506k (the stadium is the heaviest) | about 2 s |
+| Interlagos | 163-213 | 180-425k | 0.8 s |
+| Suzuka | 135-170 | 210-660k | 0.6 s |
+
+## Visual checklist (please)
+
+1. **The Foro Sol**: the bowl of stands round the lap, the diamond and podium, the flares and confetti.
+2. **The main straight**: the covered stands, the pits on the right, the papel picado, the fan zone with the
+   catrinas, the mariachi stage and the big flag behind the stands.
+3. **The Peraltada**: the old banked road beside it, the copper dome outside.
+4. **Turns 1 to 3** and the baseball stadium beyond; **the esses** and their banks.
+5. **Anything clipping**, stands too close to the track, trees hiding the car, the frame rate in the stadium
+   (the heaviest place), and whether 3D ever switches off (the reason now shows on screen).
