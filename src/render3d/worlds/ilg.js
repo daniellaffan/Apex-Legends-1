@@ -217,7 +217,12 @@ Object.assign(ILG, {
     const hb = new THREE.InstancedMesh(M.heli, this.buildMat, 3), hr = new THREE.InstancedMesh(M.rotor, this.buildMat, 3);
     for(const im of [hb, hr]){ im.frustumCulled = false; im.userData.dynamic = true; im.castShadow = true; g.add(im); }
     const cols = ["#E8E8E8", "#D8352A", "#2F5FB8"]; for(let k = 0; k < 3; k++) hb.setColorAt(k, lin(cols[k]));
-    hb.instanceColor.needsUpdate = true;
+    /* The rotors share the bodies' material, so they must carry instance colours as well (white:
+       they keep their own grey). three.js compiles one program per material, and one with
+       per-instance colour drawn on a mesh without any throws on every frame, which drops the
+       game to 2D. */
+    for(let k = 0; k < 3; k++) hr.setColorAt(k, new THREE.Color(1, 1, 1));
+    hb.instanceColor.needsUpdate = true; hr.instanceColor.needsUpdate = true;
     const bb = T.bounds, cx = bb.minX + bb.w / 2, cy = bb.minY + bb.h / 2;
     this.hl = { hb, hr, list:[0, 1, 2].map(k => ({ cx:cx + (k - 1) * 400, cy:cy + (1 - k) * 260, r:380 + k * 140, h:140 + k * 50, w:0.05 + k * 0.012, ph:k * 2 })), M:new THREE.Matrix4(), q:new THREE.Quaternion(), e:new THREE.Euler(), p:new THREE.Vector3(), s:new THREE.Vector3(1, 1, 1) };
     // kites over the houses, swaying on their strings
