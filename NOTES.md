@@ -1554,11 +1554,11 @@ anticlockwise). I have not done it.
 |---|---|---|
 | Min / max | -10.0 (u 0.549) / 34.0 (the line) | 0.0 (u 0.343, Turn 5) / 42.9 (u 0.977, just before the line) |
 | Start line | 34.0 | 42.5 |
-| Senna S (T1 / T2) | 31.5 / 26.6 | 39.9 / 34.3 |
-| The lake (T4 / T5) | 0.0 / -2.7 | 5.6 / 0.3 |
-| Bottom of the hairpin (Bico de Pato) | -8.5 | 29.3 |
-| Junção | -4.4 | 10.1 |
-| Top of the pit straight | 34.0 | 42.9 |
+| Senna S (T1 / T2) | 29.8 / 22.3 | 39.9 / 34.3 |
+| The lake (T4 / T5) | -0.5 / -4.0 | 5.6 / 0.3 |
+| Bottom of the hairpin (Bico de Pato) | -7.2 | 29.3 |
+| Junção | -3.6 | 10.1 |
+| Top of the pit straight | 33.6 | 42.9 |
 | Steepest | 16.2 % | 13.9 % (out of the lake) |
 
 - **Pit lane**: in 0.853, out 0.218 (the real points), box 0.955. An AI car laps in 66.7 s, pits, and the
