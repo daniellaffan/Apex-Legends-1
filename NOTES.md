@@ -1763,3 +1763,31 @@ The first Singapore build put 1,434 buildings up to 280 m tall around the circui
 - **Cutaway:** the overhead lens's see-through shader (`G3.cutMat`, as at Monaco, Spa and Interlagos) is now on every Singapore building material, so anything that does stand between the lens and the car dissolves in a disc around it.
 - **Flat glowing slabs removed:** the coloured plates on roofs (crowns, hotel tops, art-deco tiers, the heliport pad, the dome base) were unlit full slabs, which from above read as huge coloured squares. They are now thin glowing outlines, and only 30 % of heliport roofs get one.
 - Anyone building another city world (Interlagos has houses and towers too): run the same view test against it.
+
+---
+
+# Baku (City Circuit) overhaul: research, mismatches, decisions
+
+## Research (Part 1). Sources and how sure I am
+
+| Fact | Value I found | Source | Confidence |
+|---|---|---|---|
+| Length, corners | **6.003 km**, 20 turns (8 right, 12 left per one summary) | [Wikipedia](https://en.wikipedia.org/wiki/Baku_City_Circuit), [Mercedes F1 race page](https://www.mercedesamgf1.com/races/azerbaijan-grand-prix-2025) | high |
+| Direction | **anticlockwise** (Wikipedia infobox, F1 guide, a track guide) | same | high |
+| Corner order | Sector 1 is a quartet of ~90-degree corners; **T1 a 90-degree left** ("second gear", braking point hard to spot) and T3 another 90-degree left; **T8 and T9 the castle chicane**, "the tightest corner of the season"; Sector 2 is the castle (about T8-T12) round the Old City wall; **T16 starts a 2 km+ flat-out run** to the pit straight | [F1 circuit guide via search](https://www.formula1.com/en/latest/article/circuit-guide-everything-you-need-to-know-about-the-baku-city-circuit.320UGBNQu2ALdgAtax1gRn), [RealSport101](https://realsport101.com/article/f1-2019-azerbaijan-grand-prix-track-guide) | medium for individual turn numbers |
+| Main straight | "**2.2 km** stretch along Neftchilar Avenue back to the start"; Wikipedia also says the lap loops Government House then goes "west along a 1 km straight" to the Maiden Tower. A guide says "flat-out for over two kilometres from T16 to the pit straight". | Wikipedia, F1 guide | medium (2.2 km vs about 2 km) |
+| Width | 13 m at its widest, **7.6 m** (25 ft) at the narrowest, in the uphill castle section between the walls | Wikipedia, RacingNews365 | high |
+| Elevation | highest point **2.1 m above sea level at Turn 13**, lowest **24.7 m below sea level on the start-finish straight**: range **26.8 m**; the castle section climbs ("a narrow uphill stretch") then drops | [F1 highs and lows](https://www.formula1.com/en/latest/features/2016/10/highs-and-lows---which-f1-track-has-the-most-elevation-changes-.html), Wikipedia, Ferrari | medium: the two end figures only, no profile in between |
+| Pit lane | "down the very long straight **past the pits and paddock** before Turn 1": the pits are on the main straight between T20 and T1. No box count, no box positions, no side, no lane length; walls near pit entry/exit were rebuilt with vehicle openings and crash gates (2016 changes) | FIA/Planet F1/Wikipedia | low |
+| Run-off | walls "around the circuit have been realigned, including in the run-off at Turn 1"; a street circuit with concrete walls and almost no run-off. I found no map of escape roads. | Planet F1 | low |
+| Surroundings | starts adjacent to **Azadliq Square**, loops **Government House**, passes the **Palace of the Shirvanshahs** and **Maiden Tower** (12th century, once on the shore), circles the UNESCO Old City walls, runs along the **Caspian promenade** | Wikipedia, F1 | high for the names; **which of them (and the Flame Towers, the carpet museum, the wave-shaped cultural centre) are visible from which corner I did not confirm** |
+| Race conditions | **15:00 local** start, around 26 C, dry and sunny, wind from the north-east on race day (a headwind on the main straight) | RacingNews365, Sky | medium (one year's forecast) |
+
+## Mismatches against the game (`node scripts/track-audit.mjs baku`, not by eye)
+
+1. **Direction: correct** (net turn -360, area -1,643,286: anticlockwise). Nothing reversed, nothing mirrored. (The old 0a table's "Baku: WRONG (mirrored)" was fixed by the turtle change.)
+2. **Length:** 6,004.7 m (real 6,003 m). Corners found: 20 (real 20).
+3. **Main straight:** the game has 616 m from the line to T1 and 684 m from the last corner to the line, so **about 1.3 km** from the last corner to T1; the real straight is **about 2.2 km**. Real first straight after Government House is about 1 km; the game's first straight is 616 m. Layout questions below.
+4. **Elevation range:** game 29.99 m (0 to 30 m), real 26.8 m, so 3 m too much; shape is plausible (lowest on the start straight, climbing through the castle, peak at u 0.58, falling away) but the real high point is "Turn 13" and the game's peak sits at u 0.58 (its T11 to T12); the old profile was cosine-eased with flat knots. Fixed: scaled to 26.8 m and a closed spline with the peak moved onto the T13 hairpin.
+5. **Pit lane:** the game's zone ran from u 0.860 to 0.100 (the shared default), 1,442 m, entry well before the last corner.
+6. The 2016 FIA wall and pit-entry changes are not visible in the layout string.
