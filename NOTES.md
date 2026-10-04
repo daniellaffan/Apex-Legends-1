@@ -1457,3 +1457,31 @@ Drive a time trial at Spa (`npm run dev`) and look at:
    trees hiding the car (they should dither away as the car passes behind them).
 7. **Frame rate** at Eau Rouge and Blanchimont, Full and Lite.
 8. **Rain**: the grass and trees should darken and the cloud shadows close over.
+
+---
+
+# Singapore (Marina Bay) night overhaul: research, mismatches, decisions
+
+## Research (Part 1). Sources and how sure I am
+
+| Fact | Value I found | Source | Confidence |
+|---|---|---|---|
+| Length and corners | **4.940 km (2023-24) or 4.927 km (2025 onwards)**, 19 turns; the 2023 change turned the old Turns 16-19 ("Float" section) into one 397.9 m straight on Raffles Avenue, 23 -> 19 corners. Wikipedia itself says both 4.928 km (text) and 4.940 km (lap-record table); other pages say 4.928. The game says 4,940 m (2023-24) and I kept it. | [Wikipedia](https://en.wikipedia.org/wiki/Marina_Bay_Street_Circuit), [GrandPrix247](https://www.grandprix247.com/formula-1-news/singapore-grand-prix-organizers-revise-track-layout-for-2023) | sources disagree by 12 m; I show both |
+| Direction | anticlockwise (the Wikipedia list of circuits, as used in the 0a audit above) | [list of F1 circuits](https://en.wikipedia.org/wiki/List_of_Formula_One_circuits) | high |
+| Corner order | T1 tight left (Sheares), T2 a curve right, T3 tight left hairpin, T4 a kink, **T5 right onto the longest straight**, T7 (Memorial) slow left, best overtaking spot, T8 tight right, T9 medium left, T10 a mid-speed left "sling" where the Singapore Sling used to be (chicane removed 2013), then the Anderson Bridge, **T13 tight left hairpin** (tightest on the lap), T14 right with DRS, T15 flat-out left kink, T16/17 a tight chicane, T18/19 a flat-out double-apex left to finish | [SI track guide](https://www.si.com/onsi/f1/guides/singapore-grand-prix-marina-bay-circuit-track-guide), Wikipedia | medium (T11/12 and where the bridge sits between them I could not confirm) |
+| Bridges | Benjamin Sheares Bridge (T1 is named after it), Anderson Bridge (built 1910), Esplanade Bridge | Wikipedia | high |
+| Elevation | **5 m total** ("total elevation change of 5 meters"); no gradients found for the bridge ramps | [f1-fansite](https://www.f1-fansite.com/f1-circuits/singapore-circuit/) via search | medium: one number, no profile. I used it as the range and put it on the bridges rather than inventing hills |
+| Pit lane | on "an empty plot of land off Republic Boulevard and beside the Singapore Flyer"; entry begins at the **penultimate corner** (T22 in the original layout, which is the first apex of today's final double-apex left); entry was judged "difficult and incredibly dangerous" and modified. **I found no pit-exit position, no box count and no box positions.** The side (left/infield) is my assumption. | Wikipedia | medium for the entry, none for the rest |
+| Lighting | about **1,500 to 1,600** floodlight projectors (sources: "nearly 1,500", "approximately 1600 custom-made floodlights", "around 1,600"), 108,423 m of cable, 240 steel pylons (one source), 3.18 MW, ~3,000 lux average, aluminium trusses 10 m up | [Singapore GP 2008 lighting page](https://singaporegp.sg/news/2008/live-demonstration-of-the-2008-formula-1a-singtel-singapore-grand-prix-lighting-system/), [The Peak](https://www.thepeakmagazine.com.sg/lifestyle/f1-lights-signify), Wikipedia | sources disagree (1,500 vs 1,600); the game uses glow instead of lights, so the number only sets spacing |
+| Run-off | street circuit, concrete walls, tight run-off. I found no map of the few escape roads. | racefans / Wikipedia | low |
+| Visible surroundings | the Singapore Flyer, Supreme Court and Parliament, Esplanade Drive past the Merlion Park, the Anderson Bridge are named on track guides. I did **not** confirm which skyline buildings, the domed arts centre or the Padang are visible from which corner. | track guides | low |
+| Night race, storms | night race under floodlights, hot and humid; "at least one safety car in every Grand Prix until 2024" | Wikipedia | high |
+
+## Mismatches against the game (measured by `scripts/track-audit.mjs singapore`, not by eye)
+
+1. **Direction: already correct** (net turn -360, signed area -1,242,211: anticlockwise). Nothing to reverse, nothing mirrored.
+2. **Length:** game 4,943.5 m; real 4,940 (2023-24) / 4,927 (2025+).
+3. **Corners:** the game's layout string finds 15 corner runs against 19 real turns. Its first three corners (L82, R76, L78) match T1-T3, but there is no T4 kink or T5 right: the game goes straight from T3 into a 584 m straight, where the real circuit has a kink and a right-hander first. I did not change the layout (rule). The last four corners (R, L, L, L = T15/T16-17/T18-19) look right.
+4. **Elevation:** the old profile was `1.5 * sin(3 cycles) + a 3 m bump at u 0.664`: a fake three-cycle wave, range 4.28 m, with the "bridge" bump on the T13 hairpin itself. Real: nearly flat, 5 m total.
+5. **Pit lane:** the game's zone ran from u 0.860 to 0.101 (the shared default): 1,190 m, entry well before the last corners. Real: entry at the first apex of the final double-apex left.
+6. **Landmark positions** (tower complex, domes, wheel, Fullerton-style hotel, Merlion-style statue) are placed by lap fraction from the old scene list, not by geography; the game's circuit is the layout string's shape, not the surveyed one.
