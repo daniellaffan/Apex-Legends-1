@@ -197,8 +197,29 @@ const ADS = {
     ["LION CITY LAUNDRY",     "Whites stay white. Almost.",                   "#E8E4D8", "#1A3A5A", "#3E86C8", "flag"],
     ["SKYLINE STEAMERS",      "Dumplings with a view",                        "#2A1030", "#FFC8E8", "#FF66B8", "mountain"],
   ],
+  /* Baku's set: made-up brands; the jokes are about tea, plov, carpets, wind, narrow streets, drain covers, seagulls and being below sea level */
+  BAKU:[
+    ["TEA & TIME",           "Pour one. Overtake later.",                   "#5A1A14", "#FFE6C8", "#FFB04A", "fire"],
+    ["PLOV PIT STOP",        "Rice in 2.4 seconds. Saffron extra.",         "#6A4A08", "#FFF0C8", "#FFD24A", "stack"],
+    ["MAGIC CARPET CLEANERS","We vacuum the apex",                          "#4A1A3A", "#FFD8F0", "#FF7AC0", "wind"],
+    ["MANHOLE MASTERS",      "Bolted down since last time",                 "#1A1D28", "#E8ECF4", "#FFC23A", "lock"],
+    ["SEVEN POINT SIX",      "Narrow-street realty. Cosy is a metre.",      "#143A5A", "#E8F4FF", "#5AA8FF", "arrow"],
+    ["WIND CITY BREAKS",     "Hats sold separately. Gone already.",         "#0C4A5A", "#D8FAFF", "#4AD8F0", "wind"],
+    ["SEAGULL AIRWAYS",      "Chips stolen at no extra charge",             "#E8EEF4", "#143A5A", "#3E86C8", "wave"],
+    ["BELOW SEA LEVEL",      "Lowest grid in the world. Sit down.",         "#0A2E4A", "#CFE8FF", "#6AB4F0", "mountain"],
+    ["POMEGRANATE POWER",    "Seeds of speed. Stains of regret.",           "#6A0E2A", "#FFD8E4", "#FF5A8A", "dots"],
+    ["BAKLAVA BRAKES",       "Flaky under pressure",                        "#6A3A08", "#FFE2B0", "#FFC048", "stack"],
+    ["KEBAB KERBS",          "Grilled to a turn",                           "#5A1A0A", "#FFD0A0", "#FF7A2A", "fire"],
+    ["DEEP WELL OIL & OLIVES","Two kinds of slippery",                      "#1E3A14", "#E0F4C8", "#A8D850", "leaf"],
+    ["CASTLE CORNER CAFE",   "Seats 4. Fits 3. Turn 8 in 2.",               "#3A2A14", "#F4E8D0", "#D8A860", "fork"],
+    ["CASPIAN CRUISES",      "Four hours to nowhere. Bring a hat.",         "#0E3A6A", "#E4F2FF", "#7FB4FF", "umbrella"],
+    ["HOT WATER HERO",       "Showers hotter than Turn 1 braking",          "#8A2A0A", "#FFE8C8", "#FFB070", "bolt"],
+    ["OLD TOWN OPTICS",      "See round the next corner. Actually.",        "#123A2E", "#DCFFEE", "#6AE8A8", "tooth"],
+    ["TYRE & TILE",          "Mosaics that grip",                           "#2A2E3A", "#E8ECF4", "#5ADCFF", "wheel"],
+    ["SILK ROAD SOCKS",      "Warm toes since 1200",                        "#4A2A5A", "#F4E8FF", "#C89AF0", "scissors"],
+  ],
   use(set){
-    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "singapore" ? this.SINGAPORE : set === "interlagos" ? this.INTERLAGOS : this.VEGAS;
+    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "singapore" ? this.SINGAPORE : set === "interlagos" ? this.INTERLAGOS : set === "baku" ? this.BAKU : this.VEGAS;
     if(this.LIST === want) return;
     this.dispose(); this.LIST = want;
   },
