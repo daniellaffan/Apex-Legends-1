@@ -249,6 +249,32 @@ const SINGAPORE = {
         }
       }
     }
+    /* footbridges: a deck across the straight with a lit rail and a lit arch, on four legs */
+    for(const f of S.footbridges){
+      const m = TW.get("solid", f.pl[0], f.pl[1]), lt = TW.get("bright", f.pl[0], f.pl[1]), dx = f.pr[0] - f.pl[0], dy = f.pr[1] - f.pl[1], L2 = Math.hypot(dx, dy), a = Math.atan2(dy, dx), mx = (f.pl[0] + f.pr[0]) / 2, my = (f.pl[1] + f.pr[1]) / 2, zD = f.z + 5.8;
+      m.box(mx, my, zD, L2 + 4, 3.2, 0.55, a, L("#8A8EA2"), L("#6A6E82"));
+      for(const sd of [-1, 1]){ const ox = -Math.sin(a) * 1.5 * sd, oy = Math.cos(a) * 1.5 * sd;
+        lt.box(mx + ox, my + oy, zD + 0.55, L2 + 4, 0.14, 0.16, a, L("#40E8FF")); m.box(mx + ox, my + oy, zD + 0.55, L2 + 4, 0.12, 1.0, a, L("#6A6E82"));
+        for(let k = 0; k < 12; k++){ const t0 = k / 12, t1 = (k + 1) / 12, e = (t) => [f.pl[0] + dx * t + ox, f.pl[1] + dy * t + oy, zD + 1.6 + 2.0 * Math.sin(t * Math.PI)], A = e(t0), Bq = e(t1); lt.pole(A[0], A[1], A[2], Bq[0], Bq[1], Bq[2], 0.09, L("#FF8AD0")); if(k % 2 === 0) m.pole(A[0], A[1], zD + 0.6, A[0], A[1], A[2], 0.05, L("#B8BCCC")); } }
+      for(const end of [f.pl, f.pr]) for(const sd of [-1, 1]){ const px = end[0] - Math.sin(a) * 1.3 * sd, py = end[1] + Math.cos(a) * 1.3 * sd; m.box(px, py, f.z - 0.4, 0.9, 0.9, 6.3, a, L("#6A6E82")); }
+    }
+    /* TV towers: scaffold legs, braces, a platform with a rail and a canopy */
+    for(const t of S.tv){
+      const m = TW.get("solid", t.x, t.y), s0 = 1.15, s1 = 0.9, z = t.z - 0.3, h = t.h, c = L("#8A9098"), ca = Math.cos(t.ang), sa = Math.sin(t.ang), corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+      const w = (l, q, sc) => [t.x + ca * l * sc - sa * q * sc, t.y + sa * l * sc + ca * q * sc];
+      corners.forEach(([l, q], k) => { const a = w(l, q, s0), b = w(l, q, s1); m.pole(a[0], a[1], z, b[0], b[1], z + h, 0.1, c); const [l2, q2] = corners[(k + 1) % 4]; for(const f of [0.4, 0.75]){ const aa = w(l, q, s0 + (s1 - s0) * f), bb = w(l2, q2, s0 + (s1 - s0) * (f + 0.25)); m.pole(aa[0], aa[1], z + h * f, bb[0], bb[1], z + h * (f + 0.25), 0.05, c); } });
+      m.box(t.x, t.y, z + h, 3.2, 3.2, 0.3, t.ang, L("#C8C8D0")); m.box(t.x, t.y, z + h + 0.3, 3.1, 3.1, 0.8, t.ang, L("#2A2E36")); m.box(t.x, t.y, z + h + 2.6, 3.4, 3.4, 0.25, t.ang, L("#E8E6E0"));
+      TW.get("bright", t.x, t.y).box(t.x, t.y, z + h + 0.6, 3.15, 3.15, 0.18, t.ang, L("#FFD9A0"));
+    }
+    for(const p of S.flagPoles) TW.get("solid", p.x, p.y).pole(p.x, p.y, p.z - 0.3, p.x, p.y, p.z + p.h, 0.09, L("#E6E6EE"));
+    /* food stalls: a counter, a striped canopy, a string of bulbs */
+    for(const q of S.stalls){
+      const m = TW.get("solid", q.x, q.y), lt = TW.get("bright", q.x, q.y), col = ["#E8402E", "#2E7AE8", "#F2C230", "#2EAA6A", "#E8742A"][q.c % 5], ca = Math.cos(q.ang), sa = Math.sin(q.ang);
+      m.box(q.x, q.y, q.z - 0.2, 6, 3, 1.1, q.ang, L("#5A5870"), L("#E8E0D0"));
+      for(const sx of [-1, 1]) for(const sy of [-1, 1]){ const px = q.x + ca * sx * 2.8 - sa * sy * 1.4, py = q.y + sa * sx * 2.8 + ca * sy * 1.4; m.pole(px, py, q.z - 0.2, px, py, q.z + 2.8, 0.06, L("#B8BCCC")); }
+      m.gable(q.x, q.y, q.z + 2.8, 7, 4.2, 1.1, q.ang, L(col));
+      for(let k = 0; k < 7; k++) lt.box(q.x + ca * (k - 3) * 0.95 - sa * 1.7, q.y + sa * (k - 3) * 0.95 + ca * 1.7, q.z + 2.7, 0.22, 0.22, 0.22, q.ang, L(["#FFD9A0", "#FFB070", "#FFF2D8"][k % 3]));
+    }
     return Object.assign(st, { tris:TW.tris, meshes:TW.emit(g, this.cityMats, true) });
   },
 
@@ -392,7 +418,7 @@ const SINGAPORE = {
     step("city", () => { stats.city = this.city(g, P, T); });
     step("structures", () => { stats.structs = this.structures(g, P, T); });
     // instanced street life
-    const GE = Object.assign(N.treeGeos(), N.lampGeos(), N.vesselGeos(), { car:K.carGeo(), person:K.personGeo(false, null), personW:K.personGeo(true, null), flag:K.flagGeo() });
+    const GE = Object.assign(N.treeGeos(), N.lampGeos(), N.vesselGeos(), { tyres:N.tyreGeo(), car:K.carGeo(), person:K.personGeo(false, null), personW:K.personGeo(true, null), flag:K.flagGeo() });
     this.GE = GE; const sway = instMat("sway", this.U), plain = instMat("plain", this.U), wave = instMat("wave", this.U), flagM = instMat("flag", this.U);
     step("instances", () => {
       const lite = CFG.detail === 0, tint = () => [0.85 + Math.random() * 0.3, 0.9 + Math.random() * 0.2, 0.85 + Math.random() * 0.3];
@@ -406,6 +432,7 @@ const SINGAPORE = {
       c += instance(g, GE.pylon, plain, P.structs.pylons.map(p => ({ x:p.x, y:p.y, z:p.z, ry:-Math.atan2(p.hy - p.y, p.hx - p.x), h:1, w:1 })), true, 400);
       c += instance(g, GE.car, plain, P.structs.cars.map((q, k) => ({ x:q.x, y:q.y, z:q.z + 0.05, ry:-q.ry, sx:4.2, sy:2.0, sz:4.3, tint:["#C8C8CC", "#222428", "#8A1E1E", "#2E4E8A", "#D8D8D0", "#5A5E66", "#1E5A3A"][k % 7] })), false, 400);
       c += instance(g, GE.bus, plain, P.structs.buses.map(q => ({ x:q.x, y:q.y, z:q.z + 0.1, ry:-q.ang, h:1, w:1, tint:["#F2F2F4", "#D8E8FF"][q.c & 1] })), false, 400);
+      c += instance(g, GE.tyres, plain, P.structs.tyres.map(q => ({ x:q.x, y:q.y, z:q.z, ry:q.c * 0.7, h:1, w:1 })), false, 400);
       stats.instChunks = c;
       // the crowd on the stands and on the footbridges
       const R2 = (() => { let a = 4711; return () => { a = (a * 16807) % 2147483647; return a / 2147483647; }; })(), sp = lite ? 2.6 : 1.9, list = [], wv = [], n = T.n;

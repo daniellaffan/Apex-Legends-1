@@ -153,6 +153,12 @@ function lampGeos(){
   G.lampLens = box(0.34, 0.06, 0.2, 1.4, 5.36, 0, "#FFF0C8", 0);
   return G;
 }
+/* a stack of three tyres: black, with a white band on the middle one, a blue one on top */
+function tyreGeo(){
+  const parts = []; const ring = (y, col) => { const c = new THREE.CylinderGeometry(0.55, 0.55, 0.32, 10); c.translate(0, y, 0); return paint(c, () => L(col), () => 0); };
+  parts.push(ring(0.16, "#16161C"), ring(0.49, "#E8E8F0"), ring(0.82, "#2E4A9A"));
+  return merge(parts);
+}
 /* a small cabin boat, a ferry with lit windows, and a bus: low-poly instances, a body colour that takes the tint */
 function vesselGeos(){
   const box = (w, h, d, x, y, z, col, mask) => { const b = new THREE.BoxGeometry(w, h, d); b.translate(x, y, z); return paint(b, () => L(col), () => mask == null ? 0 : mask); };
@@ -166,4 +172,4 @@ function vesselGeos(){
   return G;
 }
 
-export { UMesher, Town, windowTextures, TINTS, shaft, ledge, neonLine, rooftop, treeGeos, lampGeos, vesselGeos, CELLW };
+export { tyreGeo, UMesher, Town, windowTextures, TINTS, shaft, ledge, neonLine, rooftop, treeGeos, lampGeos, vesselGeos, CELLW };

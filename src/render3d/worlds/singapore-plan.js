@@ -266,6 +266,10 @@ function planSingapore(T, opts){
   { const c = near(0.45, 1, 120); S.lawns.push({ x:c.x, y:c.y, ang:c.ang, w:170, d:76 }); addRect(c.x, c.y, c.ang, -90, 90, -42, 42); rasterRect(c.x, c.y, c.ang, 176, 82, true);
     // a pavilion at one end and a clubhouse across the lawn from it
     addBuilding({ type:"colonial", x:c.x + Math.cos(c.ang) * 78 + Math.cos(c.ang + Math.PI / 2) * 52, y:c.y + Math.sin(c.ang) * 78 + Math.sin(c.ang + Math.PI / 2) * 52, ang:c.ang, w:56, d:22, h:12, seed:5, landmark:true }); }
+  // the lawn's grass, painted into the ground colours
+  for(const lw of S.lawns){ const ux = Math.cos(lw.ang), uy = Math.sin(lw.ang);
+    for(let r = 0; r < NY; r++) for(let c = 0; c < NX; c++){ const x = X0 + c * STEP - lw.x, y = Y0 + r * STEP - lw.y, a = x * ux + y * uy, b = -x * uy + y * ux;
+      if(Math.abs(a) < lw.w / 2 + 6 && Math.abs(b) < lw.d / 2 + 6){ const k = r * NX + c, e = Math.min(1, Math.max(0, 1 - (Math.max(Math.abs(a) - lw.w / 2, Math.abs(b) - lw.d / 2)) / 6)); const col = mixC([COL[k * 3], COL[k * 3 + 1], COL[k * 3 + 2]], GC.lawn2, e); COL[k * 3] = col[0]; COL[k * 3 + 1] = col[1]; COL[k * 3 + 2] = col[2]; } } }
   // the field: street blocks of every sort, as far as the haze
   const kinds = [];
   { const step = lite ? 38 : 26;
@@ -351,6 +355,13 @@ function planSingapore(T, opts){
     if(isWater(x, y) || blocked(x, y, 7) || !rasterRect(x, y, T.ang[i], 14, 12, false)) continue;
     rasterRect(x, y, T.ang[i], 14, 12, true); S.stalls.push({ x, y, z:height(x, y), ang:T.ang[i], c:S.stalls.length }); addCircle(x, y, 8);
   }
+  // tyre walls behind the concrete on the outside of every corner of the lap
+  S.tyres = [];
+  { let i = 0; while(i < n){
+      if(Math.abs(T.curv[i]) > 0.004){ let j = i; while(j < n && Math.abs(T.curv[j]) > 0.004) j++;
+        if(j - i >= 3){ const side = outside(Math.round((i + j) / 2)); for(let k = i - 2; k <= j + 2; k++){ const [x, y] = at(k, side, edge(k, side) + 0.9);
+          if(S.tyres.length < 520 && !isWater(x, y) && !blocked(x, y, 0.6)) S.tyres.push({ x, y, z:T.z[((k % n) + n) % n] - 0.1, side, c:S.tyres.length }); } }
+        i = j; } else i++; } }
   // flag poles along the stands
   for(const st of S.stands){ for(let k = 0; k <= st.span; k += 6){ const i = (st.i0 + k) % n, [x, y] = at(i, st.side, st.off0 - 2.5); if(!isWater(x, y)) S.flagPoles.push({ x, y, z:height(x, y), h:8, ang:T.ang[i], c:k }); } }
   // fence posts for the catch fencing (the world builds the rails)

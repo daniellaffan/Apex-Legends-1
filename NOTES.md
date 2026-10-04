@@ -1485,3 +1485,61 @@ Drive a time trial at Spa (`npm run dev`) and look at:
 4. **Elevation:** the old profile was `1.5 * sin(3 cycles) + a 3 m bump at u 0.664`: a fake three-cycle wave, range 4.28 m, with the "bridge" bump on the T13 hairpin itself. Real: nearly flat, 5 m total.
 5. **Pit lane:** the game's zone ran from u 0.860 to 0.101 (the shared default): 1,190 m, entry well before the last corners. Real: entry at the first apex of the final double-apex left.
 6. **Landmark positions** (tower complex, domes, wheel, Fullerton-style hotel, Merlion-style statue) are placed by lap fraction from the old scene list, not by geography; the game's circuit is the layout string's shape, not the surveyed one.
+
+## Results (Parts 2 to 5): `node scripts/track-audit.mjs singapore`, `singapore-audit.mjs`, `singapore-world3d.mjs`, `census.mjs singapore`
+
+### Direction and elevation, before and after
+
+| | Before | After |
+|---|---|---|
+| Winding | net turn -360 deg, signed area -1,242,211: anticlockwise | identical (already right; nothing reversed, nothing mirrored) |
+| Lap length | 4,943.5 m (real 4,940 m in 2023-24, 4,927 m from 2025) | 4,943.5 m |
+| Height range | -1.50 to 2.78 m = 4.28 m, a fake three-cycle sine plus a 3 m bump on the T13 hairpin; steepest 7.7 % | -0.20 to 4.72 m = **4.92 m** (real: about 5 m); steepest **3.9 %**, on the Anderson-bridge ramp |
+| Seam | 0.04 m | 0.000 m, gradient 0.00 % either side |
+
+Heights now (m): start line 0.00, Esplanade bridge crown (u 0.435) 1.39, low point before the bridge (u 0.572) -0.20, Anderson bridge crown (u 0.616) 4.72, end of lap (u 0.99) 0.01. `ELEV_VISUAL` stays 1.0: displayed = real everywhere. The profile is flat except for two bridges because the only real figure I found is "5 m in all", with no profile; **which straight carries which bridge is my reading** of the corner order (see the mismatches).
+
+### What was built (`worlds/singapore.js`, planned by `singapore-plan.js`, parts in `singapore-kit.js` and `singapore-bld.js`)
+
+- **City:** about 1,430 buildings (offices with podiums, setbacks and crowns; slim towers; apartment blocks with balcony ledges; hotels with lit awnings; slabs; shophouse rows with tiled roofs and five-foot-way columns; colonial buildings with colonnades and pediments), taller the further they stand from the track (never within 30 m + 0.8 x height of the barrier, so the overhead lens still sees the road). Landmarks, all generic: a three-tower complex leaning together under a **boat-shaped sky deck** with a lit pool, a **twelve-sided ring of glass offices**, a **stepped art-deco tower** with a gold crown, two **spiked domes** for the arts centre, a **fish-tailed lion statue** with a lit spout, a colonial hotel, a lawn with a pavilion and clubhouse, an **observation wheel** that turns (with cycling LED bulbs), two bridges and five footbridges, a floating stand on the bay.
+- **Windows:** three small shared canvas textures (apartment grid, office band, slim tower) on unlit materials; a facade is two triangles, each building has its own offset and tint. Roof beacons blink in turn.
+- **Water:** the bay is the inside of the loop beyond a promenade, with channels under both bridges. A fake reflection (238 of the tall buildings mirrored under the surface, dark) shows through a glossy translucent sheet, and drifting glints slide across it. Boats and ferries circle on it; three ships lie at anchor.
+- **Night light, no real lights:** floodlight pylons with additive glow sprites, street lamps with sprites, a **light pool painted along the road** under every lamp and a faint streaked cyan sheen for damp asphalt (two additive strips), emissive neon edges, LED screens, bloom from the base pipeline (`grade` tuned calmer than Las Vegas: strength 0.58, exposure 1.16), a violet-teal haze.
+- **Sky and show:** a deep blue-violet dome with a warm city haze and stars; a rare storm cloud with a lightning bolt and a flash; a light show of sweeping beams from the tops of the tall landmarks on a 60 s cycle; fireworks over the bay every ~22 s; a helicopter with strobes.
+- **Track:** tiered stands with scaffold, a lit front edge, fans and catch fencing (with a roof on two); the pit building (garages' glass, striped awnings, a timing tower) and a paddock sign over the entrance; tyre walls behind the concrete on the outside of every corner; TV towers; flag poles; food stalls with strings of bulbs; adverts (see the SINGAPORE set in `hoardings.js`, e.g. "QUEUE & CO. Because the rice is worth it").
+
+### Performance (real `G3.build`, no GPU: draw calls and triangles; frame time could not be measured)
+
+| | Draw calls if all drawn | Triangles if all drawn | Within 450 m of the start / Esses / back straight (draw calls; triangles) |
+|---|---|---|---|
+| Singapore before | 1,125 | 86,699 | 276; 71,847 / 250; 69,675 / 288; 69,892 |
+| Singapore after (full) | 941 | 566,288 | 271; 197,288 / 230; 188,578 / 211; 170,700 |
+| Singapore after (Lite) | 920 | 382,792 | 260; 134,684 / not printed |
+| COTA | 1,029 | 1,357,491 | for comparison |
+| Suzuka | 1,899 | 3,127,023 | |
+| Silverstone | 5,980 | 1,893,312 | |
+
+Fewer draw calls than before and about 6.5 times the triangles, still well under every other detailed track (about 190k within 450 m of any spot, against COTA's 375k and Suzuka's 550k+). Plan time in Node about 70 ms, world build about 210 ms.
+
+### Not done, not verified, or only partly done (honest list)
+
+- **No screenshots and no frame times** (browsers cannot run on this machine). I checked geometry in Node: 0 buildings within 12 m of a barrier, 0 buildings on water, 0 tall buildings near the track, 0 trees or lamps in the road, 0 ground-above-tread hits on 2,508 stand cells, footbridge columns clear of the barrier, and the animation (storm, beams, fireworks, boats, wheel) runs 4,000 frames without error. The tint-mask instancing shader is the one COTA already uses; shaders are not compiled by a GPU here.
+- **Landmarks are not at their real places.** The game's circuit is the layout string's shape, not the surveyed one, so the wheel, domes, tower complex, colonial hotel and statue sit at the lap fractions the old scene list used.
+- **Not done:** heat shimmer and mist beyond the fog tint; hanging planters (there are kerbside planters); people on balconies; the lit bridges are two fixed colours, not colour-cycling; kerb widths unchanged (the base's kerbs); real escape roads (none found).
+- **Pit lane:** entry at the first apex of the last double-apex left (Wikipedia); exit, box positions and the side are not in anything I found. The lane is 707 m in the game (u 0.915 to 0.058).
+- **Floodlight count:** sources say about 1,500 to 1,600; the game has 141 pylons and about 300 street lamps because glow is a sprite, not a projector.
+
+### Layout questions (I did not change these)
+
+1. The layout has 15 corner runs against 19 real turns. Its T1-T3 match (left, right, left), but T4 (a kink) and T5 (a right onto the longest straight) are missing: it goes straight from T3 into a 584 m straight. Do you want the layout string extended to the real 19?
+2. Which straight carries the Anderson Bridge? I put it on the 273 m straight before the T13 hairpin (u 0.585-0.646) and a smaller Esplanade bridge on the 469 m straight before it. If you know it differently, it is one list in `singapore.js` (`BR` in the plan) and the elevation points in `singapore.js` (the track definition).
+3. Length: 4,940 m (2023-24) or 4,927 m (2025+)? The game uses 4,940.
+
+### Visual checklist (npm run dev, circuit "Singapore")
+
+1. The first corners and the pit straight: the stand opposite the pits, the lit pit building with its striped awnings, the paddock sign, floodlight pylons with glows, light pools under each lamp on the road.
+2. The waterfront and the bay: dark glossy water, the mirrored skyline, drifting glints, boats; the observation wheel turning and the three-tower complex with its deck across the bay.
+3. The bridge (u about 0.6): the lit arches, the water on both sides and the rise of about 4.7 m.
+4. T13 hairpin stand; the Memorial corner (T7) stand; the footbridges over the straights with fans on them.
+5. Look up: stars, the warm haze at the horizon, red roof beacons blinking, light-show beams and fireworks (give it a minute), and now and then a flash from the storm cloud.
+6. Console: look for `singapore ...` warnings; the world is built inside try/catch, so a bug shows as a warning and a plainer circuit. `window.__singapore.audit()` reruns the clearance audit.
