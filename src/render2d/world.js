@@ -34,11 +34,16 @@ function renderWorld(S){
       if(G3fail.n <= 3 || gone){
         try{ G3.rend.setRenderTarget(null); }catch(x){}
         G3.built = null; if(gone) G3.lost = true;
-        try{ showToast("Graphics hiccup, rebuilding"); }catch(x){}
+        // say what broke, on screen: the console is not always to hand
+        try{ showToast("Graphics hiccup, rebuilding" + (gone ? " (GPU context lost)" : ": " + String(G3fail.last || "").slice(0, 90))); }catch(x){}
         return;
       }
       console.warn("3D keeps failing, falling back to 2D");
       G3.ok = false; $("#view").style.display = ""; if(G3.cv) G3.cv.remove();
+      // keep the reason where it can be read: on screen for a while, and in storage across a reload
+      const why = String(G3fail.last || "unknown").slice(0, 160) + " (" + (S.track && S.track.id) + ", " + (S.clock || 0).toFixed(1) + " s)";
+      try{ localStorage.setItem("apex3dFail", why); }catch(x){}
+      try{ showToast("3D switched off: " + why, 12); }catch(x){}
     }
   }
   return renderWorld2D(S);
