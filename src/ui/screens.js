@@ -16,9 +16,9 @@ function showMsg(big, small, secs){
   m.hidden = false; clearTimeout(msgT); msgT = setTimeout(() => { m.hidden = true; }, secs * 1000);
 }
 let toastT = 0;
-function showToast(txt){
+function showToast(txt, secs){
   const t = $("#toast"); t.textContent = txt; t.classList.add("on");
-  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2600);
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), (secs || 2.6) * 1000);
 }
 function togglePause(){
   if(!S || S.state === "done") return;
