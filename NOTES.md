@@ -2035,3 +2035,66 @@ now overridable (Interlagos builds as before). Check with `node scripts/mexico-a
 4. **Elevation:** the old profile was a three-point cosine curve (start 2 m, 10 m at u 0.45, 0 m at u 0.92), range 10.00 m (real about 10 m) but with a flat spot at every knot. Where the high and low really are I could not find; I kept the old estimate. New: a closed spline with the flyover underpass dip.
 5. **Pit lane:** the game's zone ran from u 0.860 to 0.100 (the shared default), **1,393 m**; real: about 418 m, from the end of the Parabolica to the Rettifilo.
 6. The old scene put its two "banking" props at u 0.17-0.27 and 0.72-0.83, as raised slabs on the outside. The real banking is seen from the Parabolica exit and the Ascari flyover; positions by lap fraction only.
+
+## Results (Parts 2 to 5): `node scripts/track-audit.mjs monza`, `monza-audit.mjs`, `monza-world3d.mjs`, `census.mjs monza`
+
+### Direction and elevation, before and after
+
+| | Before | After |
+|---|---|---|
+| Winding | net turn +360 deg, signed area +867,585: clockwise | identical (already right; nothing reversed, nothing mirrored) |
+| Lap length | 5,794.3 m (real 5,793 m) | 5,794.3 m |
+| Height range | 0 to 10.00 m = 10.00 m (real about 10 m), cosine-eased between three flat knots; steepest 0.7 % | 0 to 10.00 m = **10.00 m**, a closed spline with continuous gradient; steepest **1.4 %** (the fall off the Lesmo high point, u 0.594) |
+| Seam | 0.002 m | 0.004 m, gradient 0.05 % then 0.02 % |
+| Pit lane | u 0.860 to 0.100 (the shared default): 1,393 m | in 0.972, out 0.045: **420 m** (real: about 418 m); the entry at the end of the Parabolica, the exit on the Rettifilo straight |
+
+Heights now (m): start line 2.00, highest 10.00 at u 0.452 (Lesmo / Serraglio, an estimate: no source gives the high or low points), the flyover underpass dip 4.28 at u 0.62 (my addition), lowest 0.00 at u 0.919 (through the Parabolica, an estimate). `ELEV_VISUAL` stays 1.0.
+
+### What was built (`worlds/monza.js`, planned by `monza-plan.js`, parts in `monza-kit.js`; stands, pit building and footbridges use Baku's builder)
+
+- **The royal park:** about 10,400 trees in groves and clearings: oaks, plane trees, beeches and umbrella pines (8,870 + 1,442), each with a near copy (a few lobes) and a far copy (one blob), plus shrubs, up to 30 m tall; a lawn-and-wood ground with three ponds and nine gravel avenues, a low stone **park wall** with gate pillars in three runs.
+- **The old banking:** three stretches of decayed concrete slope (13 m high over 26 m, with joints, moss and a broken parapet) on the outside of the lap, and the **flyover** the road passes under before the Ascari chicane (a deck on four piers with parapets and earth ramps); fans stand on it.
+- **The royal villa:** a long neoclassical palace (a central block with pediment, columns, a cupola, two wings) in the trees, 24 m, as far from the road as it needs to be.
+- **Track:** eight stands with scaffold, catch fencing and crowds, a huge roofed one across from the pits (18 rows), one on the inside of the Parabolica exit (as sourced), the pit building and a paddock of 16 white marquees with transporters, four steel footbridges with fans on them, TV towers, tyre walls, big screens, tricolour flags (green, white, red bands: a flag, not a logo) rippling in the wind, and adverts (the MONZA set: "ESPRESSO ESCAPE: Doppio. Flat out.", "BANKING BANK: We still hold the ruins", "TEMPLE OF SPEED TOURS: Please remove your hat in Turn 1").
+- **Life:** about 5,500 fans, red above all, some waving; red smoke flares rising from four stands; a campers' village of 85 tents; 383 parked cars; food stalls; pigeons over the trees; a blimp over the circuit; a sunny sky with drifting clouds (Baku's sky).
+
+### The overhead lens (built in from the start, as at Baku)
+
+The lens is fixed (35.264 deg up, from the south-east): anything of height h hides 1.414 h of ground behind it. Here the trees are what could hide the road, so every tree's height is capped by the plan's `maxH` (a tall wood on the north-west side of the road, a low one on the south-east side), and the cutaway shader is on every building and tree material.
+
+`node scripts/monza-world3d.mjs`, the sight-line test from road points all round the lap (trees modelled as crowns from 30 % of their height up, with the banking and the flyover): **3 of 828 road points hidden (0.4 %), all under the flyover bridge**, which is a bridge over the road by design. The plan's audit: **0 of 10,312 trees hiding the road**, 0 too close to the barrier, 0 buildings overlapping or too close, 0 lamps, wall segments or tents in the road. 8,000 of the trees are taller than 20 m; the tallest is 30 m.
+
+### Performance (real `G3.build`, no GPU: draw calls and triangles; frame time could not be measured)
+
+| | Draw calls if all drawn | Triangles if all drawn | Within 450 m of the start / Esses / back straight (draw calls; triangles) |
+|---|---|---|---|
+| Monza before | 1,460 | 131,717 | 447; 86,337 / 335; 82,046 / 394; 82,525 |
+| Monza after (full) | 1,021 | 724,090 | 336; 235,357 / 246; 196,457 / 275; 215,004 |
+| Monza after (Lite) | 984 | 345,470 | 312; 119,817 / not printed |
+| Baku | 896 | 506,321 | for comparison |
+| COTA | 1,029 | 1,357,491 | |
+
+Fewer draw calls than before (the old scene was 1,460 separate baked meshes) and about 5.5 times the triangles, still under COTA, Suzuka, Silverstone and Zandvoort. Plan time in Node about 230 ms, build about 330 ms.
+
+### Not done, not verified, or only partly done (honest list)
+
+- **No screenshots and no frame times** (browsers cannot run on this machine). Checked in Node: the plan's clearance and lens audits, the sight-line test, 4,000 frames of animation without error, the instance-colour scan (0 shared materials), and `G3.build` without warnings. The tint-mask shader is the one COTA, Singapore and Baku use; shaders are not compiled by a GPU here.
+- **Where the banking is:** its three stretches sit at lap fractions (u 0.13-0.17 and 0.69-0.79 from the old scene list, and 0.87-0.92 beyond the Parabolica exit as the source says it is seen there) on the outside; the flyover at u 0.628 before Ascari. The game's circuit is the layout string's shape, not the surveyed one, so none of this is geography. Banking angle: 30 deg (Wikipedia) vs 21 deg (an F1 history piece): I used a 13 m rise over 26 m (27 deg), between the two.
+- **Run-off:** the game has a single 14 m run-off all round; I found no per-corner map of the real gravel and asphalt, so I changed nothing.
+- **Pit lane:** entry and exit as sourced; the side (the infield, the right) and the box positions are not confirmed. The lane is 420 m (one briefing says 418 m).
+- Not done: night or rain, heat shimmer, the Parco's other buildings (the golf club, the old mill), the Lambro river (a pond or two instead), the Curva Sud's actual position.
+
+### Layout questions (I did not change these)
+
+1. The game's main straight is 1.21 km (658 m after the line + 553 m before it) against 1.12 km real. Close; do you want it trimmed to 1.12 km?
+2. The first chicane, Roggia and Ascari read correctly in the layout string. The game's Serraglio is a single gentle left (L20/400) which is right.
+3. The pits are on the right (infield) of the straight; I did not confirm it.
+
+### Visual checklist (npm run dev, circuit "Monza")
+
+1. The start straight: the huge roofed stand on the left, the pit building and paddock marquees on the right, tricolour flags rippling, a blimp in the sky, tifosi in red, flares.
+2. The trees: a tall dark woodland close to the road on the north-west side of every stretch, lower woods on the south-east side so the road is never hidden. The road should always be visible; if a tree ever covers the car, the cutaway should thin it.
+3. Beyond the Parabolica exit and on the way to Ascari: the grey, mossy banking slopes beside the road, and the flyover the road passes under before the chicane.
+4. The Parabolica stand on the inside of the exit; the Lesmo and Ascari stands.
+5. A clearing with ponds, gravel avenues leading into the woods, the park wall with its gate pillars, the royal villa far among the trees, the campers' tents.
+6. Console: look for `monza ...` warnings; the world builds inside try/catch, so a bug shows as a warning and a plainer circuit. `window.__monza.audit()` reruns the clearance and lens audit.

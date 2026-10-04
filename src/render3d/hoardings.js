@@ -242,8 +242,29 @@ const ADS = {
     ["TYRE & TILE",          "Mosaics that grip",                           "#2A2E3A", "#E8ECF4", "#5ADCFF", "wheel"],
     ["SILK ROAD SOCKS",      "Warm toes since 1200",                        "#4A2A5A", "#F4E8FF", "#C89AF0", "scissors"],
   ],
+  /* Monza's set: made-up brands; the jokes are about espresso, pasta, gelato, the old banking, chicanes and being a temple of speed */
+  MONZA:[
+    ["ESPRESSO ESCAPE",      "Doppio. Flat out.",                           "#3A1E12", "#F4E0C0", "#E8A040", "fire"],
+    ["PASTA PIT STOP",       "Al dente in 2.1 seconds",                     "#B8121A", "#FFE9C4", "#FFD24A", "fork"],
+    ["GELATO GRIP",          "Cool under pressure",                         "#E8F0F4", "#143A5A", "#E8508A", "dots"],
+    ["SLIPSTREAM SPAGHETTI", "Tow it. Twirl it.",                           "#6A3A08", "#FFE2B0", "#FFC048", "wind"],
+    ["BANKING BANK",         "We still hold the ruins",                     "#2A2E3A", "#E8ECF4", "#9AA4B8", "lock"],
+    ["TIFOSI TAILORS",       "Red suits all. Especially at 360",            "#8A0A14", "#FFE0E0", "#FF6A6A", "scissors"],
+    ["CHICANE CHEESE",       "Sharp first, smooth after",                   "#C8A020", "#3A2A06", "#6A4A0A", "dots"],
+    ["PARABOLICA PARASOLS",  "One long curve of shade",                     "#0C3A6A", "#E4F2FF", "#7FB4FF", "umbrella"],
+    ["OLIVE OIL SLICKS",     "Extra virgin. Extra slippery.",               "#1E3A14", "#E0F4C8", "#A8D850", "leaf"],
+    ["TEMPLE OF SPEED TOURS","Please remove your hat in Turn 1",            "#2A1A3A", "#F4E8FF", "#C89AF0", "mountain"],
+    ["PIZZA PRONTO",         "Delivered by the front row",                  "#7A1A0A", "#FFD8B0", "#FF9A3A", "wheel"],
+    ["ROYAL PARK PICNICS",   "Blankets. Binoculars. Biscotti.",             "#2A5A2A", "#E8FFE0", "#8AE878", "flag"],
+    ["LESMO LEMONADE",       "Two sips. Two corners.",                      "#E8D820", "#3A3206", "#8A7A06", "cone"],
+    ["PIT LANE PANINI",      "Pressed at 80 km/h",                          "#4A2A10", "#F4E4C8", "#D8A860", "stack"],
+    ["ASCARI AIR CON",       "Left, right, left, chilled",                  "#0A4A5A", "#D8FAFF", "#4AD8F0", "bolt"],
+    ["COPPA COFFEE ROASTERS","Fast beans since 1922",                       "#3A1A0A", "#FFE6C8", "#FF9A4A", "ring"],
+    ["SCOOTER SOCIETY",      "Leave the chicane to the cars",               "#12304A", "#DCEBFF", "#7FB4FF", "wheel"],
+    ["TIRE & TIRAMISU",      "Soft compound. Softer dessert.",              "#5A3A20", "#FFF0D8", "#FFCB80", "tooth"],
+  ],
   use(set){
-    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "singapore" ? this.SINGAPORE : set === "interlagos" ? this.INTERLAGOS : set === "baku" ? this.BAKU : set === "mexico" ? this.MEXICO : this.VEGAS;
+    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "singapore" ? this.SINGAPORE : set === "interlagos" ? this.INTERLAGOS : set === "baku" ? this.BAKU : set === "mexico" ? this.MEXICO : set === "monza" ? this.MONZA : this.VEGAS;
     if(this.LIST === want) return;
     this.dispose(); this.LIST = want;
   },

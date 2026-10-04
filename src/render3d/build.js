@@ -18,6 +18,7 @@ import { ILG } from './worlds/ilg.js';
 import { MEX } from './worlds/mex.js';
 import { SINGAPORE } from './worlds/singapore.js';
 import { BAKU } from './worlds/baku.js';
+import { MONZA } from './worlds/monza.js';
 import { COTA } from './worlds/cota.js';
 import { WEATHER } from './weather.js';
 import { CRASH } from './crash.js';
@@ -131,7 +132,7 @@ G3.build = function(S){
   }
   for(const t of this.texes.values()) t.dispose();
   this.mats.clear(); this.texes.clear(); PTEX.dispose();
-  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : T.def.world === "cota" ? "cota" : T.def.world === "spa" ? "spa" : T.def.world === "singapore" ? "singapore" : T.def.world === "interlagos" ? "interlagos" : T.def.world === "baku" ? "baku" : T.def.world === "mexico" ? "mexico" : "vegas");
+  ADS.VEGAS; ADS.dispose(); ADS.use(T.def.world === "monaco" ? "monaco" : T.def.world === "silverstone" ? "silverstone" : T.def.world === "zandvoort" ? "zandvoort" : T.def.world === "cota" ? "cota" : T.def.world === "spa" ? "spa" : T.def.world === "singapore" ? "singapore" : T.def.world === "interlagos" ? "interlagos" : T.def.world === "baku" ? "baku" : T.def.world === "mexico" ? "mexico" : T.def.world === "monza" ? "monza" : "vegas");
   while(this.scene.children.length) this.scene.remove(this.scene.children[0]);
   this.rend.renderLists.dispose();
   this.world = new THREE.Group(); this.scene.add(this.world);
@@ -190,7 +191,7 @@ G3.build = function(S){
   const surveyed = T.def.world === "monaco" || T.def.world === "silverstone" || T.def.world === "zandvoort";
   const monacoW = T.def.world === "monaco";
   // Suzuka, COTA and Spa are not surveyed paths, but their worlds lay their own terrain and planting
-  const ownGround = surveyed || T.def.world === "suzuka" || T.def.world === "cota" || T.def.world === "spa" || T.def.world === "singapore" || T.def.world === "interlagos" || T.def.world === "baku" || T.def.world === "mexico";
+  const ownGround = surveyed || T.def.world === "suzuka" || T.def.world === "cota" || T.def.world === "spa" || T.def.world === "singapore" || T.def.world === "interlagos" || T.def.world === "baku" || T.def.world === "mexico" || T.def.world === "monza";
   /* The wide grass strip under the run-off and the road is one quad per node, 55 m
      across, and the bands drawn over it are narrower quads. On a curve their two
      triangles split along different diagonals, so on a slope they sit at different
@@ -526,6 +527,11 @@ G3.build = function(S){
   }
 
   /* Baku: the Caspian, the Old City walls, the sandstone town */
+  this.monza = null;
+  if(T.def.world === "monza"){
+    try{ MONZA.build(this, this.world, T, S); this.monza = MONZA; }
+    catch(e){ console.warn("monza", e.message, e.stack); }
+  }
   this.baku = null;
   if(T.def.world === "baku"){
     try{ BAKU.build(this, this.world, T, S); this.baku = BAKU; }

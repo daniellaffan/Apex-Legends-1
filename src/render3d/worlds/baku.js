@@ -389,4 +389,4 @@ const BAKU = {
   },
 };
 
-export { BAKU };
+export { BAKU, instMat, instance };

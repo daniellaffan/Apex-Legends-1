@@ -190,7 +190,7 @@ G3.frame = function(S){
   }
   {
     const cu = this.cutU, cm = this.cam;
-    cu.uCutOn.value = ((this.monaco || this.spa || this.ilg || this.singapore || this.baku || this.mex) && cm === this.camIso && !p.dnf) ? 1 : 0;
+    cu.uCutOn.value = ((this.monaco || this.spa || this.ilg || this.singapore || this.baku || this.mex || this.monza) && cm === this.camIso && !p.dnf) ? 1 : 0;
     if(cu.uCutOn.value){
       cm.updateMatrixWorld();
       cu.uCutV.value.copy(cm.matrixWorld);
@@ -204,6 +204,7 @@ G3.frame = function(S){
   if(this.suzuka){ try{ this.suzuka.frame(S, this); }catch(e){ console.warn("suzuka frame", e.message); this.suzuka = null; } }
   if(this.cota){ try{ this.cota.frame(S, this); }catch(e){ console.warn("cota frame", e.message); this.cota = null; } }
   if(this.spa){ try{ this.spa.frame(S, this); }catch(e){ console.warn("spa frame", e.message); this.spa = null; } }
+  if(this.monza){ try{ this.monza.frame(S, this); }catch(e){ console.warn("monza frame", e.message); this.monza = null; } }
   if(this.baku){ try{ this.baku.frame(S, this); }catch(e){ console.warn("baku frame", e.message); this.baku = null; } }
   if(this.singapore){ try{ this.singapore.frame(S, this); }catch(e){ console.warn("singapore frame", e.message); this.singapore = null; } }
   if(this.ilg){ try{ this.ilg.frame(S, this); }catch(e){ console.warn("interlagos frame", e.message); this.ilg = null; } }
