@@ -459,6 +459,8 @@ const SINGAPORE = {
     step("lights", () => { stats.glows = this.lights(g, G, P, T); });
     step("sky", () => this.sky(g, T));
     step("signs", () => { stats.signs = this.signs(g, P, T); });
+    // whatever stands between the overhead camera and the car is cut away (G3.cutU), as at Monaco, Spa and Interlagos
+    step("cut", () => { for(const m of Object.values(this.cityMats)) G.cutMat(m); });
     this.light(G, T);
     tm.total = Math.round(performance.now() - t0); this.timing = tm; Object.assign(stats, { counts:P.stats.counts });
     try{ window.__singapore = { stats, timing:tm, audit:() => auditSingapore(P, T), plan:P }; }catch(e){}

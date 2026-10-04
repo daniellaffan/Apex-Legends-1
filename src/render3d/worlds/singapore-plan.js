@@ -241,38 +241,51 @@ function planSingapore(T, opts){
   for(const e of excl) rasterRect(e.x, e.y, 0, e.r * 2, e.r * 2, true);
   for(const q of rects) rasterRect(q.cx, q.cy, Math.atan2(q.uy, q.ux), q.a1 - q.a0, q.b1 - q.b0, true);
   const bandsOK = (x, y, rad) => !blocked(x, y, rad);
-  const clearFor = (x, y, w, d, h, extra) => {
-    const rad = Math.hypot(w, d) / 2, q = query(x, y);
-    if(q.far) return true;
-    // the taller, the further back: the overhead lens must still see the road
-    const need = h <= 14 ? 12 : Math.min(30 + 0.8 * (h - 14), 190);
-    return q.bar - rad * 0.35 >= need + (extra || 0);
+  /* The overhead lens is fixed: 35 degrees up, from the south-east (camera at +x +y of the car, looking toward -x -y). A building
+     of height h hides about 1.414 h of ground behind it along that diagonal, so the tallest a building can be is whatever keeps
+     the road out of that shadow. March from the footprint along the diagonal until the road (the ground grid's distance to the
+     barrier) shows up. */
+  const SH = Math.SQRT1_2;
+  const maxH = (x, y, rad) => {
+    let hit = 420;
+    for(let t = 0; t <= 420 && hit === 420; t += 5)
+      for(const l of [-0.7, 0, 0.7]){ const px = x - SH * t + SH * l * rad, py = y - SH * t - SH * l * rad; if(gat(DB, px, py) < 11){ hit = t; break; } }
+    return Math.max(0, hit - rad * 0.85) / 1.414 - 1.5;
   };
+  P.maxH = maxH;
+  if(S.tri){ S.tri.cap = maxH(S.tri.x, S.tri.y, 90); S.tri.h = Math.max(70, Math.min(S.tri.h, S.tri.cap)); }
+  const clearFor = (x, y, w, d, h) => { const q = query(x, y); return q.far || q.bar >= 12; };
   const addBuilding = b => {
-    if(!rasterRect(b.x, b.y, b.ang, b.w + 4, b.d + 4, false)) return false;
+    if(!rasterRect(b.x, b.y, b.ang, b.w + 12, b.d + 12, false)) return false;
     if(blocked(b.x, b.y, Math.hypot(b.w, b.d) / 2 * 0.8)) return false;
     if(!clearFor(b.x, b.y, b.w, b.d, b.h)) return false;
+    { const allow = maxH(b.x, b.y, Math.hypot(b.w, b.d) / 2);
+      if(b.landmark ? allow < b.h * 0.92 : allow < 8) return false;
+      if(b.h > allow){ b.h = allow;
+        // too short for a tower: it becomes a low block
+        if(b.h < 24 && ["office", "tower", "slab", "apt"].includes(b.type)){ b.type = "hotel"; } } }
     if(wetNear(b.x, b.y, Math.max(b.w, b.d) / 2) && !b.onWater) return false;
     { const ca = Math.cos(b.ang), sa = Math.sin(b.ang); for(const [a, c] of [[-1, -1], [1, -1], [1, 1], [-1, 1], [0, -1], [0, 1], [-1, 0], [1, 0]]) if(isWater(b.x + ca * a * b.w / 2 - sa * c * b.d / 2, b.y + sa * a * b.w / 2 + ca * c * b.d / 2) && !b.onWater) return false; }
-    rasterRect(b.x, b.y, b.ang, b.w + 4, b.d + 4, true);
+    rasterRect(b.x, b.y, b.ang, b.w + 12, b.d + 12, true);
     b.z = Math.max(height(b.x, b.y), -0.4);
     S.buildings.push(b); return true;
   };
   // named landmarks first: a colonial hotel, a stepped art-deco tower, a ring of glass offices, the lawn with its pavilion
   const near = (u, side, off) => { const i = nodeAt(u); const [x, y] = at(i, side, off); return { x, y, i, ang:T.ang[i] }; };
-  { const c = near(0.655, 1, 70); addBuilding({ type:"colonial", x:c.x, y:c.y, ang:c.ang, w:96, d:30, h:22, seed:1, landmark:true }); }
-  { for(const off of [260, 300, 340]){ const c = near(0.62, 1, off); if(addBuilding({ type:"deco", x:c.x, y:c.y, ang:c.ang, w:34, d:34, h:128, seed:2, landmark:true })) break; } }
-  { for(const [u, off] of [[0.50, 300], [0.52, 340], [0.48, 330], [0.54, 360]]){ const c = near(u, 1, off); if(addBuilding({ type:"ring", x:c.x, y:c.y, ang:c.ang, w:82, d:82, h:78, seed:3, landmark:true })) break; } }
+  { let ok = false; for(const side of [1, -1]) for(const u of [0.655, 0.70, 0.60, 0.75, 0.55, 0.20, 0.10]) for(const off of [60, 100, 150, 200, 260]){ if(ok) break; const c = near(u, side, off); ok = addBuilding({ type:"colonial", x:c.x, y:c.y, ang:c.ang, w:96, d:30, h:22, seed:1, landmark:true }); } }
+  { let ok = false; for(const side of [1, -1]) for(const u of [0.62, 0.66, 0.58, 0.70, 0.54, 0.74, 0.50]) for(const off of [150, 200, 250, 300, 360]){ if(ok) break; const c = near(u, side, off); ok = addBuilding({ type:"deco", x:c.x, y:c.y, ang:c.ang, w:34, d:34, h:128, seed:2, landmark:true }); } }
+  { let ok = false; for(const side of [1, -1]) for(const u of [0.50, 0.46, 0.54, 0.40, 0.58, 0.30, 0.82]) for(const off of [120, 170, 230, 300, 360]){ if(ok) break; const c = near(u, side, off); ok = addBuilding({ type:"ring", x:c.x, y:c.y, ang:c.ang, w:82, d:82, h:78, seed:3, landmark:true }); } }
   { const c = near(0.45, 1, 120); S.lawns.push({ x:c.x, y:c.y, ang:c.ang, w:170, d:76 }); addRect(c.x, c.y, c.ang, -90, 90, -42, 42); rasterRect(c.x, c.y, c.ang, 176, 82, true);
     // a pavilion at one end and a clubhouse across the lawn from it
-    addBuilding({ type:"colonial", x:c.x + Math.cos(c.ang) * 78 + Math.cos(c.ang + Math.PI / 2) * 52, y:c.y + Math.sin(c.ang) * 78 + Math.sin(c.ang + Math.PI / 2) * 52, ang:c.ang, w:56, d:22, h:12, seed:5, landmark:true }); }
+    for(const [da, db] of [[78, 52], [-78, 52], [78, -52], [-78, -52], [0, 62], [0, -62]]){
+      if(addBuilding({ type:"colonial", x:c.x + Math.cos(c.ang) * da + Math.cos(c.ang + Math.PI / 2) * db, y:c.y + Math.sin(c.ang) * da + Math.sin(c.ang + Math.PI / 2) * db, ang:c.ang, w:56, d:22, h:12, seed:5, landmark:true })) break; } }
   // the lawn's grass, painted into the ground colours
   for(const lw of S.lawns){ const ux = Math.cos(lw.ang), uy = Math.sin(lw.ang);
     for(let r = 0; r < NY; r++) for(let c = 0; c < NX; c++){ const x = X0 + c * STEP - lw.x, y = Y0 + r * STEP - lw.y, a = x * ux + y * uy, b = -x * uy + y * ux;
       if(Math.abs(a) < lw.w / 2 + 6 && Math.abs(b) < lw.d / 2 + 6){ const k = r * NX + c, e = Math.min(1, Math.max(0, 1 - (Math.max(Math.abs(a) - lw.w / 2, Math.abs(b) - lw.d / 2)) / 6)); const col = mixC([COL[k * 3], COL[k * 3 + 1], COL[k * 3 + 2]], GC.lawn2, e); COL[k * 3] = col[0]; COL[k * 3 + 1] = col[1]; COL[k * 3 + 2] = col[2]; } } }
   // the field: street blocks of every sort, as far as the haze
   const kinds = [];
-  { const step = lite ? 38 : 26;
+  { const step = lite ? 46 : 34;
     for(let y = Y0 + 20; y < Y0 + NY * STEP - 20; y += step) for(let x = X0 + 20; x < X0 + NX * STEP - 20; x += step){
       const px = x + (R() - 0.5) * step * 0.8, py = y + (R() - 0.5) * step * 0.8;
       const k = Math.floor((py - Y0) / STEP) * NX + Math.floor((px - X0) / STEP);
@@ -287,8 +300,8 @@ function planSingapore(T, opts){
       const r = R();
       if(bar < 44){ type = r < 0.55 ? "shop" : r < 0.8 ? "colonial" : "hotel"; w = type === "shop" ? 40 + R() * 30 : 34 + R() * 22; d = type === "shop" ? 14 : 20; h = type === "shop" ? 9 + R() * 3 : 11 + R() * 5; }
       else if(bar < 110){ type = r < 0.35 ? "hotel" : r < 0.65 ? "apt" : r < 0.85 ? "shop" : "office"; w = 30 + R() * 26; d = 22 + R() * 14; h = type === "shop" ? 10 : 24 + R() * 30; if(type === "shop"){ w = 46; d = 14; } }
-      else { type = r < 0.45 ? "office" : r < 0.65 ? "apt" : r < 0.8 ? "tower" : r < 0.92 ? "hotel" : "slab"; const grow = sstep(110, 420, bar); w = 26 + R() * 24; d = 24 + R() * 20; h = (type === "apt" ? 55 : 60) + grow * 90 + nz * 70 + R() * 40; if(type === "tower") h += 40; }
-      if(R() > (bar < 60 ? 0.95 : 0.8) * dens + 0.1 * (1 - dens)) continue;
+      else { type = r < 0.45 ? "office" : r < 0.65 ? "apt" : r < 0.8 ? "tower" : r < 0.92 ? "hotel" : "slab"; const grow = sstep(110, 420, bar); w = 26 + R() * 24; d = 24 + R() * 20; h = (type === "apt" ? 45 : 55) + grow * 70 + nz * 50 + R() * 30; if(type === "tower") h += 25; }
+      if(R() > (bar < 60 ? 0.9 : 0.72) * dens + 0.05 * (1 - dens)) continue;
       if(addBuilding({ type, x:px, y:py, ang, w, d, h, seed:(R() * 1e6) | 0 })) kinds.push(type);
     } }
   P.stats.buildings = S.buildings.length;
@@ -386,6 +399,23 @@ function auditSingapore(P, T){
       if(b.h > 30 && bar < 30) o.tallNear++;
       if(P.isWater(x, y) && !b.onWater) o.onWater++;
     }
+  }
+  // real overlaps: sample every footprint, grown by `gap`, against every other (spatial hash); gap 0 = overlapping, 6 = less than a 12 m street
+  { const H2 = new Map(), key = (x, y) => Math.floor(x / 60) + "," + Math.floor(y / 60);
+    for(const b of S.buildings){ const r = Math.hypot(b.w, b.d) / 2 + 8; for(let x = b.x - r; x <= b.x + r + 60; x += 60) for(let y = b.y - r; y <= b.y + r + 60; y += 60){ const k = key(x, y); if(!H2.has(k)) H2.set(k, []); H2.get(k).push(b); } }
+    const inRect = (b, x, y, g) => { const dx = x - b.x, dy = y - b.y, c = Math.cos(b.ang), s = Math.sin(b.ang); return Math.abs(dx * c + dy * s) < b.w / 2 + g && Math.abs(-dx * s + dy * c) < b.d / 2 + g; };
+    o.overlapping = 0; o.narrowStreets = 0;
+    for(const b of S.buildings){ const c = Math.cos(b.ang), s = Math.sin(b.ang); let ov = false, nr = false;
+      for(let a = -b.w / 2; a <= b.w / 2 && !ov; a += 3) for(let d = -b.d / 2; d <= b.d / 2; d += 3){ const x = b.x + c * a - s * d, y = b.y + s * a + c * d;
+        for(const q of H2.get(key(x, y)) || []) if(q !== b){ if(inRect(q, x, y, 0)) ov = true; else if(inRect(q, x, y, 5.5)) nr = true; } }
+      if(ov) o.overlapping++; else if(nr) o.narrowStreets++; } }
+  // the overhead lens: does any road lie in a building's shadow (1.414 x height along the view diagonal)?
+  o.occluding = 0; o.worstCover = 0;
+  for(const b of S.buildings){
+    const rad = Math.hypot(b.w, b.d) / 2; let hit = false;
+    for(let t = rad * 0.85; t <= rad * 0.85 + 1.414 * b.h && !hit; t += 4)
+      for(const l of [-0.6, 0, 0.6]){ const x = b.x - Math.SQRT1_2 * t + Math.SQRT1_2 * l * rad, y = b.y - Math.SQRT1_2 * t - Math.SQRT1_2 * l * rad; if(P.clearance(x, y) < 5){ hit = true; o.worstCover = Math.max(o.worstCover, rad * 0.85 + 1.414 * b.h - t); break; } }
+    if(hit) o.occluding++;
   }
   for(const t of S.trees.concat(S.palms)) if(P.clearance(t.x, t.y) < 3.5) o.treesTooClose++;
   for(const l of S.lamps) if(P.clearance(l.x, l.y) < 1.5) o.lampsInRoad++;

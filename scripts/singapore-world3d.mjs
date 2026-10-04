@@ -16,7 +16,7 @@ CFG.detail = process.argv[2] != null ? +process.argv[2] : 1;
 const T = buildTrack(TRACKS.find(t => t.id === 'singapore'));
 const scene = new THREE.Scene(); scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 0.4));
 const world = new THREE.Group(); scene.add(world);
-const G = { sun: { color: new THREE.Color(), intensity: 1 }, scene, envFill: null, strip: (T2, a, b, lift, rep) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 0, 1], 3)); return g; } };
+const G = { cutMat() {}, sun: { color: new THREE.Color(), intensity: 1 }, scene, envFill: null, strip: (T2, a, b, lift, rep) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 0, 1], 3)); return g; } };
 const t0 = performance.now();
 SINGAPORE.build(G, world, T, { clock: 0, cars: [] });
 console.log('detail', CFG.detail, '| build', (performance.now() - t0).toFixed(0), 'ms', JSON.stringify(SINGAPORE.timing));
@@ -48,3 +48,22 @@ console.log('footbridge columns clear of barrier:', P.structs.footbridges.every(
 let frames = 0, err = null;
 try { for (let t = 0; t < 400; t += 0.1) { SINGAPORE.frame({ clock: t, player: null }, G); frames++; } } catch (e) { err = e; }
 console.log('animation: ran', frames, 'frames (400 s)', err ? 'THREW: ' + err.stack.split('\n').slice(0, 3).join(' | ') : 'without error');
+
+/* ---- the fixed overhead lens (35.26 deg up, from the south-east): is the road visible? ---------------------------------
+   For road points all round the lap (three across the width), cast the sight line toward the camera and look for a building
+   whose footprint it passes over below the building's top. Reports the share of road points that are hidden. */
+{
+  const B = P.structs.buildings.slice(); if (P.structs.tri) B.push({ x: P.structs.tri.x, y: P.structs.tri.y, ang: P.structs.tri.ang, w: 240, d: 40, h: P.structs.tri.h * 0.92, z: 0 });
+  const CELLS = new Map(), key = (x, y) => Math.floor(x / 80) + ',' + Math.floor(y / 80);
+  for (const b of B) { const r = Math.hypot(b.w, b.d) / 2; for (let x = b.x - r; x <= b.x + r + 80; x += 80) for (let y = b.y - r; y <= b.y + r + 80; y += 80) { const k = key(x, y); (CELLS.get(k) || CELLS.set(k, []).get(k)).push(b); } }
+  const inside = (b, x, y) => { const dx = x - b.x, dy = y - b.y, c = Math.cos(b.ang), s = Math.sin(b.ang); return Math.abs(dx * c + dy * s) < b.w / 2 && Math.abs(-dx * s + dy * c) < b.d / 2; };
+  let pts = 0, hidden = 0, worst = null; const S2 = Math.SQRT1_2;
+  for (let i = 0; i < n; i += 3) for (const off of [-T.half * 0.7, 0, T.half * 0.7]) {
+    pts++; const x0 = T.x[i] + T.nx[i] * off, y0 = T.y[i] + T.ny[i] * off, z0 = T.z[i];
+    let blocked = null;
+    for (let s = 2; s < 420 && !blocked; s += 2.5) { const x = x0 + S2 * s, y = y0 + S2 * s, list = CELLS.get(key(x, y)); if (!list) continue;
+      for (const b of list) if (inside(b, x, y) && b.z + b.h > z0 + 0.7071 * s) { blocked = b; break; } }
+    if (blocked) { hidden++; if (!worst) worst = { u: (i / n).toFixed(3), type: blocked.type, h: blocked.h.toFixed(0) }; }
+  }
+  console.log('view from the overhead lens: road points hidden by a building:', hidden, 'of', pts, '(' + (100 * hidden / pts).toFixed(1) + '%)', worst ? 'first at ' + JSON.stringify(worst) : '');
+}

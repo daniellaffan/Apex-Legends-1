@@ -92,6 +92,12 @@ function shaft(T, cx, cy, ang, w, d, z0, z1, kind, tint, seed, roof, shadeK){
 function ledge(T, cx, cy, ang, w, d, z, h, col){
   T.get("solid", cx, cy).box(cx, cy, z, w, d, h, ang, L(col));
 }
+/* a glowing OUTLINE round a roof edge: four thin bars, not a slab (a flat unlit plate reads as a huge coloured square from above) */
+function outline(m, cx, cy, z, w, d, ang, col, t){
+  t = t || 0.45; const ca = Math.cos(ang), sa = Math.sin(ang), C = L(col);
+  m.box(cx - sa * d / 2, cy + ca * d / 2, z, w, t, t, ang, C); m.box(cx + sa * d / 2, cy - ca * d / 2, z, w, t, t, ang, C);
+  m.box(cx + ca * w / 2, cy + sa * w / 2, z, t, d, t, ang, C); m.box(cx - ca * w / 2, cy - sa * w / 2, z, t, d, t, ang, C);
+}
 /* a vertical line of neon up a corner, unlit */
 function neonLine(T, cx, cy, ang, w, d, z0, z1, col, which){
   const ca = Math.cos(ang), sa = Math.sin(ang), sx = which & 1 ? 1 : -1, sy = which & 2 ? 1 : -1;
@@ -172,4 +178,4 @@ function vesselGeos(){
   return G;
 }
 
-export { tyreGeo, UMesher, Town, windowTextures, TINTS, shaft, ledge, neonLine, rooftop, treeGeos, lampGeos, vesselGeos, CELLW };
+export { outline, tyreGeo, UMesher, Town, windowTextures, TINTS, shaft, ledge, neonLine, rooftop, treeGeos, lampGeos, vesselGeos, CELLW };

@@ -190,7 +190,7 @@ G3.frame = function(S){
   }
   {
     const cu = this.cutU, cm = this.cam;
-    cu.uCutOn.value = ((this.monaco || this.spa || this.ilg) && cm === this.camIso && !p.dnf) ? 1 : 0;
+    cu.uCutOn.value = ((this.monaco || this.spa || this.ilg || this.singapore) && cm === this.camIso && !p.dnf) ? 1 : 0;
     if(cu.uCutOn.value){
       cm.updateMatrixWorld();
       cu.uCutV.value.copy(cm.matrixWorld);

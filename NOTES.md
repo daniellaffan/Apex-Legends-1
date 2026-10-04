@@ -1750,3 +1750,16 @@ Draw calls are a little above Suzuka's, mostly the houses (nine shapes, by kind 
    inside the Senna S and joining on the back straight.
 6. **Anything clipping**, houses too close, trees hiding the car (they should dither away), frame rate Full
    and Lite, and the look in the rain.
+
+---
+
+## Singapore: the first build hid the road (fixed)
+
+The first Singapore build put 1,434 buildings up to 280 m tall around the circuit, and under the game's overhead lens you could not see the track. The lens is **fixed**: 35.264 deg up, from the south-east (camera at +x, +y of the car; `frame.js`: `el = 35.264, az = 45 deg`). A building of height h hides about **1.414 x h** of ground behind it along the north-west diagonal, so a 100 m tower hides 141 m of road. My "taller means further back" rule used a distance from the barrier in every direction, which is nothing like that.
+
+- **Measured before and after** (`node scripts/singapore-world3d.mjs`, the "view from the overhead lens" line: it casts the real sight line from road points all round the lap): **38.4 % of road points were hidden** (272 of 708); now **0 of 708**.
+- **Height cap** (`maxH` in `singapore-plan.js`): every building's height is capped to whatever keeps the road out of its shadow, by marching the view diagonal from its footprint over the ground grid's distance-to-barrier. A building that would be shorter than 8 m is not built (so the strip just south-east of the track is open ground, planting and street furniture, not buildings); one that ends up under 24 m becomes a low block; landmarks search other positions until they can be 92 % of their height. Landmarks that had to move or shrink are listed by the audit.
+- **Streets between blocks:** footprints now keep a 12 m street (before, 4 m), the lattice is wider and sparser: 914 buildings (was 1,434), tallest 221 m (was 280). The audit now really checks overlaps (0) and narrow streets (0).
+- **Cutaway:** the overhead lens's see-through shader (`G3.cutMat`, as at Monaco, Spa and Interlagos) is now on every Singapore building material, so anything that does stand between the lens and the car dissolves in a disc around it.
+- **Flat glowing slabs removed:** the coloured plates on roofs (crowns, hotel tops, art-deco tiers, the heliport pad, the dome base) were unlit full slabs, which from above read as huge coloured squares. They are now thin glowing outlines, and only 30 % of heliport roofs get one.
+- Anyone building another city world (Interlagos has houses and towers too): run the same view test against it.

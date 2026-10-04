@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TAU } from '../../config/util.js';
 import { L, fh } from './cota-kit.js';
-import { shaft, ledge, neonLine, rooftop, TINTS } from './singapore-kit.js';
+import { shaft, ledge, neonLine, rooftop, outline, TINTS } from './singapore-kit.js';
 
 /* ---------- Singapore's buildings ------------------------------------------------
    Each builder writes into a Town (windows / solid / bright meshers). A building has a podium, one to three setbacks, a
@@ -18,7 +18,7 @@ function crown(T, b, z, beacons, seed){
   if(k === 1){                                                                  // a stepped glass crown with a lit edge
     const w = b.w * 0.62, d = b.d * 0.62, hh = 8 + fh(seed) * 8;
     shaft(T, b.x, b.y, b.ang, w, d, z, z + hh, "band", TINTS[seed % TINTS.length], seed + 9, "#2A2840");
-    br.box(b.x, b.y, z + hh, w + 0.6, d + 0.6, 0.5, b.ang, L(NEON[seed % NEON.length]));
+    outline(br, b.x, b.y, z + hh, w + 0.6, d + 0.6, b.ang, NEON[seed % NEON.length]);
     rooftop(T, { ...b, w:w * 0.8, d:d * 0.8 }, z + hh, fh(seed + 4), beacons, "#38364A"); return; }
   if(k === 2){                                                                  // a spire
     const hh = 20 + fh(seed) * 22;
@@ -28,7 +28,8 @@ function crown(T, b, z, beacons, seed){
     m.gable(b.x, b.y, z, b.w * 0.96, b.d * 0.96, 7 + fh(seed) * 6, b.ang, L("#2E2C44"), L("#26243A"));
     br.box(b.x, b.y, z + 5.5, b.w * 0.6, 0.4, 0.4, b.ang, L(NEON[(seed + 1) % NEON.length])); beacons.push([b.x, b.y, z + 14]); return; }
   rooftop(T, b, z, fh(seed + 2), beacons, "#38364A");                          // a heliport: a lit ring on the roof
-  br.box(b.x + ca * 2, b.y + sa * 2, z + 0.1, 6.5, 6.5, 0.15, b.ang, L("#FF4A4A")); beacons.push([b.x, b.y, z + 6]);
+  if(fh(seed + 31) < 0.3) outline(br, b.x + ca * 2, b.y + sa * 2, z + 0.1, 7, 7, b.ang, "#FF4A4A", 0.3);
+  beacons.push([b.x, b.y, z + 6]);
 }
 
 /* office, tower, apartment, hotel, slab: a podium and one to three shafts */
@@ -52,7 +53,7 @@ function block(T, b, beacons){
     if(b.h > 100 && t === 0){ const c = NEON[seed % NEON.length]; neonLine(T, b.x, b.y, b.ang, w, d, z, z + th, c, 1); neonLine(T, b.x, b.y, b.ang, w, d, z, z + th, c, 2); }
     z += th; left -= th; w *= 0.78; d *= 0.78;
   }
-  if(b.type === "hotel" || fh(seed + 21) < 0.3){ T.get("bright", b.x, b.y).box(b.x, b.y, z - 0.3, w / 0.78 + 0.5, d / 0.78 + 0.5, 0.45, b.ang, L(NEON[(seed + 2) % NEON.length])); }
+  if(b.type === "hotel" || fh(seed + 21) < 0.3){ outline(T.get("bright", b.x, b.y), b.x, b.y, z - 0.3, w / 0.78 + 0.5, d / 0.78 + 0.5, b.ang, NEON[(seed + 2) % NEON.length]); }
   crown(T, { ...b, w:w / 0.78, d:d / 0.78 }, z, beacons, seed);
 }
 
@@ -91,7 +92,7 @@ function deco(T, b, beacons){
   for(const [s, hf] of tiers){
     const th = (b.h - 8) * hf; shaft(T, b.x, b.y, b.ang, b.w * s, b.d * s, z, z + th, "slim", [1.2, 1.0, 0.72], seed, "#3A3040");
     for(const w of [1, 2, 3]) neonLine(T, b.x, b.y, b.ang, b.w * s, b.d * s, z, z + th, "#FFC040", w);                  // gold fins
-    br.box(b.x, b.y, z + th - 0.2, b.w * s + 0.8, b.d * s + 0.8, 0.5, b.ang, L("#FFB030"));
+    outline(br, b.x, b.y, z + th - 0.2, b.w * s + 0.8, b.d * s + 0.8, b.ang, "#FFB030");
     z += th;
   }
   m.frustum(b.x, b.y, z, z + 7, b.w * 0.17, b.w * 0.07, 8, L("#E8C060"), L("#E8C060"));
@@ -163,7 +164,6 @@ function dome(T, d){
     for(const [u, v] of [[A2, B2], [B2, C2], [C2, A2]]) (gold ? br : m).tri(S(u), S(v), S(tip), gold ? L("#E8B050").clone().multiplyScalar(0.95) : L("#C8A868"));
     m.tri(S(A), S(B), S(C), L("#5A4A38"));
   }
-  br.box(d.x, d.y, 2.1, d.r * 2.1, d.r * 2.1, 0.2, 0, L("#FFC060"));
 }
 
 /* a lion-headed, fish-tailed statue on a plinth, with a spout, generic */
