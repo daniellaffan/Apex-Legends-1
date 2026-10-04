@@ -1564,3 +1564,103 @@ anticlockwise). I have not done it.
 - **Pit lane**: in 0.853, out 0.218 (the real points), box 0.955. An AI car laps in 66.7 s, pits, and the
   stop costs about **46 s** over two laps (in at 0.853, out across the line at 0.218); with the old default
   lane it cost about 29 s. The real lane is long; whether the game should shorten it is a question for you.
+
+# Interlagos world (2026-10-04)
+
+Files: `src/render3d/worlds/ilg-plan.js` (pure numbers, runs in Node, `auditIlg`), `ilg-kit.js` (plants, houses,
+towers, sheds, stalls, pitches, screens, helicopters, kites, birds, drums), `ilg.js` (the world; it inherits
+Spa's machinery with `Object.create(SPA)` and adds its own), data in `src/tracks/survey/interlagos.js`. Hooked
+into `render3d/build.js`, `frame.js` (per-frame step; the cut-away dither is on here too) and `hoardings.js`
+(the set). Spa's `barriers` and `mist` now take their zones and seeds from the world (`fenceZones`, `adRuns`,
+`mistSeeds`), and `KIT.stand` takes a seat colour; Spa builds exactly as before. Check with
+`node scripts/interlagos-audit.mjs [detail]` and `node scripts/census.mjs interlagos`.
+
+## How the real place gets onto the game's lap
+
+The same as Spa: SRTM 30 m every 40 m round the real lap and every 30 m across it to ±480 m (3,531 samples),
+a 12 km square at 250 m for the hills, OpenStreetMap land cover at 20 m. All of it carried onto the game's lap
+in lap coordinates, and by one overall fit far out (scale 0.56, turn 55°). SRTM sees roofs and trees, so the
+ground is smoothed six times past the verge. Unmapped land is the city; inside the circuit's grounds (the
+infield, and 60 m past the barriers) it is grass.
+
+## What is built
+
+- **The bowl**: the real lie of the land, which already rises on the outside of most corners (up to +16 m
+  at 150 m outside Ferradura, +13 m outside the Reta Oposta) and drops to the lake.
+- **Water**: every mapped lake and wetland near the circuit gets a flat surface at its lowest shore, the
+  ground scooped out under it, reeds round the edge (2,376 clumps). The real lake (2.8 ha) sits behind the
+  Descida do Lago, 224 m out, 5 m below the road; the infield wetland is a reedy pond 81 m inside the same
+  corner. The big lakes get a small island with palms, and the one nearest the circuit gets a jetty with a
+  boat. **Invented**: the islands and the jetty (the brief asked for them; OSM maps neither).
+- **Planting** (3,937 trees near the circuit, 215 far): Atlantic-forest broadleaves, palms, flowering ipês
+  (yellow, purple, pink), eucalyptus on the slopes, banana by the houses; shrubs, tall grass by the fences,
+  flowers in the grounds. Woods where OSM maps them; groves and tree lines on the grounds; street trees in the city.
+- **The city**: 9,000 houses (the nearest; Lite 4,000) on built-up land, in rows along the real streets, in
+  three kinds (flat slab with a blue water tank and a satellite dish; terracotta roof; rooftop terrace with a
+  tank and washing on a line), 1-3 floors, walls in twelve colours; 16 tower blocks further out (a quarter with
+  a rooftop helipad); 64 warehouses on industrial land; 2 football pitches where OSM maps them, each with a
+  game of five-a-side on; 856 parked cars and buses in the car parks and along the streets; a ring of 420 pale
+  blocks on the horizon for the skyline.
+- **Circuit**: pit building (9 modules, 450 m, along the straight only) and paddock on the left; a covered
+  220 m main stand in green seats across from the pits; covered stands round the Senna S (yellow seats);
+  14 grassy banks round the bowl; 18,400 spectators in yellow, green and blue, one in five waving a flag;
+  flags on every stand and bank; a samba drum group on every third bank; green and yellow smoke flares and
+  confetti over the main stand; two big screens; food stalls; marshal posts, TV towers, start-light gantry,
+  paddock sign, catch fencing on the outside of the Senna S, Junção and along the main stand; tyre walls at the
+  gravel; 210 advert panels; darker patches in the asphalt (drawing only).
+- **Adverts**: an Interlagos set, all invented: Cafezinho Turbo ("Small cup. Big power unit"), Marginal Jam Co.
+  ("We sell the traffic you sat in"), Churrasco Pit Stop, Suco do Lago ("Not from the lake"), Umbrella Urgente
+  ("Sun at 2, storm at 2:05"), Heli-Táxi Já, Chuva Chegando, and others.
+- **Sky and light**: a low, golden sun (1.25, warm) under a blue-grey storm fill, a warm wet haze, cloud
+  shadows racing over everything, the grass going glossy and the lake darker in the rain, mist over the lake.
+  For the shots that look out (crash, DNF, podium cameras): a dome with a heavy storm side and a golden break
+  on the sun's side, and towering clouds round the horizon.
+- **Details**: three helicopters circling (rotors turning), kites over the houses, parrot flocks and toucans
+  round the trees by the circuit, herons over the lake, three hot-air balloons, the football games, drummers,
+  flares and confetti.
+- **Detail setting**: Lite uses a 12 m grid, fewer trees and houses, no low plants, mist or confetti.
+
+## Checks (Node; no browser here)
+
+- Lap: anticlockwise, 4,311 m, 0-42.9 m, seam 0.0000 m (`scripts/interlagos-audit.mjs`).
+- Clearance against every segment of the centreline: 4,152 trees, closest canopy 2.0 m past the barrier line,
+  none over it; houses, towers, sheds and pitches at least 22 m away; stands, banks, pits and posts at least
+  0.69 m clear; parked cars 10.7 m. Lite: the same.
+- Clipping: no ground vertex inside the barrier line above the lowest road ribbon (3,028 checked); behind the
+  Armco the ground is at most 0.1 m above the road.
+- Frame: 600 frames of the world's own step (start lights, flares, confetti, helicopters, kites, birds,
+  balloons, mist) with no errors. AI lap and pit stop as in Part 2.
+- `npm run build`: one 4.1 MB HTML file.
+
+## Performance
+
+Through the real `G3.build` in Node, counting what the overhead camera (frame.js maths, slow-speed zoom,
+1280 × 800) and the shadow camera would draw, with three.js's frustum test. Frame times: no browser here.
+
+| | draw calls per frame | triangles per frame | build |
+|---|---|---|---|
+| Interlagos before | 95-128 | 63-64k | 0.11 s |
+| Interlagos after | 163-213 | 180-425k | 0.8 s (0.57 s of it the plan) |
+| Spa | 140-220 | 270-590k | 1.5 s |
+| Suzuka | 135-170 | 210-660k | 0.6 s |
+
+Draw calls are a little above Suzuka's, mostly the houses (nine shapes, by kind and floors, per 200 m chunk).
+
+## Not done / owed
+
+- **Seen in a browser**: nothing. Visual checklist below.
+- **Materials**: Standard with vertex colours, like the other worlds (the game moved off Lambert).
+- **Pit loss**: about 46 s with the real 1,372 m lane (29 s before); see Part 2.
+
+## Visual checklist (please)
+
+1. **The plunge into the Senna S** from the line: the main stand on the right, the Senna S stands and the
+   bowl of banks below, the screens.
+2. **The back straight and the lake**: the lake behind the Descida do Lago with its island and jetty, the
+   herons, the mist; the reedy pond in the infield.
+3. **Ferradura to Bico de Pato**: the banks of fans, the drummers, the trees and flowers.
+4. **Junção and the climb**: the city on the hills, the kites, the helicopters.
+5. **The pits**: garages along the straight with no Armco between them and the lane; the pit exit running
+   inside the Senna S and joining on the back straight.
+6. **Anything clipping**, houses too close, trees hiding the car (they should dither away), frame rate Full
+   and Lite, and the look in the rain.
