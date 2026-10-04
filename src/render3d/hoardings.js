@@ -152,8 +152,29 @@ const ADS = {
     ["BARBECUE BARRIER",     "Smoke signals for the second stint",            "#3A1410", "#FFD0A0", "#FF7A2A", "screen"],
     ["PUMPJACK PRESS",       "News that goes up and down. Mostly up",         "#1A1D28", "#E8ECF4", "#FF3D62", "arrow"],
   ],
+  /* Singapore's set: made-up brands; the jokes are about queues, chicken rice, air-conditioning, umbrellas, durian and hawker centres */
+  SINGAPORE:[
+    ["CHILLY WILLY AIRCON",   "Colder than the pit wall's opinion",           "#0C3A4A", "#D8F8FF", "#4AD8F0", "wind"],
+    ["QUEUE & CO.",           "Because the rice is worth it",                 "#2E1E4A", "#F4E8FF", "#C89AF0", "dots"],
+    ["POACHED & PROUD",       "Chicken rice, one lap at a time",              "#F4EEDC", "#5A3A10", "#E8A030", "fork"],
+    ["BRELLA BRIGADE",        "Rain at 3pm. Rain at 3:05. Rain.",             "#143A6A", "#E8F4FF", "#5AA8FF", "umbrella"],
+    ["DURIAN DRS",            "Smells like an overtake",                      "#4A5A12", "#F6FFD8", "#D8E84A", "fire"],
+    ["HAWKER HEROES",         "Fifty stalls, zero pit stops",                 "#5A1A10", "#FFE8C8", "#FF8A3A", "stack"],
+    ["HUMID HAIRCUTS",        "Your hair, but briefly",                       "#14243A", "#E8F0FF", "#6AA8E8", "scissors"],
+    ["LAH! LOGISTICS",        "We deliver. Eventually. Lah.",                 "#1A3A2E", "#DCFFE8", "#48E8A0", "arrow"],
+    ["KOPI KAKI",             "Strong enough to hold Turn 13",                "#3A1E12", "#F4E0C0", "#E8A040", "bolt"],
+    ["MERRY MERLION MINTS",   "Spouts fresh breath since never",              "#0E3A5A", "#E0FFF6", "#5FE8C8", "wave"],
+    ["SHADE CLUB",            "Sun? Not after sunset. Still shade.",          "#241A3A", "#F2F2F2", "#E8C04A", "screen"],
+    ["BAY VIEW BIKES",        "Ride the lap, skip the sling",                 "#0F3F3A", "#B8FFF0", "#5FE8CC", "wheel"],
+    ["SLIPPERY SLINGS",       "Cocktails with a chicane in them",             "#6A1A3A", "#FFD4E8", "#FF4A9E", "ring"],
+    ["NOODLE NOMADS",         "Fast food. Faster than Turn 5.",               "#6A3A08", "#FFE2B0", "#FFC048", "dots"],
+    ["TOWEL TOWER",           "Everything is damp. We help.",                 "#12304A", "#DCEBFF", "#7FB4FF", "lock"],
+    ["PUDDLE PATROL",         "Sponsor of every storm drain",                 "#1A1D28", "#E8ECF4", "#3DE0FF", "cone"],
+    ["LION CITY LAUNDRY",     "Whites stay white. Almost.",                   "#E8E4D8", "#1A3A5A", "#3E86C8", "flag"],
+    ["SKYLINE STEAMERS",      "Dumplings with a view",                        "#2A1030", "#FFC8E8", "#FF66B8", "mountain"],
+  ],
   use(set){
-    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : this.VEGAS;
+    const want = set === "monaco" ? this.MONACO : set === "silverstone" ? this.SILVERSTONE : set === "zandvoort" ? this.ZANDVOORT : set === "cota" ? this.COTA : set === "spa" ? this.SPA : set === "singapore" ? this.SINGAPORE : this.VEGAS;
     if(this.LIST === want) return;
     this.dispose(); this.LIST = want;
   },
