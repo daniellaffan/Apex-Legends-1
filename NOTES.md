@@ -1764,6 +1764,99 @@ The first Singapore build put 1,434 buildings up to 280 m tall around the circui
 - **Flat glowing slabs removed:** the coloured plates on roofs (crowns, hotel tops, art-deco tiers, the heliport pad, the dome base) were unlit full slabs, which from above read as huge coloured squares. They are now thin glowing outlines, and only 30 % of heliport roofs get one.
 - Anyone building another city world (Interlagos has houses and towers too): run the same view test against it.
 
+---
+
+# Baku (City Circuit) overhaul: research, mismatches, decisions
+
+## Research (Part 1). Sources and how sure I am
+
+| Fact | Value I found | Source | Confidence |
+|---|---|---|---|
+| Length, corners | **6.003 km**, 20 turns (8 right, 12 left per one summary) | [Wikipedia](https://en.wikipedia.org/wiki/Baku_City_Circuit), [Mercedes F1 race page](https://www.mercedesamgf1.com/races/azerbaijan-grand-prix-2025) | high |
+| Direction | **anticlockwise** (Wikipedia infobox, F1 guide, a track guide) | same | high |
+| Corner order | Sector 1 is a quartet of ~90-degree corners; **T1 a 90-degree left** ("second gear", braking point hard to spot) and T3 another 90-degree left; **T8 and T9 the castle chicane**, "the tightest corner of the season"; Sector 2 is the castle (about T8-T12) round the Old City wall; **T16 starts a 2 km+ flat-out run** to the pit straight | [F1 circuit guide via search](https://www.formula1.com/en/latest/article/circuit-guide-everything-you-need-to-know-about-the-baku-city-circuit.320UGBNQu2ALdgAtax1gRn), [RealSport101](https://realsport101.com/article/f1-2019-azerbaijan-grand-prix-track-guide) | medium for individual turn numbers |
+| Main straight | "**2.2 km** stretch along Neftchilar Avenue back to the start"; Wikipedia also says the lap loops Government House then goes "west along a 1 km straight" to the Maiden Tower. A guide says "flat-out for over two kilometres from T16 to the pit straight". | Wikipedia, F1 guide | medium (2.2 km vs about 2 km) |
+| Width | 13 m at its widest, **7.6 m** (25 ft) at the narrowest, in the uphill castle section between the walls | Wikipedia, RacingNews365 | high |
+| Elevation | highest point **2.1 m above sea level at Turn 13**, lowest **24.7 m below sea level on the start-finish straight**: range **26.8 m**; the castle section climbs ("a narrow uphill stretch") then drops | [F1 highs and lows](https://www.formula1.com/en/latest/features/2016/10/highs-and-lows---which-f1-track-has-the-most-elevation-changes-.html), Wikipedia, Ferrari | medium: the two end figures only, no profile in between |
+| Pit lane | "down the very long straight **past the pits and paddock** before Turn 1": the pits are on the main straight between T20 and T1. No box count, no box positions, no side, no lane length; walls near pit entry/exit were rebuilt with vehicle openings and crash gates (2016 changes) | FIA/Planet F1/Wikipedia | low |
+| Run-off | walls "around the circuit have been realigned, including in the run-off at Turn 1"; a street circuit with concrete walls and almost no run-off. I found no map of escape roads. | Planet F1 | low |
+| Surroundings | starts adjacent to **Azadliq Square**, loops **Government House**, passes the **Palace of the Shirvanshahs** and **Maiden Tower** (12th century, once on the shore), circles the UNESCO Old City walls, runs along the **Caspian promenade** | Wikipedia, F1 | high for the names; **which of them (and the Flame Towers, the carpet museum, the wave-shaped cultural centre) are visible from which corner I did not confirm** |
+| Race conditions | **15:00 local** start, around 26 C, dry and sunny, wind from the north-east on race day (a headwind on the main straight) | RacingNews365, Sky | medium (one year's forecast) |
+
+## Mismatches against the game (`node scripts/track-audit.mjs baku`, not by eye)
+
+1. **Direction: correct** (net turn -360, area -1,643,286: anticlockwise). Nothing reversed, nothing mirrored. (The old 0a table's "Baku: WRONG (mirrored)" was fixed by the turtle change.)
+2. **Length:** 6,004.7 m (real 6,003 m). Corners found: 20 (real 20).
+3. **Main straight:** the game has 616 m from the line to T1 and 684 m from the last corner to the line, so **about 1.3 km** from the last corner to T1; the real straight is **about 2.2 km**. Real first straight after Government House is about 1 km; the game's first straight is 616 m. Layout questions below.
+4. **Elevation range:** game 29.99 m (0 to 30 m), real 26.8 m, so 3 m too much; shape is plausible (lowest on the start straight, climbing through the castle, peak at u 0.58, falling away) but the real high point is "Turn 13" and the game's peak sits at u 0.58 (its T11 to T12); the old profile was cosine-eased with flat knots. Fixed: scaled to 26.8 m and a closed spline with the peak moved onto the T13 hairpin.
+5. **Pit lane:** the game's zone ran from u 0.860 to 0.100 (the shared default), 1,442 m, entry well before the last corner.
+6. The 2016 FIA wall and pit-entry changes are not visible in the layout string.
+
+## Results (Parts 2 to 5): `node scripts/track-audit.mjs baku`, `baku-audit.mjs`, `baku-world3d.mjs`, `census.mjs baku`
+
+### Direction and elevation, before and after
+
+| | Before | After |
+|---|---|---|
+| Winding | net turn -360 deg, signed area -1,643,286: anticlockwise | identical (already right; nothing reversed, nothing mirrored) |
+| Lap length | 6,004.7 m (real 6,003 m) | 6,004.7 m |
+| Height range | 0 to 29.99 m = 29.99 m (real 26.8 m), cosine-eased between flat knots, peak at u 0.58 | 0 to 26.79 m = **26.79 m** (real 26.8 m), a closed spline with continuous gradient, peak on the **T13 hairpin** (u 0.618) as sourced |
+| Steepest gradient | 4.7 % | 3.8 % (the climb into the castle section, u 0.514) |
+| Seam | 0.000 m | 0.000 m, gradient 0.00 % either side |
+
+Heights now (m above the start line): start 0.00, castle approach (u 0.50) 15.0, peak 26.79 (u 0.618). The real figures are absolute: the start straight is 24.7 m below sea level and T13 is 2.1 m above it, so the Caspian (about 28 m below the ocean) sits about 3.3 m under the start straight, which is where the sea sheet is. `ELEV_VISUAL` stays 1.0 (displayed = real). The shape between the two sourced ends is mine.
+
+### What was built (`worlds/baku.js`, planned by `baku-plan.js`, parts in `baku-kit.js`)
+
+- **The Caspian** along the seafront half of the lap (on the outside; the old land blobs put it there too, which is **my reading**, see below): a turquoise glossy sheet that runs to the horizon, sun glitter crawling over it, boats and ferries drifting, yachts moored along a pier, gulls wheeling (instanced, flapping).
+- **The boulevard:** a lawn with five fountains (animated spray), palms, kerbside flower beds, kites in the air, strollers, a turning observation wheel.
+- **The Old City:** a crenellated sandstone wall with round towers running beside the castle section on the infield side (about 150 segments), a stout round tower with a buttress and a stepped crown (a generic "maiden tower"), old low flat-roofed houses packed behind with water tanks and the odd little minaret.
+- **The city:** about 1,860 buildings in four facade types from three shared textures (sandstone with windows and shutters, blue glass, concrete panels): stone mid-rises with cornices and tiled roofs, soviet-style slabs, glass towers with setbacks and crowns, hotels with striped awnings. Landmarks, all generic: a long symmetric government building with a colonnade and a central tower, a carpet-shaped museum (a rolled half-cylinder in stripes), a white wave-shaped cultural building, three leaning flame-shaped towers (190 m, glass below and a warm bright crown).
+- **Track:** tiered stands with scaffold, fans and catch fencing (roofed at the main straight and T13), a pit building with a striped awning and timing tower, a paddock sign, five footbridges with fans, TV towers, flags that ripple in the north-east wind, tyre walls behind the concrete on the outside of the corners, food stalls, big screens, adverts (the BAKU set in `hoardings.js`: "TEA & TIME: Pour one. Overtake later.", "MANHOLE MASTERS: Bolted down since last time", "SEVEN POINT SIX: Narrow-street realty. Cosy is a metre.").
+- **Sky:** a sunny gradient dome with a warm sun glow and drifting clouds, and a pale haze off the sea.
+
+### The overhead lens (the lesson from Singapore, built in from the start)
+
+The lens is fixed (35.264 deg up, from the south-east), so a building of height h hides 1.414 h of ground behind it. Every building's height is capped to keep the road out of that shadow (`maxH`), 12 m streets (6 to 8 m in the old town) keep the blocks apart, and the cutaway shader (`G3.cutMat`) is on every building material. The wall and towers use an exact version of the same test against the real road distance: where the wall stands south-east of the road it drops to a 1.2 m parapet, elsewhere it rises to 9 m.
+
+`node scripts/baku-world3d.mjs`, the sight-line test from road points all round the lap: **2 of 858 road points hidden (0.2 %)**, both behind the round tower, which is a landmark standing 30 m from the road on purpose (the cutaway dissolves it near the car). The plan's audit: 0 buildings with road in their shadow, 0 overlaps, 0 narrow streets, 0 on water, 0 trees or lamps in the road, 0 wall segments in the road, 2 wall segments with a marginal shadow on the run-off.
+
+### Performance (real `G3.build`, no GPU: draw calls and triangles; frame time could not be measured)
+
+| | Draw calls if all drawn | Triangles if all drawn | Within 450 m of the start / Esses / back straight (draw calls; triangles) |
+|---|---|---|---|
+| Baku before | 1,021 | 91,669 | 248; 74,064 / 212; 73,059 / 204; 72,277 |
+| Baku after (full) | 896 | 506,321 | 190; 153,186 / 154; 137,270 / 146; 131,274 |
+| Baku after (Lite) | 860 | 363,356 | 177; 107,358 / not printed |
+| Singapore | 941 | 566,288 | for comparison |
+| COTA | 1,029 | 1,357,491 | |
+
+Fewer draw calls than before and about 5.5 times the triangles, still well under every other detailed track. Plan time in Node about 250 ms, world build about 430 ms.
+
+### Not done, not verified, or only partly done (honest list)
+
+- **No screenshots and no frame times** (browsers cannot run on this machine). Checked in Node: the plan's clearance and lens audits, the sight-line test, 4,000 frames of animation without error, and the real `G3.build` runs without warnings. The tint-mask instancing shader is the one COTA and Singapore use; shaders are not compiled by a GPU here.
+- **Which side the sea is on:** I kept the old definition's (the outside of the seafront half of the lap). I did not confirm it against the real geography, and the game's circuit is the layout string's shape, not the surveyed one.
+- **Landmark positions** (government building, carpet museum, wave building, flame towers, the old walls, the round tower) are by lap fraction, not geography; which of them are really visible from which corner I did not confirm.
+- **Run-off:** a street circuit with walls; I found no escape roads and added none. The tyre walls at the corners are decoration behind the concrete; I do not know where the real ones are.
+- **Pit lane:** between the last corner and Turn 1 on the main straight (sourced); the exit, box positions and side are not in anything I found (left/infield is my assumption); the lane is 660 m in the game (u 0.94 to 0.05).
+- Not done: night or dusk, heat shimmer, hanging laundry, people on balconies, a real map of the walls (the wall is a continuous run along the castle section on the infield side).
+
+### Layout questions (I did not change these)
+
+1. **The main straight is about 1.3 km in the game, 2.2 km in reality** (from the last corner to Turn 1: 684 m before the line plus 616 m after it, against "2.2 km along Neftchilar Avenue"). The real straight after Government House is about 1 km (the game's first straight is 616 m). Do you want the final straight lengthened to about 2.2 km (and the lap shortened elsewhere, or the lap length left at 6,003 m by trimming the infield)?
+2. The castle section's real width is 7.6 m; the game's track is 14.3 m wide everywhere (`width`). Do you want it to narrow there? It would change the racing, so I did not.
+3. Which side is the sea on along the seafront? (see above)
+
+### Visual checklist (npm run dev, circuit "Baku")
+
+1. The start straight and the seafront: the turquoise sea with its glitter on the outside, the boulevard lawn, fountains spraying, the wheel turning, palms in the wind, the pier with yachts, the stand opposite the pits.
+2. The climb into the castle section: the sandstone wall on the left with its towers, the old houses behind, the round tower, the walls closing in. The wall should drop to a low parapet wherever it would hide the road.
+3. The T13 hairpin stand at the crest, then the drop. The city behind should read as sandstone streets and slabs with glass towers further out, never covering the road.
+4. Look up: sun glow, drifting clouds, gulls over the shore, kites over the boulevard, the flame-shaped towers on the skyline.
+5. The pits: striped awning, timing tower, paddock sign.
+6. Console: look for `baku ...` warnings; the world builds inside try/catch, so a bug shows as a warning and a plainer circuit. `window.__baku.audit()` reruns the clearance and lens audit.
+
 # Mexico City (Autódromo Hermanos Rodríguez) (2026-10-04)
 
 How this was done: the OpenStreetMap raceway ways chained into one lap (4,306 m against the official
