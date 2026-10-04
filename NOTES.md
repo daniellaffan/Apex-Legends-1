@@ -1457,3 +1457,110 @@ Drive a time trial at Spa (`npm run dev`) and look at:
    trees hiding the car (they should dither away as the car passes behind them).
 7. **Frame rate** at Eau Rouge and Blanchimont, Full and Lite.
 8. **Rain**: the grass and trees should darken and the cloud shadows close over.
+
+# Interlagos (São Paulo): research, and how the game compares (2026-10-04)
+
+How this was done: the real lap is the OpenStreetMap `highway=raceway` ways chained into one loop (25 ways,
+4,295 m against the official 4,309 m). Heights every 20 m along it from SRTM 30 m and ASTER 30 m through
+OpenTopoData (EU-DEM does not cover Brazil). ASTER is noisy here (74 m range, 27 % "grades"), so SRTM is
+used. The game lap is the existing layout string, measured with the real `buildTrack()` in Node. Nothing
+was seen in a browser.
+
+Sources: [F1, Major ups and downs](https://www.formula1.com/en/latest/features/2016/10/highs-and-lows---which-f1-track-has-the-most-elevation-changes-.html) ·
+[f1-fansite](https://www.f1-fansite.com/?p=6731) · [Mercedes, corner names](https://www.mercedesamgf1.com/news/how-the-interlagos-corners-got-their-names) ·
+[Motorpasión](https://www.motorpasion.com/formula1/asi-es-el-circuito-de-interlagos) · [Pit Debrief, 2024 resurfacing](https://www.pitdebrief.com/?p=32376) ·
+[Rio Times, 2026 guide](https://www.riotimesonline.com/sao-paulo-grand-prix-2026-f1-interlagos-guide/) · [Verdict, weather](https://www.verdict.co.uk/brazil-grand-prix-weather/) ·
+OpenStreetMap · OpenTopoData (SRTM 30 m, ASTER 30 m).
+
+## Confirmed
+
+- **Layout**: 4.309 km, 15 turns, **anticlockwise** (the OSM lap's signed area is negative with y south).
+- **Corners in order** (OSM geometry, apex by apex): Senna S (T1 left 114°, T2 right 77°), Curva do Sol (left
+  102°), Reta Oposta, Descida do Lago (T4 left 95°, T5 left 62°), Ferradura (right, 134°), Laranjinha (right,
+  134°), Pinheirinho (left 171°), Bico de Pato (right hairpin 178°), Mergulho (left 104°), Junção (left 100°,
+  then two small lefts at "Café"), Subida dos Boxes (left 49°), Arquibancadas (left 26°), the pit straight.
+  (OSM's names are one corner out of step round Ferradura and Laranjinha, as at Spa.)
+- **Height range: 43 m** (F1 and f1-fansite; SRTM smoothed along the lap: 43.0 m). **Highest** on the rise
+  before Turn 1 (SRTM: 4,240 m round from the Senna S entry, just before the line); **lowest at Turn 5**,
+  the bottom of the Descida do Lago (F1 says the same). The pit straight climbs about 33 m from Junção (F1:
+  "1.2 km at full throttle from Turn 12 with 33 m of climb"; SRTM: Junção 9.9 m to the line 42.9 m).
+- **Profile** (SRTM, metres over the lowest point): line 42.9, T1 40.6, T2 34.7, Curva do Sol 30.7,
+  **Reta Oposta 16.7: the back straight goes DOWN**, Descida do Lago T4 5.8 and T5 0.1, then **up to
+  Ferradura 24.7** (the steepest bit of the lap, 13.6 % over 40 m), Laranjinha 25.1, Pinheirinho 16.3, Bico de
+  Pato 29.6, a drop through Mergulho (11.6) to Junção (9.9), and the long climb to the line. Your brief
+  expected a climb along the back straight; the data says it falls about 14 m, so the game follows the data.
+- **Pit lane** (OSM, plus Motorpasión): on the **left**. In on the left on the run up the pit straight
+  (OSM: 3,599 m round, between Subida dos Boxes and Arquibancadas), boxes along the straight, then the exit
+  road runs about 20-25 m left of the track inside the Senna S and joins on the left **at the start of the
+  Reta Oposta**. The mapped lane is 1,372 m long.
+- **Stands**: OSM maps grandstands on the outside of the pit straight and round the Senna S, across from
+  the pits.
+- **The lake**: OSM has the lake (2.8 ha) **outside** the lap, about 140 m beyond the Descida do Lago ("a lake
+  situated behind the confines of the track", Mercedes), and a small wetland (0.7 ha) in the infield near
+  Ferradura. There is no big infield lake today. The kart track (Kartódromo Ayrton Senna) is outside, beside
+  the Reta Oposta. Within 2.4 km, 8 % of the land is water: the edges of the reservoirs.
+- **Surroundings**: dense housing on every side (OSM: the neighbourhoods Interlagos, Cidade Dutra, Vila
+  Autódromo, Socorro and others; 1,751 streets within 2.3 km; 962 mapped swimming pools), many football
+  pitches, schools, parks, a bus garage and a landfill. Housing itself is mostly not mapped as land use, so
+  the world treats unmapped land outside the circuit as built-up.
+- **Race**: 6-8 November 2026, race Sunday at 14:00 local; the rainy season (October to March), thunderstorms
+  common, wet races in 1996, 2001, 2003, 2004, 2008, 2012. Track fully resurfaced for 2024; drivers called it
+  bumpy.
+
+## Not confirmed
+
+- **Run-off corner by corner**: no source found. The game uses tarmac in the Senna S and at Bico de Pato,
+  gravel at the Descida do Lago and Junção, grass elsewhere: my reading, flagged in the track file.
+- **Kerb colours**: the game's yellow and green are kept; I did not confirm the real ones.
+- **Gradients**: the 13.6 % figure is from SRTM over 40 m; I found no published gradient.
+- **What is visible from the track**: I could not confirm sight lines (to the reservoirs, the skyline);
+  the world places the city and the hills by the data, not by reported views.
+- **Pit-lane speed-limit zone**: the game drives the whole lane at the limiter; I could not confirm where
+  the real limit ends on the long exit road.
+
+## The game against the real circuit (before this work)
+
+| | Game before | Real |
+|---|---|---|
+| Direction | anticlockwise (net turn -360°) | anticlockwise |
+| Lap | 4,311 m | 4,309 m |
+| Height range | 44 m, an estimate | 43 m |
+| Highest / lowest | the line / u 0.549 (Pinheirinho area) | before T1 / Turn 5 |
+| Back straight | falling 4 m | falling 14 m |
+| Out of the lake | almost flat (−10 to −6 m) | up 25 m to Ferradura |
+| Pit lane | left, the defaults: in 0.86, out 0.10 | left, in before the pit straight, out on the Reta Oposta |
+
+**Layout mismatches** (for you to decide; none changed):
+1. **Shape**: lined up with the best scale and turn, the game lap is **213 m RMS** off the real one (max 382
+   m), and at **scale 0.56**: the game lap covers almost twice the real area, because its corners turn too
+   little and it sprawls.
+2. **Corners turn too little**: Turn 1 83° (real 114°), Turn 2 58° (77°), Curva do Sol 71° (102°),
+   Pinheirinho 94° (171°), Bico de Pato 99° (178°), Mergulho 79° (104°), Junção 93° (100° plus 43° of Café).
+3. **Sections**: T5 to Ferradura 363 m (real 575 m), Mergulho to Junção 343 m (255 m), Bico de Pato to
+   Mergulho 154 m (240 m), the line to Turn 1 280 m (75 m from the last kink), T2 to Curva do Sol 147 m (90 m).
+4. **Ferradura and Laranjinha** are two right-handers of 49° and 59°; the real ones turn 134° each.
+
+As with Spa, the fix would be to build Interlagos from the surveyed OSM path (chained, 4,295 m,
+anticlockwise). I have not done it.
+
+## Part 2: direction and heights (done)
+
+- **Direction**: already anticlockwise; nothing reversed.
+- **Heights**: `src/tracks/survey/interlagos.js`, the SRTM profile pinned corner by corner (13 apex pairs),
+  the grade capped at 14 % (carried across as it is, one squeezed section would reach 21.8 %), the range
+  43.0 m (no scaling needed), 400 samples, periodic (seam 0.0000 m). `ELEV_VISUAL` stays 1.0.
+
+| | before | after (real = displayed) |
+|---|---|---|
+| Min / max | -10.0 (u 0.549) / 34.0 (the line) | 0.0 (u 0.343, Turn 5) / 42.9 (u 0.977, just before the line) |
+| Start line | 34.0 | 42.5 |
+| Senna S (T1 / T2) | 31.5 / 26.6 | 39.9 / 34.3 |
+| The lake (T4 / T5) | 0.0 / -2.7 | 5.6 / 0.3 |
+| Bottom of the hairpin (Bico de Pato) | -8.5 | 29.3 |
+| Junção | -4.4 | 10.1 |
+| Top of the pit straight | 34.0 | 42.9 |
+| Steepest | 16.2 % | 13.9 % (out of the lake) |
+
+- **Pit lane**: in 0.853, out 0.218 (the real points), box 0.955. An AI car laps in 66.7 s, pits, and the
+  stop costs about **46 s** over two laps (in at 0.853, out across the line at 0.218); with the old default
+  lane it cost about 29 s. The real lane is long; whether the game should shorten it is a question for you.
