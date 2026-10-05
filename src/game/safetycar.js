@@ -35,7 +35,8 @@ function leaderOf(S){
 
 function place(T, k){
   const f = k.f, j = ((Math.floor(f) % T.n) + T.n) % T.n, k2 = (j + 1) % T.n, u = f - Math.floor(f);
-  const lat = lerp(T.line[j] + (k.dodge || 0), T.pitCentre(j), k.mix);
+  const road = clamp(lerp(T.line[j], k.dodgeOff || 0, k.dw || 0), -(T.half - 1.3), T.half - 1.3);
+  const lat = lerp(road, T.pitCentre(j), k.mix);
   k.x = lerp(T.x[j], T.x[k2], u) + lerp(T.nx[j], T.nx[k2], u) * lat;
   k.y = lerp(T.y[j], T.y[k2], u) + lerp(T.ny[j], T.ny[k2], u) * lat;
   k.z = lerp(T.z[j], T.z[k2], u);
@@ -96,16 +97,23 @@ function moveCar(S, dt){
   }
   if(k.inLane) target = Math.min(target, PIT_V);
   // round a wreck or a parked recovery truck, on whichever side has the room, and slower past it
-  let want = 0;
-  if(!k.inLane) for(const o of REC.obstacles(S)){
-    const d = wrapD(S, o.s - k.s); if(d < -8 || d > 90) continue;
-    const base = T.line[o.node], room = T.half - 1.3, clr = o.r + 2.8;
-    if(Math.abs(o.off - base) > clr) continue;
-    let tgt = clamp(o.off + (o.off > 0 ? -1 : 1) * clr, -room, room);
-    if(Math.abs(tgt - o.off) < o.r + 1.6) tgt = clamp(o.off + (o.off > 0 ? 1 : -1) * clr, -room, room);
-    want = tgt - base; target = Math.min(target, 26); break;
+  let dodge = false;
+  if(!k.inLane){
+    // the nearest obstacle ahead that is in the way of the line
+    let o = null, od = 1e9;
+    for(const q of REC.obstacles(S)){
+      const d = wrapD(S, q.s - k.s); if(d < -8 || d > 90 || d >= od) continue;
+      if(Math.abs(q.off - T.line[q.node]) > q.r + 2.8 && Math.abs(q.off - k.off) > q.r + 2.8) continue;
+      o = q; od = d;
+    }
+    if(o){
+      const po = REC.passLine(S, o, k.off);
+      if(po == null) target = Math.min(target, Math.max(0, (od - o.r - 4) * 0.8));     // no way through: wait for it to clear
+      else { k.dodgeOff = po; dodge = true; target = Math.min(target, 26); }
+    }
   }
-  k.dodge = (k.dodge || 0) + clamp(want - (k.dodge || 0), -3 * dt, 3 * dt);
+  // ease across, quicker the closer it is
+  k.dw = clamp((k.dw || 0) + (dodge ? 1 : -1) * dt * 0.8, 0, 1);
   k.v += clamp(target - k.v, -14 * dt, 6 * dt);
   k.f += k.v * dt / T.ds;
   const j = ((Math.floor(k.f) % T.n) + T.n) % T.n;
@@ -195,7 +203,8 @@ function tick(S, dt){
   // overtaking behind the safety car: the player is watched
   const p = S.player;
   if(p && !p.dnf && !p.finished && !p.inPit && !p.pitting && p.spinT <= 0 && p.speed > 8){
-    const others = S.cars.filter(o => o !== p && !o.dnf && !o.pitting && !o.inPit);
+    // a car that is spinning, or crawling after hitting something, can be passed
+    const others = S.cars.filter(o => o !== p && !o.dnf && !o.pitting && !o.inPit && o.spinT <= 0 && o.speed > 10);
     const k = onTrack(S); if(k) others.push(k);
     for(const o of others){
       const d = wrapD(S, o.s - p.s), pd = sc.prev.get(o);

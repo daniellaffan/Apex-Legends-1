@@ -296,7 +296,7 @@ function update(dt, rdt){
       }
       continue;
     }
-    if(c.ai && !c.dnf) driveAI(c, S, dt);              // a retired car has nobody driving it: it stays where it stopped
+    if(c.ai){ if(!c.dnf) driveAI(c, S, dt); }          // a retired car has nobody driving it: it stays where it stopped
     else { playerPit(c, S, dt); if(c.stopT > 0){ c.vx = 0; c.vy = 0; continue; } playerInput(c, dt); SC.limitPlayer(S, c); }
     c.step(dt, S);
     if(S.state === "run") updateTiming(c);
@@ -394,7 +394,7 @@ function update(dt, rdt){
   }
   // a stopped wreck and a parked recovery truck do not move: whoever drives into them stops
   const obs = REC.obstacles(S);
-  if(obs.length) for(const C of S.cars){
+  if(obs.length) for(let pass = 0; pass < 2; pass++) for(const C of S.cars){
     if(C.dnf || C.pitting || C.inPit) continue;
     for(const o of obs){
       const dx = C.x - o.x, dy = C.y - o.y, d = Math.hypot(dx, dy), lim = o.r + 1.7;

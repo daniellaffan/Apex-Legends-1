@@ -1,4 +1,4 @@
-import { obstacles } from '../game/recovery.js';
+import { obstacles, passLine } from '../game/recovery.js';
 import { clamp, lerp } from '../config/util.js';
 import { AUDIO } from '../audio/audio.js';
 import { BRAKE, DRAG, GRIP, VMAX, tyreGripK, tyreLoad } from '../car/physics.js';
@@ -183,6 +183,12 @@ function driveAI(c, S, dt){
       // take whichever side has the most road, measured from where THEY are stopped
       const roomL = (T.half - 1.8) - ahead.off, roomR = ahead.off + (T.half - 1.8);
       passDir = roomL > roomR ? 1 : -1;
+      if(ahead.r){
+        // a wreck or a recovery truck: the gap that clears everything there, or stop short if there is none
+        const po = passLine(S, ahead, c.off);
+        if(po == null){ c.passOff = c.off; vt = Math.min(vt, Math.max(0, (gap - ahead.r - 2.6) * 0.9)); }
+        else { c.passOff = po; passDir = Math.sign(po - ahead.off) || passDir; }
+      }
       avoid = ahead;
       if(lane && gap < 70) vt = Math.min(vt, Math.max(T.vprof[i] * 0.55, av + 12));
     } else if(lane){
@@ -228,7 +234,7 @@ function driveAI(c, S, dt){
     }
     // only hold station behind someone while still in their lane; once alongside, go
     if(lane){
-      const clearing = stricken && Math.abs(c.off - ahead.off) > 2.2;
+      const clearing = stricken && Math.abs(c.off - ahead.off) > (ahead.r ? ahead.r + 1.6 : 2.2);
       const press = passDir ? 0.5 : 1;          // committed to a move: close right up
       // sit right on their gearbox: a fifth of a second, plus the room to scrub off any speed difference
       const desired = (5 + v * 0.17 + Math.max(0, (v * v - av * av) / (2 * aiBrake()))) * press * (scOn ? 1.7 : 1);
@@ -266,7 +272,7 @@ function driveAI(c, S, dt){
   const room = T.half - (avoid ? 1.2 : 2.0);
   const lunge = Math.min(3.9, T.half * 0.52) * (S.combat ? S.combat.lunge : 1);
   const legalDef = Math.max(0, T.half - 3.6);      // leave them room to exist
-  let targetOff = avoid ? clamp(avoid.off + passDir * Math.max(4.0, lunge, (avoid.r || 0) + 2.6), -room, room)
+  let targetOff = avoid ? (avoid.r ? clamp(c.passOff != null ? c.passOff : c.off, -room, room) : clamp(avoid.off + passDir * Math.max(4.0, lunge), -room, room))
                   : passDir ? clamp(T.line[ti] + passDir * lunge, -room, room)
                   : clamp(T.line[ti] + defend, -legalDef, legalDef);
   // nobody moves sideways into a car that is at their elbow: hold where we are

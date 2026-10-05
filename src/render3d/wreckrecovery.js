@@ -91,13 +91,13 @@ function marshals(G, S, j, v, dt){
   if(v.ppl[0].flag) v.ppl[0].flag.rotation.y = Math.sin(t * 9) * 0.35;
   // the two with brooms
   if(j.phase === "sweep"){
-    if(!v.jobs) v.jobs = sweepList(G, S, j, v);
+    if(!v.jobs){ v.jobs = sweepList(G, S, j, v); v.from = v.walk.map(w => ({ x:w.x, z:w.z })); }
     const dur = j.phases[j.pi][1];
     for(let k = 1; k <= 2; k++){
       const list = v.jobs[k - 1], P = v.ppl[k], w = v.walk[k];
       if(!list.length){ placePerson(G, S, P, w.x, w.z, w.yaw, j.node, POSE.sweep(t + k)); continue; }
       const slot = dur / list.length, n = Math.min(list.length - 1, Math.floor(j.pt / slot)), u = (j.pt - n * slot) / slot;
-      const it = list[n], from = n ? list[n - 1] : { x:v.home[k].x, z:v.home[k].z };
+      const it = list[n], from = n ? list[n - 1] : v.from[k];
       // the pieces before this one have been swept up
       for(let q = 0; q < n; q++) take(G, list[q]);
       if(u < 0.5){
@@ -179,19 +179,11 @@ function truckAndCar(G, S, j, v){
   R.blink(S.clock || 0);
   const stow = V(-2.3, 5.0, 0).applyMatrix4(tm);
   if(j.phase === "arrive" || !g){ R.slingOn = false; R.aim(stow); return; }
+  if((j.phase === "lift" || j.phase === "away") && !v.w){
+    if(c.recovering) poseFromCar(T, c, g);           // a rebuilt world: frame.js no longer poses this mesh
+    v.w = liftPlan(g, tm, v.park, stow);
+  }
   if(j.phase === "lift"){
-    if(!v.w){
-      // the wreck's pose now, where the truck has parked, and where it will sit on the bed (cine.js dnfInit)
-      g.updateMatrixWorld(true);
-      const q0 = g.getWorldQuaternion(new THREE.Quaternion()), p0 = g.getWorldPosition(new THREE.Vector3());
-      const nose = V(1, 0, 0).applyQuaternion(q0), yaw0 = Math.atan2(nose.z, nose.x);
-      const trYaw = Math.atan2(v.park.fwd.z, v.park.fwd.x), flip = Math.cos(yaw0 - trYaw) < 0;
-      const tmc = tm.clone();
-      const pT = V(0, 1.17, 0).applyMatrix4(tmc);
-      const qT = new THREE.Quaternion().setFromRotationMatrix(tmc.clone().multiply(new THREE.Matrix4().makeRotationY(flip ? Math.PI : 0)));
-      const qL0 = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -yaw0);
-      v.w = { p0, q0, qL0, qT, pT, peak:Math.max(pT.y + 2.5, p0.y + 2.2), hStow:stow.clone() };
-    }
     const t = j.pt, w = v.w, cp = CINE.dnfCar(w, Math.min(t, TD));
     g.position.copy(cp.pos); g.quaternion.copy(cp.q); g.updateMatrixWorld(true);
     const lugs = [[1.1, 0.5, -0.5], [1.1, 0.5, 0.5], [-1.0, 0.6, -0.45], [-1.0, 0.6, 0.45]].map(a => V(...a).applyMatrix4(g.matrixWorld));
@@ -205,11 +197,41 @@ function truckAndCar(G, S, j, v){
   }
   if(j.phase === "away"){
     // the car rides on the bed: fixed in the truck's frame from the moment it drives off
-    if(!v.bed){ g.updateMatrixWorld(true); v.bed = new THREE.Matrix4().copy(tm).invert().multiply(g.matrixWorld); }
+    if(!v.bed){
+      // the car's settled pose on the bed, in the truck's frame
+      const cp = CINE.dnfCar(v.w, TD + 2);
+      g.position.copy(cp.pos); g.quaternion.copy(cp.q); g.updateMatrixWorld(true);
+      v.bed = new THREE.Matrix4().copy(tm).invert().multiply(g.matrixWorld);
+    }
     const m = new THREE.Matrix4().multiplyMatrices(tm, v.bed);
     m.decompose(g.position, g.quaternion, g.scale);
     R.slingOn = false; R.aim(stow);
   }
+}
+
+function poseFromCar(T, c, g){
+  g.position.set(c.x, ground(T, c.x, c.y, c.node, c.z || 0), c.y);
+  g.rotation.set(-(c.roll || 0), -c.h, -(c.pitch || 0), "YXZ");
+  g.updateMatrixWorld(true);
+}
+/* the crane's plan from the wreck's pose now and where the truck stands (cine.js dnfInit) */
+function liftPlan(g, tm, park, stow){
+  g.updateMatrixWorld(true);
+  const q0 = g.getWorldQuaternion(new THREE.Quaternion()), p0 = g.getWorldPosition(new THREE.Vector3());
+  const nose = V(1, 0, 0).applyQuaternion(q0), yaw0 = Math.atan2(nose.z, nose.x);
+  const trYaw = Math.atan2(park.fwd.z, park.fwd.x), flip = Math.cos(yaw0 - trYaw) < 0;
+  const tmc = tm.clone();
+  const pT = V(0, 1.17, 0).applyMatrix4(tmc);
+  const qT = new THREE.Quaternion().setFromRotationMatrix(tmc.clone().multiply(new THREE.Matrix4().makeRotationY(flip ? Math.PI : 0)));
+  const qL0 = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), -yaw0);
+  return { p0, q0, qL0, qT, pT, peak:Math.max(pT.y + 2.5, p0.y + 2.2), hStow:stow.clone() };
+}
+
+/* everything this job has put in the scene, shown or hidden */
+function show(v, on){
+  if(v.R){ v.R.root.visible = on; v.R.rig.visible = on; }
+  for(const P of v.ppl || []) P.root.visible = on;
+  for(const m of v.shards || []) m.visible = on;
 }
 
 function remove(G, v){
@@ -231,6 +253,7 @@ G3.recoveryFrame = function(S){
       if(!j.car) shards(this, S, j, v);
       marshals(this, S, j, v);
       if(j.car) truckAndCar(this, S, j, v);
+      show(v, !(S.cine && S.cine.hidden));
     }catch(e){ if(!v.warned){ v.warned = true; console.warn("recovery", e.message, e.stack); } }
   }
 };

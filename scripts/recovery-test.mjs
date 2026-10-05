@@ -111,10 +111,30 @@ for (const [label, when] of [['mid-race crash', 'mid'], ['last-lap crash', 'last
   const node = (Math.floor(k.f) + Math.round(120 / T.ds)) % T.n;
   const v = S.cars.filter(c => c.ai && !c.dnf && Math.abs(((c.node - node + T.n) % T.n)) > 60)[3];
   v.place(node, T.line[node]); v.retire(S, 'Engine');
-  let minSC = 1e9;
-  for (let i = 0; i < 60 * 25; i++) { step(); const kk = S.sc.car; if (kk && !kk.inLane && !v.recovering && !v.recovered) minSC = Math.min(minSC, Math.hypot(kk.x - v.x, kk.y - v.y)); }
+  let minSC = 1e9, edge = -99;
+  for (let i = 0; i < 60 * 25; i++) { step(); const kk = S.sc.car; if (kk && !kk.inLane) { edge = Math.max(edge, Math.abs(kk.off) - (T.half - 1.3)); if (!v.recovering && !v.recovered) minSC = Math.min(minSC, Math.hypot(kk.x - v.x, kk.y - v.y)); } }
+  ok(edge < 0.01, 'the safety car stays on the road while it goes round: ' + edge.toFixed(2));
   console.log('safety car past a car stopped on its line: nearest', minSC.toFixed(2), 'm');
   ok(minSC > 3.3 && minSC < 50, 'the safety car steers round a stopped car: ' + minSC.toFixed(2));
+}
+
+// ---------- 2c. review regressions ----------
+{
+  SS.startSession('race', null); const S = SS.S, T = S.track; S.player.ai = false; S.sc.plan = null;
+  let n = 0; while (n++ < 60 * 30) step();
+  // a retired AI car that was due to pit, stopped just before the pit entry, says nothing to the player
+  const v = S.cars.find(c => c.ai && !c.dnf);
+  const at = ((T.pitIn - Math.round(150 / T.ds)) % T.n + T.n) % T.n;
+  v.place(at, 0); v.pitReq = true; v.retire(S, 'Engine');
+  el('#msg-b').textContent = '';
+  for (let i = 0; i < 30; i++) step();
+  ok(!/PIT ENTRY/.test(el('#msg-b').textContent), 'no pit messages from a retired AI car: ' + el('#msg-b').textContent);
+  ok(!v.pitReq && !v.inPit, 'a retired car keeps no pit-lane state');
+  // the gap finder: blocked both ways → null; one gap → a line that clears both
+  const REC2 = REC, o0 = REC2.obstacles(S).find(o => Math.abs(o.x - v.x) < 0.01);
+  ok(o0, 'the retired car is an obstacle');
+  const po = REC2.passLine(S, o0, o0.off);
+  ok(po != null && Math.abs(po - o0.off) >= o0.r + 1.9 - 1e-6 && Math.abs(po) <= T.half - 1.2 + 1e-6, 'passLine clears the wreck on the road: ' + po);
 }
 
 // ---------- 3. the 3D recovery, every phase ----------

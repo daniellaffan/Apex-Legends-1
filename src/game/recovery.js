@@ -111,4 +111,23 @@ function obstacles(S){
   return out;
 }
 
-export { addDebris, addJob, clear, obstacles, pending, planFor, roomAt, tick, truckPose, CAR_PHASES, DEBRIS_PHASES, DRIVE };
+/* how to get past a cluster of obstacles (everything within 12 m along the track of o0): the lateral offset, nearest to
+   `want`, at which a car's centre clears all of them, staying on the road. null when there is no way through. */
+function passLine(S, o0, want){
+  const T = S.track, L = T.length, lim = T.half - 1.2, iv = [];
+  for(const o of obstacles(S)){
+    let d = o.s - o0.s; if(d > L / 2) d -= L; else if(d < -L / 2) d += L;
+    if(Math.abs(d) < 12) iv.push([o.off - o.r - 1.9, o.off + o.r + 1.9]);
+  }
+  const inside = x => iv.some(b => x > b[0] && x < b[1]);
+  const w = clamp(want, -lim, lim);
+  if(!inside(w)) return w;
+  let best = null;
+  for(const b of iv) for(const x of b){
+    if(x < -lim || x > lim || inside(x)) continue;
+    if(best == null || Math.abs(x - want) < Math.abs(best - want)) best = x;
+  }
+  return best;
+}
+
+export { addDebris, passLine, addJob, clear, obstacles, pending, planFor, roomAt, tick, truckPose, CAR_PHASES, DEBRIS_PHASES, DRIVE };

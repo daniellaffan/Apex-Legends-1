@@ -222,6 +222,7 @@ class Car {
   retire(S, why){
     if(this.dnf) return;
     this.dnf = true; this.retiredBy = why || "Retired"; this.thr = 0; this.brk = 1;
+    if(this.ai && !this.pitting){ this.inPit = false; this.pitReq = false; }   // out on the circuit: no stale pit-lane state
     if(!this.wrecked){ this.vx = this.vy = 0; }
     this.railV = 0;
     if(typeof spawn === "function") for(let k = 0; k < 16; k++)

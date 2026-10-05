@@ -198,7 +198,7 @@ function renderWorld2D(S){
     } });
   }
   for(const c of S.cars){
-    if(c.recovered) continue;                       // taken away on the recovery truck
+    if(c.recovered || c.recovering) continue;       // on the recovery truck (drawn with it), or taken away
     // your own nose, front wheels and mirrors are in shot — the near plane
     // clip in poly() throws away the bodywork that is behind your head
     if(R.persp){ if(!seen(c.x, c.y, 40)) continue; }
@@ -222,11 +222,15 @@ function renderWorld2D(S){
   if(S.recov) for(const j of S.recov.jobs){
     const tp = j.truck; if(!tp) continue;
     if(R.persp && !seen(tp.x, tp.y, 40)) continue;
-    items.push({ d:dkey(tp.x, tp.y, j.car ? j.car.z : 0) + 0.6, f:() => {
-      const ca = Math.cos(tp.h), sa = Math.sin(tp.h), z = j.car ? j.car.z : 0;
+    let z = j.car ? j.car.z : 0; try{ const g = S.track.surfZ(tp.x, tp.y, j.node); if(g === g) z = g; }catch(e){}
+    items.push({ d:dkey(tp.x, tp.y, z) + 0.6, f:() => {
+      const ca = Math.cos(tp.h), sa = Math.sin(tp.h);
       const q = (a, b, h) => R.P(tp.x + ca * a - sa * b, tp.y + sa * a + ca * b, z + (h || 0.6));
       poly(ctx, [q(-4.9, 1.9), q(-4.9, -1.9), q(3.6, -1.9), q(3.6, 1.9)], "#3C4148");
       poly(ctx, [q(3.6, 1.6, 1.4), q(3.6, -1.6, 1.4), q(6.1, -1.6, 1.4), q(6.1, 1.6, 1.4)], "#F2B21A");
+      // the car, once the crane has it: a plain outline in its team colour on the bed
+      if(j.car && j.car.recovering && !j.car.recovered)
+        poly(ctx, [q(-2.6, 0.95, 1.5), q(-2.6, -0.95, 1.5), q(2.6, -0.95, 1.5), q(2.6, 0.95, 1.5)], j.car.team.body);
     } });
   }
   if(S.ghost && S.ghostCar) items.push({ d:S.ghostCar.x + S.ghostCar.y, f:() => {

@@ -2131,3 +2131,19 @@ Fewer draw calls than before (the old scene was 1,460 separate baked meshes) and
 3. Press P: the pit stop should cost little time relative to the field.
 4. "SAFETY CAR IN THIS LAP": the bar goes dark and the car goes into the pit lane; green flag message as the leader crosses the line.
 5. Pass someone behind the safety car to check the drive-through penalty message.
+
+## Wreck recovery (AI crashes)
+
+- **What:** an AI car that retires (a crash or a failure) stays exactly where it came to rest: nobody drives it any more (`driveAI` is skipped for dnf cars, retire() clears stale pit flags). From the moment it is out (still tumbling too) it is a solid obstacle: AI cars steer round it, the safety car goes round it, and anyone who drives into it is stopped (AI cars are damaged but not put out by it; you get the full hit). A recovery job (`src/game/recovery.js`, on the race clock) then runs: yellow flag 4 s → the truck drives up and parks beside it (off the road if there is room, `planTruck`) 6 s → the crane lifts it onto the bed 7.4 s → the truck drives away with it 6 s → the marshals sweep up the debris 8 s. Then the track is clear and the car is gone (`c.recovered`; it stays in the results as a DNF).
+- **Safety car:** comes out for every AI car that stops on the circuit: no lap, clock or cool-down gates (the random "debris" call keeps its gates and now also sends the marshals out to sweep). It stays out until every recovery is done, then "in this lap". A second crash while it is out keeps it out; a crash during "in this lap" brings it back out. If the track is not clear on the last lap the race finishes behind it ("FINISH UNDER THE SAFETY CAR").
+- **3D:** `src/render3d/wreckrecovery.js` reuses the cutscene's recovery truck (`G3.recoveryTruck`) and crane curve (`CINE.dnfCar`), three marshals in orange (one waving a yellow flag upstream, two with brooms who walk to each piece of crash debris and sweep it away). Hidden during your own retirement cutscene. 2D fallback: a box truck with the car on its bed.
+- **Gaps:** when a wreck and a parked truck leave no room between them, `REC.passLine` finds the gap that clears both; if there is none, cars and the safety car stop short and wait.
+- **Test:** `node --import ./scripts/asset-register.mjs scripts/recovery-test.mjs [track]` (mid-race crash, last-lap crash, a crash during "in this lap", the safety car round a car on its line, pit-message and gap-finder regressions, and the whole 3D recovery stepped through every phase). Passes on Monza, Singapore, Baku and Spa.
+- **Reviewed:** an adversarial review (4 reviewers, 2 refuters per finding) confirmed 12 findings, all fixed: retired AI cars running the player's pit code, stale pit flags hiding a wreck, passing a spinning car counted as an overtake, the wreck/truck gap, the safety car's dodge leaving the road, a world rebuild losing the car's pose, recoveries visible during your own DNF cutscene, slings drawn at the origin, marshals jumping back, the 2D truck driving off empty.
+- **Not done:** the AI driver does not climb out (the car is lifted with him in it); the truck appears 45 m away and drives in rather than coming from a service road; a wreck in the pit lane is left where it is.
+
+### Visual checklist
+1. Race with damage on; watch for an AI crash (or ram one). The car should stop and stay put, a "SAFETY CAR · <driver> has crashed" banner, the field queuing behind the safety car and going round the wreck.
+2. At the wreck: an orange marshal waving a yellow flag before it, the yellow recovery truck arriving and parking beside it, the crane lifting the car onto the bed, the truck driving away, two marshals sweeping the bits of car off the track.
+3. The safety car stays out until all that is done, then "SAFETY CAR IN THIS LAP" and the green flag.
+4. Drive into a wreck yourself: you should stop and take damage, not pass through.

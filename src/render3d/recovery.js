@@ -137,7 +137,7 @@ G3.recoveryTruck = function(){
     R.block.position.copy(hook).add(V(0, 0.1, 0));
     if(lugs){
       lugs.forEach((p, i) => { R.slings[i].visible = R.slingOn; line(R.slings[i], hook.clone().add(V(0, -0.15, 0)), p); });
-    }
+    } else for(const s of R.slings) s.visible = false;
     return L;
   };
   R.blink = t => { const on = (Math.floor(t * 3.2) & 1) === 0; for(const b of R.beacons) b.material.emissiveIntensity = on ? 1.4 : 0.05; };
