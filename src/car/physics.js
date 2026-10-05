@@ -288,7 +288,8 @@ class Car {
     // ---- pit lane is driven on rails; the stop itself is the drama ----
     if(this.pitting){ this.pitStep(dt, S); return; }
     if(this.wrecked){ this.wreckStep(dt, S); return; }
-    if(this.ai && this.spinT <= 0){ this.aiStep(dt, S); return; }
+    // a rival on the line follows its rail; one that has spun or gone off drives itself back, on the same physics as yours
+    if(this.ai && this.spinT <= 0 && !this.aiFree){ this.aiStep(dt, S); return; }
 
     const fx = Math.cos(this.h), fy = Math.sin(this.h), rx = -fy, ry = fx;
     let vf = this.vx * fx + this.vy * fy, vs = this.vx * rx + this.vy * ry;
@@ -313,9 +314,10 @@ class Car {
     if(this.inPit && vf > PIT_SPEED) af = Math.min(af, -26);      // pit lane speed limiter
     af -= this.brk * BRAKE * this.perf.brake * surf * wetK * (vf > 0.4 ? 1 : 0);
     if(this.brk > 0 && vf <= 0.4 && vf > -11) af -= this.brk * eng * 0.5;          // reverse
-    // gravel digs in, and harder the faster you arrive, but a car can still crawl out of it
+    // gravel digs in, and harder the faster you arrive, but a car can still crawl out of it (and off the grass:
+    // its drag fades at a crawl, or a car that stopped there could never pull away again)
     const gravel = surf === SURF.gravel;
-    af -= Math.sign(vf) * (DRAG * vf * vf) + vf * 0.035 + (surf < 0.72 ? Math.sign(vf) * (gravel ? 1.4 : 6.5) : 0)
+    af -= Math.sign(vf) * (DRAG * vf * vf) + vf * 0.035 + (surf < 0.72 ? Math.sign(vf) * (gravel ? 1.4 : 6.5) * clamp(Math.abs(vf) / 10, 0.25, 1) : 0)
       + (gravel ? Math.sign(vf) * clamp((Math.abs(vf) - 5) / 6, 0, 1) * (9 + Math.abs(vf) * 0.32) : 0);
     // the hill: gravity along the road, at half strength so it is felt without
     // rebalancing the field — slower up Beau Rivage, quicker down to the hairpin
@@ -361,7 +363,7 @@ class Car {
       if(this.lossT > 1.0 && spdNow > 20){
         this.lossT = 0;
         const dir = Math.abs(yaw) > 0.05 ? Math.sign(yaw) : (vs !== 0 ? -Math.sign(vs) : (Math.random() < 0.5 ? -1 : 1));
-        this.startSpin(S, dir * (3.2 + Math.min(spdNow, 80) * 0.035 + Math.random() * 1.2));
+        this.lastSpinWhy = "grip"; this.startSpin(S, dir * (3.2 + Math.min(spdNow, 80) * 0.035 + Math.random() * 1.2));
       }
     }
     if(this.spinT > 0){
@@ -380,7 +382,8 @@ class Car {
               0.8 + Math.random(), 0.9 + Math.random() * 0.5, "#D4D8DC", 0.7, "smoke");
       if(this.spinT <= 0){
         this.spinCool = 1.4; this.spinV = 0;
-        if(this.ai){ this.railV = Math.hypot(this.vx, this.vy); this.railS = null; }
+        // no reset: it is wherever the spin left it, facing whichever way, and has to drive itself back (ai/driver.js freeDrive)
+        if(this.ai){ this.aiFree = true; this.freeT = 0; this.revT = 0; this.freeS = this.s; this.freeProg = 0; }
       }
     }
     // body leans under load, and settles when it is not
@@ -446,7 +449,7 @@ class Car {
         if(into > 4.5 && spd0 > 32 && this.spinT <= 0 && !this.wrecked){
           const side = Math.abs(lf) < 0.15 ? 1 : (lf > 0 ? -1 : 1);
           const dirS = side * (Math.sign(lr) || 1);
-          this.startSpin(S, dirS * clamp(2.4 + into * 0.18 + spd0 * 0.03, 2.6, 7));
+          this.lastSpinWhy = "wall"; this.startSpin(S, dirS * clamp(2.4 + into * 0.18 + spd0 * 0.03, 2.6, 7));
         }
         if(into > 1.2) this.hurt(into, Math.abs(this.off) > T.half ? "side" : "front", S, hitD);
         this.wallHit = 1; if(!this.ai) S.shake = Math.min(1, S.shake + into * 0.03);
@@ -468,7 +471,7 @@ class Car {
      Contact displaces them bodily — the next frame re-reads position, so a hit
      genuinely knocks them off line and they have to work their way back. */
   aiStep(dt, S){
-    const T = this.T;
+    const T = this.T, h0 = this.h;
     const i = this.node = T.near(this.x, this.y, this.node);
     const dx = this.x - T.x[i], dy = this.y - T.y[i];
     let off = dx * T.nx[i] + dy * T.ny[i];
@@ -535,6 +538,8 @@ class Car {
     this.latV = lerp(this.latV || 0, dOff / Math.max(dt, 0.001), 1 - Math.exp(-dt * 9));
     const steerAng = Math.atan2(this.latV, Math.max(v, 8)) * 0.6;
     this.h = T.ang[j] + angWrap(T.ang[k] - T.ang[j]) * u + clamp(steerAng, -0.4, 0.4);
+    // just back on the line after driving itself out of trouble: the nose swings round to it, it does not jump
+    if(this.hBlend > 0){ this.h += angWrap(h0 - this.h) * this.hBlend; this.hBlend = Math.max(0, this.hBlend - dt * 2.5); }
     this.vx = Math.cos(this.h) * v; this.vy = Math.sin(this.h) * v;
 
     // wear, heat, battery — driven by how hard the corner is

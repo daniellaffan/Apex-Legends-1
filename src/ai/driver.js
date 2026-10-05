@@ -1,5 +1,5 @@
 import { obstacles, passLine } from '../game/recovery.js';
-import { clamp, lerp } from '../config/util.js';
+import { angWrap, clamp, lerp } from '../config/util.js';
 import { AUDIO } from '../audio/audio.js';
 import { BRAKE, DRAG, GRIP, VMAX, tyreGripK, tyreLoad } from '../car/physics.js';
 import { TYRES } from '../car/parts.js';
@@ -98,9 +98,72 @@ function chooseTyre(c, S){
   return opts[opts.length - 1];
 }
 
+/* ---- off the line: a rival that has spun, or been knocked off, drives itself back ----
+   No reset. It is on the full car physics (the same as the player's), so it can slide into a wall, get stuck in the
+   gravel, take damage and lose parts. It turns round if it is facing the wrong way, backs off a wall it is nosed
+   into, waits off the road for traffic, and only goes back to following the line once it is on the road, pointing
+   down it and moving. If it cannot get going again it is out. */
+function freeDrive(c, S, dt){
+  const T = c.T, i = c.node, v = c.speed, L = T.length;
+  c.freeT = (c.freeT || 0) + dt; c.boost = 0; c.hand = 0;
+  // progress along the lap, to tell beached from merely slow
+  let ds = c.s - (c.freeS != null ? c.freeS : c.s); if(ds > L / 2) ds -= L; else if(ds < -L / 2) ds += L;
+  c.freeProg = Math.max(c.freeProg || 0, ds);
+  if(c.freeT > 30 && c.freeProg < 40 && c !== S.player){ c.retire(S, T.surfAt && T.surfAt(i, c.off) === "gravel" ? "Beached in the gravel" : "Stuck — could not rejoin"); return; }
+  const onRoad = Math.abs(c.off) < T.half - 0.4;
+  const trackErr = angWrap(T.ang[i] - c.h);
+  // aim back at the line a little way down the road
+  const look = Math.round((9 + Math.max(v, 0) * 0.7) / T.ds), j = (i + look) % T.n;
+  const offT = clamp(lerp(c.off, T.line[j], onRoad ? 0.7 : 0.45), -(T.half - 1.5), T.half - 1.5);
+  const tx = T.x[j] + T.nx[j] * offT, ty = T.y[j] + T.ny[j] * offT;
+  const err = angWrap(Math.atan2(ty - c.y, tx - c.x) - c.h);
+  let vt = Math.abs(trackErr) > 1.9 ? 5 : Math.abs(err) > 0.6 ? 9 : onRoad ? 30 : 15;
+  // rejoining: off the road, wait for anyone coming
+  // (only for a car that would be there within three seconds, and never for more than eight seconds in all)
+  if(!onRoad && (c.waitT || 0) < 8){
+    let wait = false;
+    for(const o of S.cars){
+      if(o === c || o.dnf || o.pitting || o.aiFree) continue;
+      let d = c.s - o.s; if(d > L / 2) d -= L; else if(d < -L / 2) d += L;
+      if(d > 0 && o.speed > 20 && d / o.speed < 3){ wait = true; break; }
+    }
+    if(wait){ c.waitT = (c.waitT || 0) + dt; vt = Math.min(vt, Math.abs(c.off) > T.half + 1.5 ? 0 : 3); }
+  }
+  // nosed into a wall and not moving: back off it, turning the other way
+  if(c.revT > 0) c.revT -= dt;
+  else if(c.wallHit > 0.5 && v < 1.5 && Math.abs(err) > 0.5) c.revT = 1.4;
+  c.wallHit = Math.max(0, (c.wallHit || 0) - dt * 2);
+  const rev = c.revT > 0;
+  const want = rev ? -clamp(err * 2, -1, 1) : clamp(err * 2.2, -1, 1);
+  c.steer += clamp(want - c.steer, -5 * dt, 5 * dt);
+  const fwd = c.vx * Math.cos(c.h) + c.vy * Math.sin(c.h);
+  if(rev){ c.thr = 0; c.brk = fwd > 0.4 ? 1 : 0.8; }
+  else if(fwd < vt - 1){ c.thr = !onRoad && v < 5 ? 1 : Math.abs(c.steer) > 0.6 ? 0.45 : 0.7; c.brk = 0; }   // flat out to crawl off the grass
+  else if(fwd > vt + 2){ c.thr = 0; c.brk = 0.5; }
+  else { c.thr = 0.2; c.brk = 0; }
+  // back on the road, pointing down it and moving: back to the line from exactly here
+  if(onRoad && Math.abs(trackErr) < 0.12 && v > 6 && !rev){
+    c.aiFree = false; c.freeT = 0; c.waitT = 0;
+    c.railS = null; c.railV = v; c.railOff = c.off; c.aiWant = c.off; c.aiWantS = c.off;
+    c.aiOff = c.off - T.line[i]; c.latV = 0; c.hBlend = 1;
+  }
+}
+
+/* a wheel gone: it cannot race on. It slows, pulls off to the side it can reach, and stops there */
+function limp(c, S, dt){
+  const T = c.T, i = c.node;
+  c.limpT = (c.limpT || 0) + dt; c.boost = 0;
+  const side = Math.sign(c.off) || (T.roR[i] > T.roL[i] ? 1 : -1);
+  c.aiWant = clamp(side * (T.half + 1.4), -(T.half + 2), T.half + 2); c.aiWantS = c.aiWant;
+  c.aiTargetV = Math.max(0, 16 - c.limpT * 3);
+  if(c.limpT > 6 || (Math.abs(c.off) > T.half + 0.8 && carSpeed(c) < 4)) c.retire(S, "Lost a wheel");
+}
+
 function driveAI(c, S, dt){
   const T = c.T, i = c.node, v = carSpeed(c);
   if(c.pitting) return;
+  if(c.aiFree || c.spinT > 0){ if(c.spinT <= 0) freeDrive(c, S, dt); return; }
+  if(c.wheelOff >= 0 || c.wheelOff2 >= 0){ limp(c, S, dt); return; }
   const kNow = Math.abs(T.curv[i]);
   const look = Math.max(2, Math.round(clamp((10 + v * 0.46) / (1 + kNow * 40), 9, 56) / T.ds));
   const ti = (i + look) % T.n;
@@ -333,7 +396,7 @@ function driveAI(c, S, dt){
     const rate = kNow > 0.006 ? (1.04 - c.drv.skill) * 0.011 * (1 + S.wet * 3) * (1 + (1 - c.life) * 1.2) * (1 + c.damage * 2) : 0;
     if(end || Math.random() < rate * dt){
       c.momentSpin = false;
-      c.startSpin(S, (Math.sign(T.curv[i]) || 1) * (3.2 + Math.random() * 1.8));
+      c.lastSpinWhy = "mistake"; c.startSpin(S, (Math.sign(T.curv[i]) || 1) * (3.2 + Math.random() * 1.8));
       c.momentT = 0;
       try{ AUDIO.event("moment", c, S); }catch(e){}
       if(S.player && !S.player.dnf && Math.abs(c.pos - S.player.pos) <= 3) S.toast(c.drv.last + " spins!");

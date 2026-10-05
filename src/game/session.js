@@ -216,7 +216,7 @@ function updateTiming(c){
     if(c.pitReq && !c.pitting && S.mode === "race" && c.lap <= S.laps) { /* entry handled below */ }
   }
   // pit entry
-  if(c.ai && !c.dnf && c.pitReq && !c.pitting && S.mode === "race" && c.node >= T.pitIn && c.node < T.pitIn + 6 && c.lap <= S.laps){
+  if(c.ai && !c.dnf && !c.aiFree && c.pitReq && !c.pitting && S.mode === "race" && c.node >= T.pitIn && c.node < T.pitIn + 6 && c.lap <= S.laps){
     c.pitting = 1; c.pitS = c.node; c.pitDone = false; c.pitT = 0;
     if(!c.ai) showToast("Pit entry — limiter on");
     // the race leader diving in is news; so is anyone just ahead or behind you
@@ -371,11 +371,11 @@ function update(dt, rdt){
           A.spinV = (A.spinV || 0) + tA; B.spinV = (B.spinV || 0) + tB;
           const kick = clamp(imp * 0.10, 0.2, 2.6);
           A.spinV -= kick * Math.sign(ds2 || 1) * 0.4; B.spinV += kick * Math.sign(ds2 || 1) * 0.4;
-          if(imp > 9 && Math.abs(tA) > 1.5 && A.spinT <= 0 && !A.wrecked) A.startSpin(S, clamp(A.spinV, -7, 7) || tA);
-          if(imp > 9 && Math.abs(tB) > 1.5 && B.spinT <= 0 && !B.wrecked) B.startSpin(S, clamp(B.spinV, -7, 7) || tB);
+          if(imp > 9 && Math.abs(tA) > 1.5 && A.spinT <= 0 && !A.wrecked) { A.lastSpinWhy = "contact"; A.startSpin(S, clamp(A.spinV, -7, 7) || tA); }
+          if(imp > 9 && Math.abs(tB) > 1.5 && B.spinT <= 0 && !B.wrecked) { B.lastSpinWhy = "contact"; B.startSpin(S, clamp(B.spinV, -7, 7) || tB); }
           if(imp > 15){
-            if(A.spinT <= 0 && !A.wrecked) A.startSpin(S, (tA || kick) * 1.2);
-            if(B.spinT <= 0 && !B.wrecked) B.startSpin(S, (tB || -kick) * 1.2);
+            if(A.spinT <= 0 && !A.wrecked){ A.lastSpinWhy = "contact"; A.startSpin(S, (tA || kick) * 1.2); }
+            if(B.spinT <= 0 && !B.wrecked){ B.lastSpinWhy = "contact"; B.startSpin(S, (tB || -kick) * 1.2); }
           }
           const mx2 = (A.x + B.x) / 2, my2 = (A.y + B.y) / 2;
           for(let q = 0; q < Math.min(12, 3 + imp | 0); q++)
@@ -408,7 +408,7 @@ function update(dt, rdt){
         if(C.ai){ C.railV = Math.min(C.railV || 0, 6); }
         // an AI car cannot react to a car tumbling to a stop right in front of it: it is damaged, not put out (you are not spared)
         if(imp > 3) C.hurt(C.ai ? Math.min(imp * 0.75, 14) : imp * 0.75, "front", S, { dx:-ux, dy:-uy });
-        if(imp > 9 && C.spinT <= 0 && !C.wrecked && !C.dnf) C.startSpin(S, (Math.random() < 0.5 ? -1 : 1) * clamp(imp * 0.3, 2, 6));
+        if(imp > 9 && C.spinT <= 0 && !C.wrecked && !C.dnf){ C.lastSpinWhy = "wreck"; } if(imp > 9 && C.spinT <= 0 && !C.wrecked && !C.dnf) C.startSpin(S, (Math.random() < 0.5 ? -1 : 1) * clamp(imp * 0.3, 2, 6));
         if(C === S.player) S.shake = Math.min(1, S.shake + imp * 0.05);
       }
     }
