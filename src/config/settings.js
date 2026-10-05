@@ -1,7 +1,7 @@
 import { store } from './util.js';
 
 const CFG = Object.assign({ teamId:"mcl", drvIdx:0, trackId:"monaco", lapsIdx:1, diff:1,
-  tyre:"medium", weather:"auto", line:1, damage:1, grid:1, mode:"quick", fx:1, detail:1 }, store("cfg") || {});
+  tyre:"medium", weather:"auto", line:1, damage:1, sc:1, grid:1, mode:"quick", fx:1, detail:1 }, store("cfg") || {});
 
 const OPTS = {
   laps:[["Sprint", 0], ["Feature", 1], ["Full", 2]],
@@ -10,6 +10,7 @@ const OPTS = {
   weather:[["Dry", "dry"], ["Likely", "auto"], ["Wet", "wet"]],
   line:[["Line on", 1], ["Line off", 0]],
   damage:[["Damage on", 1], ["Damage off", 0]],
+  sc:[["Safety car on", 1], ["Safety car off", 0]],
   grid:[["Pole", 0], ["Midfield", 1], ["Back row", 2]],
   fx:[["Effects on", 1], ["Effects off", 0]],
   detail:[["Full detail", 1], ["Lite", 0]],

@@ -16,6 +16,7 @@ import { KEY, TOUCH, ZOOM_HOLD } from '../input/input.js';
 import { AI_SCALE, CFG, COMBAT } from '../config/settings.js';
 import { playerPit } from '../car/pit.js';
 import * as PEN from './penalties.js';
+import * as SC from './safetycar.js';
 import { AUDIO } from '../audio/audio.js';
 import { show, showMsg, showToast } from '../ui/screens.js';
 import { buildBoard, updateHUD } from '../ui/hud.js';
@@ -87,6 +88,7 @@ function startSession(mode, champ){
   });
   if(mode !== "race"){ S.state = "run"; S.lights = 5; }
   S.endNow = endSession;
+  SC.init(S);
   if(drops.length) PEN.announceGrid(S, drops);
   PART.length = 0;
   S.marks = [];
@@ -294,7 +296,7 @@ function update(dt, rdt){
       continue;
     }
     if(c.ai) driveAI(c, S, dt);
-    else { playerPit(c, S, dt); if(c.stopT > 0){ c.vx = 0; c.vy = 0; continue; } playerInput(c, dt); }
+    else { playerPit(c, S, dt); if(c.stopT > 0){ c.vx = 0; c.vy = 0; continue; } playerInput(c, dt); SC.limitPlayer(S, c); }
     c.step(dt, S);
     if(S.state === "run") updateTiming(c);
     // particles
@@ -391,6 +393,7 @@ function update(dt, rdt){
   stepParts(dt);
   positions();
   PEN.tick(S, dt);
+  SC.tick(S, dt);
 
   // ghost playback
   if(S.mode === "tt" && S.bestRec && S.player.lapStart != null){

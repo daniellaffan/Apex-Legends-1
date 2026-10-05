@@ -242,11 +242,12 @@ function tick(S, dt){
     const p = st(c);
     limits(S, c, dt);
     if(S.mode !== "race") continue;
+    const sc = !!(S.sc && S.sc.state !== "off");
     pitLane(S, c, dt);
-    if(c === S.player) blue(S, c, dt);
+    if(c === S.player){ if(!sc) blue(S, c, dt); }
     else {
       if(c.penServedFlag){ c.penServedFlag = false; if(c.servePen){ served(S, c, c.servePen); c.servePen = null; } }
-      aiIncident(S, c, dt);
+      if(!sc) aiIncident(S, c, dt);
       // the pit wall sends a penalised car down the lane, as a visit of its own
       const n = nextServe(c);
       if(n && !c.pitReq && !c.pitting && c.lap >= 1 && c.lap < S.laps){ c.pitReq = true; c.servePen = n.kind; c.nextTyre = c.tyre; }

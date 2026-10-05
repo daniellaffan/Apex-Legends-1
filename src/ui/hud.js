@@ -40,6 +40,12 @@ function updateHUD(){
   const pl = S.mode === "tt" ? "" : hudLine(S, c), pn = $("#h-pen");
   pn.hidden = !pl; if(pl && pn.textContent !== pl){ pn.textContent = pl; }
   pn.classList.toggle("owed", !!(c.pen && c.pen.todo.length));
+  const scEl = $("#h-sc"), scs = S.sc ? S.sc.state : "off";
+  scEl.hidden = scs === "off";
+  if(scs !== "off"){
+    const t = scs === "out" ? "SAFETY CAR · NO OVERTAKING" : "SAFETY CAR IN THIS LAP";
+    if(scEl.textContent !== t) scEl.textContent = t;
+  }
   const ty = c.tyre;
   const cmp = $("#h-cmp"); cmp.textContent = ty.label; cmp.style.setProperty("--tyc", ty.col);
   const wear = $("#h-wear"); wear.style.width = (c.life * 100).toFixed(0) + "%";

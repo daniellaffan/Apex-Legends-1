@@ -46,6 +46,7 @@ G3.frame = function(S){
     this.crewUpdate(e, c, S, g);
   }
 
+  if(this.safetyCar) this.safetyCar(S);
   CRASH.fx(this, S); CRASH.step(this, S);
   // the podium is a stage of its own
   if(S.cine && S.cine.kind === "win"){ CINE.podiumFrame(this, S); return; }

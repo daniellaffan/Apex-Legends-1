@@ -207,6 +207,16 @@ function renderWorld2D(S){
     }
     items.push({ d:dkey(c.x, c.y, c.z) + 0.6, f:() => drawCar(ctx, c, T, S, c === S.player) });
   }
+  const sck = S.sc && S.sc.car;
+  if(sck && (R.persp ? seen(sck.x, sck.y, 40) : true)) items.push({ d:dkey(sck.x, sck.y, sck.z) + 0.6, f:() => {
+    // a plain green box with an amber bar: the 2D view is only the fallback
+    const ca = Math.cos(sck.h), sa = Math.sin(sck.h), L = 2.4, Wd = 1.0;
+    const q = (a, b) => R.P(sck.x + ca * a - sa * b, sck.y + sa * a + ca * b, sck.z + 0.5);
+    poly(ctx, [q(L, Wd), q(L, -Wd), q(-L, -Wd), q(-L, Wd)], "#0E8A5C");
+    poly(ctx, [q(0.6, 0.6), q(0.6, -0.6), q(-1.2, -0.6), q(-1.2, 0.6)], "#F2F4F5");
+    const on = sck.lights && (S.clock * 4.2) % 1 < 0.5;
+    poly(ctx, [q(-0.2, 0.9), q(-0.2, -0.9), q(-0.6, -0.9), q(-0.6, 0.9)], on ? "#FFB000" : "#6A4A00");
+  } });
   if(S.ghost && S.ghostCar) items.push({ d:S.ghostCar.x + S.ghostCar.y, f:() => {
     ctx.globalAlpha = 0.34; drawCar(ctx, S.ghostCar, T, S, false); ctx.globalAlpha = 1; } });
   for(const p of PART){

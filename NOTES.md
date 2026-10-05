@@ -2115,3 +2115,19 @@ Fewer draw calls than before (the old scene was 1,460 separate baked meshes) and
 2. Get a drive-through (hard shunt): red pulsing chip; press P, enter the lane, hold the limiter, the pit menu should NOT open; "PENALTY SERVED" at the exit.
 3. Watch for "STEWARDS · ..." toasts about AI cars, and an AI car spinning (toast "X spins!" when it is near you).
 4. Spinning should now need a clearly bigger mistake: kerbs and a flick at speed should no longer bite you straight away.
+
+## Safety car
+
+- **Where:** `src/game/safetycar.js` (state machine, the car's rail, triggers, player limiter, overtaking check), `src/render3d/safetycar.js` (the model: green/white GT coupe with a flashing amber bar, placed from `S.sc.car`), 2D fallback box in `render2d/world.js`, minimap dot, HUD banner `#h-sc`, setup option "Safety car on/off" (`CFG.sc`, default on), hooks in `session.js` (`SC.init`, `SC.tick` after `PEN.tick`, `SC.limitPlayer` after `playerInput`), `ai/driver.js` (queue behaviour), `penalties.js` (no random AI incidents or blue flags under it). Test: `node --import ./scripts/asset-register.mjs scripts/safetycar-test.mjs [track] [races]`.
+- **When:** a car stopped on the track (a retirement), or a random "Debris on the track" call (45 % of races, 75 % in heavy rain, never before 14 s, never with fewer than 2 laps to go after the leader's current one).
+- **Phases:** `out` (the car is deployed from the pit exit if that is 260-1700 m ahead of the leader, else onto the road 300 m ahead of him; it runs at about 60 % of the road's limit, 20-52 m/s, and slows to wait for a leader more than 230 m back) → `in` after 1-2 leader laps (lights off, it leads the field to the pit entry and down the lane) → green flag when the leader crosses the line, with the car already in the lane.
+- **Field:** every AI car runs at about 66 % of its line speed until it catches the queue (88 % once the car is in), follows the car in front at 1.7 x the usual gap, does not overtake, and makes no mistakes. Around 60 % of the AI cars that have not stopped (or are on worn tyres) are called in for a cheap stop.
+- **You:** a limiter stops you closing on the car in front faster than a gentle gap-closing speed and switches the boost off; overtaking anyone, or the safety car, before the green flag is a drive-through ("Overtaking ... under the safety car") through the steward system. The pit lane is open throughout. Messages: big banner + radio lines on deployment, "in this lap" and green flag, a yellow "SAFETY CAR · NO OVERTAKING" chip under the lap time.
+- **Not done:** no unlapping of lapped cars, no red flags or virtual safety car, no wreck clean-up (a stopped car stays where it is), the pit lane is not closed at deployment, the safety car cannot be called by the player.
+
+### Visual checklist
+1. Race with "Safety car on". Within a race or two you should see "SAFETY CAR · Debris on the track" or "<driver> is stopped on the track": big banner, radio message, yellow pulsing chip under the lap time.
+2. A green and white coupe with a flashing amber bar ahead of the leader (or coming out of the pit exit); the field bunching up behind it, nobody passing.
+3. Press P: the pit stop should cost little time relative to the field.
+4. "SAFETY CAR IN THIS LAP": the bar goes dark and the car goes into the pit lane; green flag message as the leader crosses the line.
+5. Pass someone behind the safety car to check the drive-through penalty message.

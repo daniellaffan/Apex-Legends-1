@@ -14,6 +14,8 @@ function drawMini(S){
   ctx.closePath(); ctx.stroke();
   ctx.strokeStyle = "#151A21"; ctx.lineWidth = 2.6; ctx.stroke();
   ctx.fillStyle = "#F0F0F0"; ctx.fillRect(T.x[0] * sc + mx - 2, T.y[0] * sc + my - 2, 4, 4);
+  const k = S.sc && S.sc.car;
+  if(k){ ctx.fillStyle = "#FFC21A"; ctx.beginPath(); ctx.arc(k.x * sc + mx, k.y * sc + my, 3, 0, TAU); ctx.fill(); }
   for(const c of S.cars){
     if(c.dnf) continue;
     const me = c === S.player;

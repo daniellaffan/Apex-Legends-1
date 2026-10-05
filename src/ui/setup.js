@@ -48,7 +48,7 @@ function buildSetup(mode){
     b.onclick = () => { CFG.trackId = t.id; store("cfg", CFG); buildSetup(mode); };
     tr.appendChild(b);
   }
-  ["laps", "diff", "tyre", "weather", "line", "damage", "grid", "fx", "detail"].forEach(seg);
+  ["laps", "diff", "tyre", "weather", "line", "damage", "sc", "grid", "fx", "detail"].forEach(seg);
   show("screen-setup");
 }
 

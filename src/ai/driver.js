@@ -113,6 +113,8 @@ function driveAI(c, S, dt){
   const gripK = tyreGripK(c) * wetK * c.perf.grip * c.pace * (1 - c.damage * 0.22);
   const topV = VMAX * c.pace * c.perf.top * (c.boost > 0 && c.batt > 0.02 && c.perf.boost ? 1.055 : 1);
   let vt = Math.min(topV, vline * Math.sqrt(gripK) * S.aiScale * (1 + c.mistake * 0.05));
+  // under the safety car the field runs to a delta, well off the limit (a little freer once the car is in)
+  if(S.sc && S.sc.state !== "off") vt = Math.min(vt, vline * (S.sc.car ? 0.66 : 0.88));
 
   // --- traffic: who is in front, who is hounding us ---
   let ahead = null, gap = 1e9, behind = null, bgap = 1e9;
@@ -124,6 +126,13 @@ function driveAI(c, S, dt){
     if(d > 0 && d < 140 && Math.abs(o.off - c.off) < 6.5){ if(d < gap){ gap = d; ahead = o; } }
     else if(d <= 0 && d > -42){ if(-d < bgap){ bgap = -d; behind = o; } }
   }
+  // the safety car is traffic too, while it is on the road
+  const scc = S.sc && S.sc.car && !S.sc.car.inLane ? S.sc.car : null;
+  if(scc){
+    let d = scc.s - c.s;
+    if(d > halfLap) d -= T.length; else if(d < -halfLap) d += T.length;
+    if(d > 0 && d < 140 && Math.abs(scc.off - c.off) < 6.5 && d < gap){ gap = d; ahead = scc; }
+  }
 
   /* --- racing: the car in front, and the car behind --- */
   const D = S.combat || { defend:0.6, aggr:0.9, push:0.01, lunge:1 };
@@ -134,7 +143,8 @@ function driveAI(c, S, dt){
   if(c.defCool > 0) c.defCool -= dt;
   const avenging = c.attackT > 0 && S.mode === "race";
   // The first seconds are a scramble into turn one: hold the line, no moves
-  const racing = S.mode === "race" && S.clock > 9;
+  const scOn = !!(S.sc && S.sc.state !== "off");
+  const racing = S.mode === "race" && S.clock > 9 && !scOn;
   // the next corner: how far, which side is the inside, and whether we are braking for it
   const cn = cornerAhead(T, i);
   const brakeDist = Math.max(0, (v * v - cn.vmin * cn.vmin) / (2 * 26)) + 14;
@@ -151,7 +161,7 @@ function driveAI(c, S, dt){
   let passDir = 0, avoid = null;
   if(ahead){
     const av = carSpeed(ahead);
-    const lane = Math.abs(ahead.off - c.off) < 3.6;      // are we actually behind them?
+    const lane = scOn || Math.abs(ahead.off - c.off) < 3.6;      // are we actually behind them? (behind the safety car, everyone is)
     const respect = 8 + v * 0.26;
     const mine = c.pace * c.drv.skill * (0.86 + 0.14 * c.life);
     const theirs = ahead.pace * ahead.drv.skill * (0.86 + 0.14 * ahead.life);
@@ -214,7 +224,7 @@ function driveAI(c, S, dt){
       const clearing = stricken && Math.abs(c.off - ahead.off) > 2.2;
       const press = passDir ? 0.5 : 1;          // committed to a move: close right up
       // sit right on their gearbox: a fifth of a second, plus the room to scrub off any speed difference
-      const desired = (5 + v * 0.17 + Math.max(0, (v * v - av * av) / (2 * aiBrake()))) * press;
+      const desired = (5 + v * 0.17 + Math.max(0, (v * v - av * av) / (2 * aiBrake()))) * press * (scOn ? 1.7 : 1);
       if(gap < desired) vt = Math.min(vt, Math.max(clearing ? 11 : 3, av - (desired - gap) * 2.0));
     } else if(gap < 7 && Math.abs(ahead.off - c.off) < 5.2){
       vt = Math.min(vt, Math.max(8, av * 1.03));         // wheel to wheel: edge past, don't barge
@@ -290,7 +300,7 @@ function driveAI(c, S, dt){
       const spill = T.half * 0.8 + Math.min(T.runoff, 3.5) * 0.4;
       want = clamp(want + c.momentSide * spill, -(T.half + 1.6), T.half + 1.6);
     }
-  } else if(kNow > 0.004){
+  } else if(kNow > 0.004 && !scOn){
     const rate = (1.03 - c.drv.skill) * 0.016 * (1 + S.wet * 1.2) *
                  (1 + (1 - c.life) * 0.9) * (1 + c.damage * 1.5);
     if(Math.random() < rate * dt){
@@ -305,7 +315,7 @@ function driveAI(c, S, dt){
     }
   }
   // a real mistake: the car gets away from them in a corner and goes round
-  if(S.mode === "race" && S.state === "run" && c.spinT <= 0 && !c.inPit && v > 35 && S.clock > 6){
+  if(S.mode === "race" && S.state === "run" && c.spinT <= 0 && !c.inPit && v > 35 && S.clock > 6 && !scOn){
     const end = c.momentSpin && c.momentT <= 0;
     const rate = kNow > 0.006 ? (1.04 - c.drv.skill) * 0.011 * (1 + S.wet * 3) * (1 + (1 - c.life) * 1.2) * (1 + c.damage * 2) : 0;
     if(end || Math.random() < rate * dt){
