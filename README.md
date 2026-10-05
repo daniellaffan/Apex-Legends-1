@@ -70,3 +70,4 @@ methods to `G3`. The import order matters, so don't reorder those lines.
 Each track file exports its definition object (layout, elevation, banking,
 run-off, land, scene and pit settings). The order in `src/tracks/index.js` is
 the order of the menu and the championship.
+Now 
