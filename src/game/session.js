@@ -17,6 +17,7 @@ import { AI_SCALE, CFG, COMBAT } from '../config/settings.js';
 import { playerPit } from '../car/pit.js';
 import * as PEN from './penalties.js';
 import * as SC from './safetycar.js';
+import * as REC from './recovery.js';
 import { AUDIO } from '../audio/audio.js';
 import { show, showMsg, showToast } from '../ui/screens.js';
 import { buildBoard, updateHUD } from '../ui/hud.js';
@@ -215,7 +216,7 @@ function updateTiming(c){
     if(c.pitReq && !c.pitting && S.mode === "race" && c.lap <= S.laps) { /* entry handled below */ }
   }
   // pit entry
-  if(c.ai && c.pitReq && !c.pitting && S.mode === "race" && c.node >= T.pitIn && c.node < T.pitIn + 6 && c.lap <= S.laps){
+  if(c.ai && !c.dnf && c.pitReq && !c.pitting && S.mode === "race" && c.node >= T.pitIn && c.node < T.pitIn + 6 && c.lap <= S.laps){
     c.pitting = 1; c.pitS = c.node; c.pitDone = false; c.pitT = 0;
     if(!c.ai) showToast("Pit entry — limiter on");
     // the race leader diving in is news; so is anyone just ahead or behind you
@@ -295,7 +296,7 @@ function update(dt, rdt){
       }
       continue;
     }
-    if(c.ai) driveAI(c, S, dt);
+    if(c.ai && !c.dnf) driveAI(c, S, dt);              // a retired car has nobody driving it: it stays where it stopped
     else { playerPit(c, S, dt); if(c.stopT > 0){ c.vx = 0; c.vy = 0; continue; } playerInput(c, dt); SC.limitPlayer(S, c); }
     c.step(dt, S);
     if(S.state === "run") updateTiming(c);
@@ -336,6 +337,7 @@ function update(dt, rdt){
       spawn(c.x, c.y, c.z + 0.1, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5, 1.5, 0.6,
             S.track.pal.ground, 0.5, "smoke");
     // a battered car trails smoke, and a dead engine pours it out
+    if(c.recovering || c.recovered) continue;           // on the truck, or gone: no smoke from where it was
     const hurt = Math.max(c.damage > 0.45 ? (c.damage - 0.4) * 1.4 : 0, c.broken.has("engine") ? 0.8 : 0, c.dnf ? 0.7 : 0);
     if(hurt > 0 && !c.pitting && Math.random() < dt * (3 + hurt * 14))
       spawn(c.x - Math.cos(c.h) * 0.7, c.y - Math.sin(c.h) * 0.7, c.z + 0.55, (Math.random() - 0.5) * 1.4, (Math.random() - 0.5) * 1.4,
@@ -390,10 +392,32 @@ function update(dt, rdt){
       }
     }
   }
+  // a stopped wreck and a parked recovery truck do not move: whoever drives into them stops
+  const obs = REC.obstacles(S);
+  if(obs.length) for(const C of S.cars){
+    if(C.dnf || C.pitting || C.inPit) continue;
+    for(const o of obs){
+      const dx = C.x - o.x, dy = C.y - o.y, d = Math.hypot(dx, dy), lim = o.r + 1.7;
+      if(d >= lim || d < 0.001) continue;
+      const ux = dx / d, uy = dy / d;
+      C.x += ux * (lim - d); C.y += uy * (lim - d);
+      const rel = C.vx * ux + C.vy * uy;
+      if(rel < 0){
+        const imp = -rel;
+        C.vx -= ux * rel * 1.4; C.vy -= uy * rel * 1.4;
+        if(C.ai){ C.railV = Math.min(C.railV || 0, 6); }
+        // an AI car cannot react to a car tumbling to a stop right in front of it: it is damaged, not put out (you are not spared)
+        if(imp > 3) C.hurt(C.ai ? Math.min(imp * 0.75, 14) : imp * 0.75, "front", S, { dx:-ux, dy:-uy });
+        if(imp > 9 && C.spinT <= 0 && !C.wrecked && !C.dnf) C.startSpin(S, (Math.random() < 0.5 ? -1 : 1) * clamp(imp * 0.3, 2, 6));
+        if(C === S.player) S.shake = Math.min(1, S.shake + imp * 0.05);
+      }
+    }
+  }
   stepParts(dt);
   positions();
   PEN.tick(S, dt);
   SC.tick(S, dt);
+  REC.tick(S, dt);
 
   // ghost playback
   if(S.mode === "tt" && S.bestRec && S.player.lapStart != null){

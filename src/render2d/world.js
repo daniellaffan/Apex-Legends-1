@@ -198,6 +198,7 @@ function renderWorld2D(S){
     } });
   }
   for(const c of S.cars){
+    if(c.recovered) continue;                       // taken away on the recovery truck
     // your own nose, front wheels and mirrors are in shot — the near plane
     // clip in poly() throws away the bodywork that is behind your head
     if(R.persp){ if(!seen(c.x, c.y, 40)) continue; }
@@ -217,6 +218,17 @@ function renderWorld2D(S){
     const on = sck.lights && (S.clock * 4.2) % 1 < 0.5;
     poly(ctx, [q(-0.2, 0.9), q(-0.2, -0.9), q(-0.6, -0.9), q(-0.6, 0.9)], on ? "#FFB000" : "#6A4A00");
   } });
+  // the recovery trucks: a plain flatbed, the 2D view is only the fallback
+  if(S.recov) for(const j of S.recov.jobs){
+    const tp = j.truck; if(!tp) continue;
+    if(R.persp && !seen(tp.x, tp.y, 40)) continue;
+    items.push({ d:dkey(tp.x, tp.y, j.car ? j.car.z : 0) + 0.6, f:() => {
+      const ca = Math.cos(tp.h), sa = Math.sin(tp.h), z = j.car ? j.car.z : 0;
+      const q = (a, b, h) => R.P(tp.x + ca * a - sa * b, tp.y + sa * a + ca * b, z + (h || 0.6));
+      poly(ctx, [q(-4.9, 1.9), q(-4.9, -1.9), q(3.6, -1.9), q(3.6, 1.9)], "#3C4148");
+      poly(ctx, [q(3.6, 1.6, 1.4), q(3.6, -1.6, 1.4), q(6.1, -1.6, 1.4), q(6.1, 1.6, 1.4)], "#F2B21A");
+    } });
+  }
   if(S.ghost && S.ghostCar) items.push({ d:S.ghostCar.x + S.ghostCar.y, f:() => {
     ctx.globalAlpha = 0.34; drawCar(ctx, S.ghostCar, T, S, false); ctx.globalAlpha = 1; } });
   for(const p of PART){

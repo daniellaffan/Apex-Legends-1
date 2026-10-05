@@ -43,6 +43,7 @@ import './render3d/scenery.js';
 import './render3d/car.js';
 import './render3d/frame.js';
 import './render3d/safetycar.js';
+import './render3d/wreckrecovery.js';
 import './render3d/crash.js';
 import './render3d/person.js';
 import { CINE } from './render3d/cine.js';

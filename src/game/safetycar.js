@@ -4,6 +4,7 @@ import { TYRES } from '../car/parts.js';
 import { AUDIO } from '../audio/audio.js';
 import { showMsg } from '../ui/screens.js';
 import { issue, notify } from './penalties.js';
+import * as REC from './recovery.js';
 
 /* ---------- the safety car ----------
    off → out (deployed: the field slows, bunches up behind it, no overtaking, the pit lane is cheap)
@@ -17,7 +18,7 @@ const PIT_V = 22;
 function init(S){
   const on = CFG.sc !== 0 && S.mode === "race" && S.laps >= 3;
   const heavy = S.wetTarget > 0.6;
-  S.sc = { state:"off", car:null, on, lapsLeft:0, leaderLap:0, reason:"", count:0, cool:0, t:0, prev:new Map(), passCool:-99,
+  S.sc = { state:"off", car:null, on, crash:CFG.sc !== 0 && S.mode === "race", lapsLeft:0, leaderLap:0, reason:"", count:0, cool:0, t:0, prev:new Map(), passCool:-99,
            plan: on && Math.random() < (heavy ? 0.75 : 0.45)
              ? { lap:1 + Math.floor(Math.random() * Math.max(1, S.laps - 2)), frac:0.15 + Math.random() * 0.75 } : null };
 }
@@ -34,7 +35,7 @@ function leaderOf(S){
 
 function place(T, k){
   const f = k.f, j = ((Math.floor(f) % T.n) + T.n) % T.n, k2 = (j + 1) % T.n, u = f - Math.floor(f);
-  const lat = lerp(T.line[j], T.pitCentre(j), k.mix);
+  const lat = lerp(T.line[j] + (k.dodge || 0), T.pitCentre(j), k.mix);
   k.x = lerp(T.x[j], T.x[k2], u) + lerp(T.nx[j], T.nx[k2], u) * lat;
   k.y = lerp(T.y[j], T.y[k2], u) + lerp(T.ny[j], T.ny[k2], u) * lat;
   k.z = lerp(T.z[j], T.z[k2], u);
@@ -43,22 +44,27 @@ function place(T, k){
   k.vx = Math.cos(k.h) * k.v; k.vy = Math.sin(k.h) * k.v; k.speed = k.v;
 }
 
-function deploy(S, reason){
-  const sc = S.sc, T = S.track;
-  if(!sc || sc.state !== "off") return false;
-  const lead = leaderOf(S); if(!lead) return false;
+function spawnCar(S, lead, allowPit){
+  const T = S.track;
   // from the pit exit if it is a fair way ahead of the leader, otherwise onto the road well ahead of him
   const toExit = (((T.pitOut - lead.node) % T.n + T.n) % T.n) * T.ds;
-  const fromPit = toExit > 260 && toExit < 1700;
+  const fromPit = allowPit && toExit > 260 && toExit < 1700;
   const k = { f:0, v:fromPit ? 14 : 40, mix:fromPit ? 1 : 0, inLane:fromPit, wasLane:fromPit, ended:false, lights:true,
               x:0, y:0, z:0, h:0, node:0, off:0, s:0, vx:0, vy:0, speed:0, dnf:false, pitting:0, stalled:false, ai:false, railV:40,
               pace:1, life:1, damage:0, lungeSide:0, defMove:null, drv:{ skill:1, aggr:0, last:"the safety car", abbr:"SC" } };
   k.f = fromPit ? T.pitOut - Math.round(70 / T.ds) : lead.node + Math.round(300 / T.ds);
   place(T, k);
-  sc.car = k; sc.state = "out"; sc.fin = false; sc.reason = reason; sc.count++; sc.t = 0;
+  return k;
+}
+
+function deploy(S, reason){
+  const sc = S.sc;
+  if(!sc || sc.state !== "off") return false;
+  const lead = leaderOf(S); if(!lead) return false;
+  sc.car = spawnCar(S, lead, true); sc.state = "out"; sc.fin = false; sc.reason = reason; sc.count++; sc.t = 0;
   sc.leaderLap = Math.max(...S.cars.filter(c => !c.dnf).map(c => c.lap));
   sc.lapsLeft = clamp(S.laps - sc.leaderLap - 1, 1, 2);
-  sc.prev.clear();
+  sc.prev.clear(); sc.finMsg = false;
   showMsg("SAFETY CAR", reason, 3.6);
   const me = S.player;
   if(me && !me.dnf){
@@ -89,6 +95,17 @@ function moveCar(S, dt){
     if(lead){ const gap = wrapD(S, k.s - lead.s); if(gap > 0 && gap > 230) target = Math.max(24, target * 0.55); }
   }
   if(k.inLane) target = Math.min(target, PIT_V);
+  // round a wreck or a parked recovery truck, on whichever side has the room, and slower past it
+  let want = 0;
+  if(!k.inLane) for(const o of REC.obstacles(S)){
+    const d = wrapD(S, o.s - k.s); if(d < -8 || d > 90) continue;
+    const base = T.line[o.node], room = T.half - 1.3, clr = o.r + 2.8;
+    if(Math.abs(o.off - base) > clr) continue;
+    let tgt = clamp(o.off + (o.off > 0 ? -1 : 1) * clr, -room, room);
+    if(Math.abs(tgt - o.off) < o.r + 1.6) tgt = clamp(o.off + (o.off > 0 ? 1 : -1) * clr, -room, room);
+    want = tgt - base; target = Math.min(target, 26); break;
+  }
+  k.dodge = (k.dodge || 0) + clamp(want - (k.dodge || 0), -3 * dt, 3 * dt);
   k.v += clamp(target - k.v, -14 * dt, 6 * dt);
   k.f += k.v * dt / T.ds;
   const j = ((Math.floor(k.f) % T.n) + T.n) % T.n;
@@ -105,8 +122,35 @@ function moveCar(S, dt){
   k.lights = sc.state === "out";
 }
 
+/* a new incident while the car is already out, or on its way in: it stays (or comes back) out */
+function reopen(S, reason){
+  const sc = S.sc, lead = leaderOf(S);
+  if(sc.state === "out"){ notify(S, "SAFETY CAR STAYS OUT · " + reason, 3.2); return; }
+  sc.state = "out"; sc.fin = false; sc.finMsg = false; sc.lapsLeft = Math.max(sc.lapsLeft, 1);
+  if((!sc.car || sc.car.inLane) && lead) sc.car = spawnCar(S, lead, false);
+  if(sc.car) sc.car.lights = true;
+  showMsg("SAFETY CAR", reason + " — it stays out", 3.4);
+  try{ if(S.player && !S.player.dnf) AUDIO.say("Safety car stays out. " + reason + ".", "eng", true); }catch(e){}
+}
+
+/* an AI car has come to rest on the circuit: the recovery starts, and the safety car comes out for it */
+function incident(S, j){
+  const sc = S.sc, c = j.car;
+  const reason = c.drv.last + (/crash/i.test(c.retiredBy || "") ? " has crashed — the car is stopped on the track" : " has stopped on the track");
+  if(!sc || !sc.crash || S.state !== "run" || (S.finishOrder && S.finishOrder.length) || S.ended){
+    notify(S, "YELLOW FLAGS · " + reason, 3.2); return;
+  }
+  if(sc.state === "off"){ if(!deploy(S, reason)) notify(S, "YELLOW FLAGS · " + reason, 3.2); }
+  else reopen(S, reason);
+}
+
 function tick(S, dt){
   const sc = S.sc; if(!sc) return;
+  // every AI car that has come to rest on the circuit gets a recovery, whatever the session
+  for(const c of S.cars){
+    if(!c.ai || !c.dnf || c.recJob || c.wrecked || c.pitting || c.inPit || c.speed >= 6) continue;
+    incident(S, REC.addJob(S, c));
+  }
   if(S.mode !== "race" || S.state !== "run") return;
   sc.t += dt;
   const lead = leaderOf(S);
@@ -114,18 +158,12 @@ function tick(S, dt){
     if(sc.car) moveCar(S, dt);                       // still rolling down the lane after the green flag
     if(!sc.on || !lead || S.clock < 14 || (S.penT || 0) < sc.cool) return;
     if(lead.lap < 1 || lead.lap > S.laps - 2) return;
-    // a car stopped on the track
-    for(const c of S.cars){
-      if(!c.dnf || c.scSeen) continue;
-      if(c.pitting || c.inPit){ c.scSeen = true; continue; }
-      if(c.speed < 6){
-        c.scSeen = true;
-        deploy(S, c.drv.last + " is stopped on the track"); return;
-      }
-    }
-    // debris
+    // debris: the marshals have some sweeping to do
     if(sc.plan && lead.lap === sc.plan.lap && (lead.s / S.track.length) > sc.plan.frac){
-      sc.plan = null; deploy(S, "Debris on the track");
+      sc.plan = null;
+      const T = S.track;
+      REC.addDebris(S, lead.node + Math.round((250 + Math.random() * 650) / T.ds), (Math.random() - 0.5) * T.half);
+      deploy(S, "Debris on the track");
     }
     return;
   }
@@ -135,9 +173,15 @@ function tick(S, dt){
   const crossed = lap > sc.leaderLap; sc.leaderLap = lap;
   if(sc.state === "out"){
     if(crossed) sc.lapsLeft--;
-    if(sc.lapsLeft <= 0 || lap >= S.laps){
+    const clearNow = REC.clear(S);
+    if(lap >= S.laps && !clearNow){
+      // the track is not clear on the last lap: they finish behind it, and it peels off into the pit lane
+      sc.fin = true;
+      if(!sc.finMsg){ sc.finMsg = true; showMsg("FINISH UNDER THE SAFETY CAR", "The track is not clear · no overtaking to the flag", 3.4); }
+    }
+    else if(clearNow && (sc.lapsLeft <= 0 || lap >= S.laps)){
       sc.state = "in"; sc.fin = true;
-      showMsg("SAFETY CAR IN THIS LAP", "Lights off · pit lane open · green flag at the line", 3.4);
+      showMsg("SAFETY CAR IN THIS LAP", lap >= S.laps ? "The track is clear · no overtaking to the flag" : "Lights off · pit lane open · green flag at the line", 3.4);
       try{ if(S.player && !S.player.dnf) AUDIO.say("Safety car in this lap. Stay ready, we go green at the line.", "eng", true); }catch(e){}
       notify(S, "SAFETY CAR IN THIS LAP", 3);
     }

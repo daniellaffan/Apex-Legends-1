@@ -1,3 +1,4 @@
+import { obstacles } from '../game/recovery.js';
 import { clamp, lerp } from '../config/util.js';
 import { AUDIO } from '../audio/audio.js';
 import { BRAKE, DRAG, GRIP, VMAX, tyreGripK, tyreLoad } from '../car/physics.js';
@@ -133,6 +134,12 @@ function driveAI(c, S, dt){
     if(d > halfLap) d -= T.length; else if(d < -halfLap) d += T.length;
     if(d > 0 && d < 140 && Math.abs(scc.off - c.off) < 6.5 && d < gap){ gap = d; ahead = scc; }
   }
+  // a stopped wreck, or the truck recovering it: an obstacle to go round (it is flagged stalled)
+  for(const o of obstacles(S)){
+    let d = o.s - c.s;
+    if(d > halfLap) d -= T.length; else if(d < -halfLap) d += T.length;
+    if(d > -1 && d < 140 && Math.abs(o.off - c.off) < o.r + 3.6 && d < gap){ gap = Math.max(0.5, d); ahead = o; }
+  }
 
   /* --- racing: the car in front, and the car behind --- */
   const D = S.combat || { defend:0.6, aggr:0.9, push:0.01, lunge:1 };
@@ -256,10 +263,10 @@ function driveAI(c, S, dt){
     const keep = Math.max(0, T.half - 3.6), dm = c.defMove;
     defend = dm.side * Math.min(2.8, keep) * clamp(c.drv.aggr * D.aggr, 0.3, 1.2) * clamp(dm.t / 0.6, 0, 1);
   }
-  const room = T.half - 2.0;
+  const room = T.half - (avoid ? 1.2 : 2.0);
   const lunge = Math.min(3.9, T.half * 0.52) * (S.combat ? S.combat.lunge : 1);
   const legalDef = Math.max(0, T.half - 3.6);      // leave them room to exist
-  let targetOff = avoid ? clamp(avoid.off + passDir * Math.max(4.0, lunge), -room, room)
+  let targetOff = avoid ? clamp(avoid.off + passDir * Math.max(4.0, lunge, (avoid.r || 0) + 2.6), -room, room)
                   : passDir ? clamp(T.line[ti] + passDir * lunge, -room, room)
                   : clamp(T.line[ti] + defend, -legalDef, legalDef);
   // nobody moves sideways into a car that is at their elbow: hold where we are
