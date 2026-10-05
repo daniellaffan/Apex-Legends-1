@@ -2098,3 +2098,20 @@ Fewer draw calls than before (the old scene was 1,460 separate baked meshes) and
 4. The Parabolica stand on the inside of the exit; the Lesmo and Ascari stands.
 5. A clearing with ponds, gravel avenues leading into the woods, the park wall with its gate pillars, the royal villa far among the trees, the campers' tents.
 6. Console: look for `monza ...` warnings; the world builds inside try/catch, so a bug shows as a warning and a plainer circuit. `window.__monza.audit()` reruns the clearance and lens audit.
+
+## Stewards, AI mistakes, harder spins
+
+- **Where:** `src/game/penalties.js` (all of it), hooks in `session.js` (grid drops in `startSession`, `PEN.launch` at lights out, `PEN.contact` in the contact loop, `PEN.tick` after `positions()`, `PEN.classify` in `endSession`), `car/pit.js` (the player's penalty visit), `car/physics.js` (`pitStep` for AI penalty visits, player spin thresholds), `ai/driver.js` (AI spins), HUD line `#h-pen`, results "+Ns" and a "Stewards' decisions" list. Test: `node --import ./scripts/asset-register.mjs scripts/penalty-test.mjs [track] [races]`.
+- **Penalties:** warning, reprimand (third = drive-through), 5 s, 10 s, drive-through, 10 s stop-and-go, disqualification (black flag; ends the player's race), grid-place drops for a few AI cars before the start, deleted laps in qualifying. Penalty points are counted (12 = a message about a one-race ban).
+- **What triggers them:** track limits (3 warnings, black-and-white flag on the 3rd, 5 s each after; qualifying deletes the lap), leaving the track and gaining a place (5 s), collisions (fault = the car behind, or the one that drove into the other; light contact is noted or reprimanded, 6+ = 5 s, 10+ = 10 s, 15+ = drive-through, 22+ = stop-go, or DSQ for a repeat offender), jumping the start (revs pinned at the lights; 2.5 % per AI car), pit-lane speeding, unsafe release, ignoring blue flags (player only). AI cars also get random incidents (forcing off, illegal defending, dangerous driving, ...): about 1-4 penalties per 3-lap race.
+- **Serving:** a drive-through or stop-go is served in the pit lane within 3 laps (press P; the pit menu does not open, there is no service). Unserved, or unservable (last lap) = +20 s / +30 s. AI cars are sent in by the pit wall as a visit of their own and serve it through `pitStep`. Time is added in `classify()`, which re-orders only the penalised cars; results show the adjusted gap and "+Ns".
+- **Messages:** the player gets a big message and a radio line; AI penalties arrive as queued "STEWARDS · ABBR Name — penalty · reason" toasts.
+- **AI mistakes:** `driveAI` now has real spins as well as lock-ups and wide moments (about 2-3 per 3-lap dry race; more in the wet, on worn tyres or with damage). Some lock-ups and slides end in a spin.
+- **Player spins:** the grip-limit threshold is higher (1.38 instead of 1.28), the loss timer needs 1.0 s (was 0.8) and recovers faster, the wall spin needs 4.5 m/s into the wall (was 3.5).
+- **Not done / assumptions:** no safety car in the game, so no SC penalties; the player's grid is chosen in setup, so only AI cars get grid drops; AI cars get no blue-flag penalties; a black flag on an AI car only marks it DSQ in the results.
+
+### Visual checklist
+1. Take a 5 s penalty (cut a corner onto the grass four times, or ram a car): big message, radio line, a yellow chip under the lap time ("+5 s"), "+5s" next to your gap in the results.
+2. Get a drive-through (hard shunt): red pulsing chip; press P, enter the lane, hold the limiter, the pit menu should NOT open; "PENALTY SERVED" at the exit.
+3. Watch for "STEWARDS · ..." toasts about AI cars, and an AI car spinning (toast "X spins!" when it is near you).
+4. Spinning should now need a clearly bigger mistake: kerbs and a flick at speed should no longer bite you straight away.

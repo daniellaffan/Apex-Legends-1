@@ -2,6 +2,7 @@ import { $, clamp, el, fmtGap, fmtTime } from '../config/util.js';
 import { PARTS } from '../car/parts.js';
 import { LAUNCH_HI, LAUNCH_LO } from '../car/physics.js';
 import { S, updateStatus } from '../game/session.js';
+import { hudLine } from '../game/penalties.js';
 
 function buildBoard(){
   const b = $("#h-board"); b.innerHTML = "";
@@ -36,6 +37,9 @@ function updateHUD(){
       (c.tyre.key === "wet" ? "" : " · slicks");
     cond.style.color = c.tyre.key === "wet" ? "var(--cyan)" : "var(--red)";
   } else cond.hidden = true;
+  const pl = S.mode === "tt" ? "" : hudLine(S, c), pn = $("#h-pen");
+  pn.hidden = !pl; if(pl && pn.textContent !== pl){ pn.textContent = pl; }
+  pn.classList.toggle("owed", !!(c.pen && c.pen.todo.length));
   const ty = c.tyre;
   const cmp = $("#h-cmp"); cmp.textContent = ty.label; cmp.style.setProperty("--tyc", ty.col);
   const wear = $("#h-wear"); wear.style.width = (c.life * 100).toFixed(0) + "%";

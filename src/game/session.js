@@ -15,6 +15,7 @@ import { drawMini } from '../ui/minimap.js';
 import { KEY, TOUCH, ZOOM_HOLD } from '../input/input.js';
 import { AI_SCALE, CFG, COMBAT } from '../config/settings.js';
 import { playerPit } from '../car/pit.js';
+import * as PEN from './penalties.js';
 import { AUDIO } from '../audio/audio.js';
 import { show, showMsg, showToast } from '../ui/screens.js';
 import { buildBoard, updateHUD } from '../ui/hud.js';
@@ -60,6 +61,7 @@ function startSession(mode, champ){
     order.length = 0; for(const x of g) if(x >= 0) order.push(x);
     for(let i = 0; i < entries.length; i++) if(!order.includes(i)) order.push(i);
   }
+  const drops = mode === "race" ? PEN.gridDrops(order, entries, myIdx) : [];
   S.gridAbbr = order.map(x => entries[x].d.abbr);
   const single = mode === "tt";
   const list = single ? [myIdx] : order;
@@ -84,6 +86,8 @@ function startSession(mode, champ){
     S.cars.push(c);
   });
   if(mode !== "race"){ S.state = "run"; S.lights = 5; }
+  S.endNow = endSession;
+  if(drops.length) PEN.announceGrid(S, drops);
   PART.length = 0;
   S.marks = [];
   try{ AUDIO.init(); AUDIO.resume(); AUDIO.reset(); }catch(e){}
@@ -184,7 +188,8 @@ function updateTiming(c){
   if(crossLine(c)){
     if(c.lapStart != null){
       const t = ms - c.lapStart;
-      if(t > 8000){
+      if(t > 8000 && c.lapInvalid && S.mode === "qualy"){ c.last = t; }
+      else if(t > 8000){
         c.last = t; c.laps.push(t); c.total += t;
         if(c.best == null || t < c.best) c.best = t;
         if(S.fastest == null || t < S.fastest){ S.fastest = t; S.fastestBy = c;
@@ -196,7 +201,7 @@ function updateTiming(c){
       }
       c.lap++;
     } else { c.lap = 1; }
-    c.lapStart = ms; c.secStart = ms; c.curSec = 0;
+    c.lapStart = ms; c.secStart = ms; c.curSec = 0; c.lapInvalid = false;
     if(!c.ai){ c.recBuf = []; }
     if(S.mode === "race" && c.lap > S.laps && !c.finished){
       c.finished = true; c.finishTime = ms; S.finishOrder.push(c);
@@ -265,6 +270,7 @@ function update(dt, rdt){
         else if(c.revs > LAUNCH_HI){ c.launchGrade = "spin"; c.launchMul = lerp(0.85, 0.5, (c.revs - LAUNCH_HI) / (1 - LAUNCH_HI)); c.launchT = 2.0; }
         else { c.launchGrade = "good"; c.launchMul = 1.10; c.launchT = 1.6; }
       }
+      PEN.launch(S);
       const g = S.player.launchGrade;
       showMsg(g === "good" ? "GREAT START" : g === "bog" ? "BOGGED DOWN" : "WHEELSPIN",
               g === "good" ? "Perfect launch" : g === "bog" ? "Not enough revs" : "Too many revs", 1.5);
@@ -353,6 +359,7 @@ function update(dt, rdt){
       const rel = (B.vx - A.vx) * ux + (B.vy - A.vy) * uy;
       if(rel < 0){
         const imp = -rel * 0.68;
+        PEN.contact(S, A, B, ux, uy, imp, ds2);
         A.vx -= ux * imp; A.vy -= uy * imp; B.vx += ux * imp; B.vy += uy * imp;
         // wheels touching throws the cars sideways, and a tap on a rear corner spins the car in front
         if(imp > 4){
@@ -383,6 +390,7 @@ function update(dt, rdt){
   }
   stepParts(dt);
   positions();
+  PEN.tick(S, dt);
 
   // ghost playback
   if(S.mode === "tt" && S.bestRec && S.player.lapStart != null){
@@ -466,20 +474,28 @@ function endSession(){
   try{ AUDIO.silence(); }catch(e){}
   const arr = positions();
   const T = S.track;
-  const res = arr.map(c => {
-    const gap = c === arr[0] ? null : (c.finished && arr[0].finished ? c.finishTime - arr[0].finishTime : c.gap);
-    return { car:c, pos:c.pos, gap, best:c.best, stops:c.stops, tyre:c.tyre };
+  const cl = PEN.classify(S, arr);
+  const first = cl.order[0], key0 = first ? cl.key.get(first) : 0;
+  const res = cl.order.map(c => {
+    const gap = c === first ? null
+      : cl.any ? cl.key.get(c) - key0
+      : (c.finished && first.finished ? c.finishTime - first.finishTime : c.gap);
+    return { car:c, pos:c.pos, gap, best:c.best, stops:c.stops, tyre:c.tyre,
+             pen:cl.any ? cl.pen.get(c) : 0, dq:!!(c.pen && c.pen.dsq),
+             total:cl.any && c === first && c.finished ? key0 : null };
   });
+  cl.order.forEach((c, i) => { c.pos = i + 1; });
   const out = S.cars.filter(c => c.dnf).sort((a, b) => (b.prog || 0) - (a.prog || 0));
   for(const c of out) res.push({ car:c, pos:res.length + 1, gap:null, best:c.best, stops:c.stops, tyre:c.tyre, dnf:true });
   res.forEach((r, i) => r.pos = i + 1);
   // two-compound rule
   if(S.mode === "race" && S.mustPit){
     // two dry compounds, or no stop at all; anyone who ran wets is exempt
-    for(const r of res) if(!r.dnf && (r.car.used.size < 2 || r.car.stops === 0) && !r.car.used.has("wet")){ r.dq = true; }
+    for(const r of res) if(!r.dnf && !r.dq && (r.car.used.size < 2 || r.car.stops === 0) && !r.car.used.has("wet")){ r.dq = true; }
     res.sort((a, b) => (a.dnf - b.dnf) || (a.dq - b.dq) || (a.pos - b.pos));
     res.forEach((r, i) => r.pos = i + 1);
   }
+  for(const r of res) r.car.pos = r.pos;
   S.results = res;
   if(S.champ && S.mode === "race") applyChampionship(res);
   const sess = S;
@@ -490,8 +506,11 @@ function endSession(){
     setTimeout(() => { if(S === sess) CINE.begin(G3, S, kind, () => { if(S === sess) showResults(res); }); }, kind === "win" ? 1800 : 200);
   } else setTimeout(() => { if(S === sess) showResults(res); }, 900);
   if(kind !== "dnf"){
-    showMsg(S.player.dnf ? "DNF" : S.mode === "qualy" ? "CHEQUERED FLAG" : "FINISH",
-      S.player.dnf ? (S.player.retiredBy || "Retired") : S.mode !== "race" ? "Session over" : S.player.pos === 1 ? "Race win" : `P${S.player.pos}`, 2.4);
+    const black = !!(S.player.pen && S.player.pen.dsq);
+    showMsg(S.player.dnf ? "DNF" : black ? "BLACK FLAG" : S.mode === "qualy" ? "CHEQUERED FLAG" : "FINISH",
+      S.player.dnf ? (S.player.retiredBy || "Retired") : black ? "Disqualified" : S.mode !== "race" ? "Session over"
+        : PEN.owed(S.player) > 0 ? `P${S.player.pos} · +${PEN.owed(S.player)} s in penalties`
+        : S.player.pos === 1 ? "Race win" : `P${S.player.pos}`, 2.4);
     $("#flag").classList.add("on"); setTimeout(() => $("#flag").classList.remove("on"), 1400);
   }
 }
@@ -518,4 +537,4 @@ function loop(t){
 
 function setPaused(v){ paused = v; }
 function setS(v){ S = v; }
-export { S, endSession, loop, paused, recover, requestPit, setPaused, setS, startSession, updateStatus };
+export { S, endSession, loop, paused, recover, requestPit, setPaused, setS, startSession, update, updateStatus };

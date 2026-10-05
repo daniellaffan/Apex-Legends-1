@@ -2,6 +2,7 @@ import { $, el } from '../config/util.js';
 import { PARTS, TYRES } from './parts.js';
 import { AUDIO } from '../audio/audio.js';
 import { showMsg } from '../ui/screens.js';
+import { nextServe, served } from '../game/penalties.js';
 
 /* ---------- the player's pit stop ---------- */
 function playerPit(c, S, dt){
@@ -13,9 +14,17 @@ function playerPit(c, S, dt){
   }
   if(c.inPit && !c.pitVisit){
     c.pitVisit = true;
-    if(S.mode === "race" && c.lap <= S.laps) openPitMenu(c, S);
+    const owe = S.mode === "race" ? nextServe(c) : null;
+    if(owe){
+      // a penalty visit: no tyres, no repairs, no menu — just the lane
+      c.pitPlan = { tyre:"none", repairs:new Set(), done:false, none:owe.kind === "dt", pen:owe.kind };
+      showMsg(owe.kind === "dt" ? "DRIVE-THROUGH" : "STOP-AND-GO",
+              owe.kind === "dt" ? "Hold the limiter all the way through — do not stop" : "Stop in your box for 10 seconds — no work allowed", 3.2);
+    }
+    else if(S.mode === "race" && c.lap <= S.laps) openPitMenu(c, S);
   }
   if(!c.inPit && c.pitVisit && T.pitRamp(c.node) <= 0.04){
+    if(c.pitPlan && c.pitPlan.pen === "dt") served(S, c, "dt");
     c.pitVisit = false; c.pitPlan = null; c.pitReq = false;
   }
   // approaching the entry, and missing it
@@ -79,13 +88,16 @@ function renderPitMenu(c, S){
 function closePitMenu(S){ S.menuOpen = false; $("#pitmenu").hidden = true; }
 function beginStop(c, S){
   const plan = c.pitPlan;
-  const t = pitJobTime(c, plan) + Math.random() * 0.8;
+  const t = plan.pen ? 10 : pitJobTime(c, plan) + Math.random() * 0.8;
   c.stopT = t; c.stopTotal = t; c.vx = c.vy = 0;
   try{ AUDIO.event("stop", c, S); }catch(e){}
   S.toast("Stopped — crew working");
 }
 function finishStop(c, S){
   const plan = c.pitPlan;
+  if(plan.pen){                                  // the stop-and-go is over: the car is released untouched
+    plan.done = true; c.stopT = 0; served(S, c, "sg"); return;
+  }
   const fitted = TYRES[plan.tyre];
   if(plan.tyre !== "none" && fitted){
     c.tyre = fitted; c.used.add(plan.tyre); c.life = 1; c.temp = 0.45;

@@ -148,6 +148,15 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .tw .p{width:16px;color:var(--dim);font-weight:700;font-size:11px}
 .tw .n{flex:1;font-weight:600;letter-spacing:.05em}
 .tw .g{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.h-tc .penline{margin-top:4px;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;
+  color:#FFD23F;background:rgba(20,16,4,.72);border:1px solid rgba(255,210,63,.45)}
+.h-tc .penline.owed{color:#fff;background:rgba(150,20,20,.78);border-color:rgba(255,90,90,.7);animation:penpulse 1.2s ease-in-out infinite}
+.h-tc .penline[hidden]{display:none!important}
+@keyframes penpulse{50%{opacity:.62}}
+.pennotes{margin:16px 0 0;font-size:12px;color:var(--dim);line-height:1.7}
+.pennotes b{color:#FFD23F;letter-spacing:.14em;font-size:10px;text-transform:uppercase;display:block;margin-bottom:4px}
+.pennotes span{color:var(--text,#fff)}
+.res-pen{color:#FFD23F;font-size:11px;margin-left:6px}
 .msg{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
 .msg .big{font-size:clamp(34px,9vw,84px);font-weight:800;letter-spacing:-.01em;line-height:.9;text-transform:uppercase;
   text-shadow:0 4px 30px rgba(0,0,0,.8)}

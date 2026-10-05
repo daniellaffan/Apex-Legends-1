@@ -297,9 +297,23 @@ function driveAI(c, S, dt){
       c.momentT = 0.5 + Math.random() * 0.8;
       c.momentKind = Math.random() < 0.5 ? "lock" : "wide";
       c.momentSide = -Math.sign(T.curv[i]) || 1;
+      // some of them are not saved: a lock-up or a slide that ends in a spin
+      c.momentSpin = S.clock > 6 && v > 35 && Math.random() < 0.14 + S.wet * 0.3 + c.damage * 0.2 + (1 - c.life) * 0.15;
       try{ AUDIO.event("moment", c, S); }catch(e){}
       if(S.player && Math.abs(c.pos - S.player.pos) <= 2)
         S.toast(c.drv.last + (c.momentKind === "lock" ? " locks up" : " runs wide"));
+    }
+  }
+  // a real mistake: the car gets away from them in a corner and goes round
+  if(S.mode === "race" && S.state === "run" && c.spinT <= 0 && !c.inPit && v > 35 && S.clock > 6){
+    const end = c.momentSpin && c.momentT <= 0;
+    const rate = kNow > 0.006 ? (1.04 - c.drv.skill) * 0.011 * (1 + S.wet * 3) * (1 + (1 - c.life) * 1.2) * (1 + c.damage * 2) : 0;
+    if(end || Math.random() < rate * dt){
+      c.momentSpin = false;
+      c.startSpin(S, (Math.sign(T.curv[i]) || 1) * (3.2 + Math.random() * 1.8));
+      c.momentT = 0;
+      try{ AUDIO.event("moment", c, S); }catch(e){}
+      if(S.player && !S.player.dnf && Math.abs(c.pos - S.player.pos) <= 3) S.toast(c.drv.last + " spins!");
     }
   }
   c.aiWant = want;

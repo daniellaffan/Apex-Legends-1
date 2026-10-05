@@ -352,12 +352,12 @@ class Car {
       const latDem = Math.abs(yaw * vf) / Math.max(g, 1);
       const brkDem = this.brk * BRAKE * this.perf.brake * surf * wetK * (vf > 0.4 ? 1 : 0) / Math.max(g, 1);
       const use = Math.hypot(latDem, brkDem + this.thr * 0.12 * (spdNow < 30 ? 1.8 : 0.4));
-      let over = use > 1.28 ? (use - 1.15) * 5 : 0;
-      if(surf < 0.7 && spdNow > 50 && Math.abs(this.steer) > 0.6) over += (1 - surf) * 2.0 * Math.abs(this.steer);
-      if(Math.abs(vs) > 11 && Math.abs(vf) > 20) over += Math.abs(vs) / 16;       // already well sideways
-      if(this.hand > 0.5 && spdNow > 30 && Math.abs(this.steer) > 0.5) over += 1.2;
-      if(over > 0) this.lossT += over * dt; else this.lossT = Math.max(0, this.lossT - dt * 2.2);
-      if(this.lossT > 0.8 && spdNow > 20){
+      let over = use > 1.38 ? (use - 1.27) * 4.2 : 0;
+      if(surf < 0.7 && spdNow > 55 && Math.abs(this.steer) > 0.65) over += (1 - surf) * 1.5 * Math.abs(this.steer);
+      if(Math.abs(vs) > 13 && Math.abs(vf) > 20) over += Math.abs(vs) / 19;       // already well sideways
+      if(this.hand > 0.5 && spdNow > 30 && Math.abs(this.steer) > 0.55) over += 0.9;
+      if(over > 0) this.lossT += over * dt; else this.lossT = Math.max(0, this.lossT - dt * 3.0);
+      if(this.lossT > 1.0 && spdNow > 20){
         this.lossT = 0;
         const dir = Math.abs(yaw) > 0.05 ? Math.sign(yaw) : (vs !== 0 ? -Math.sign(vs) : (Math.random() < 0.5 ? -1 : 1));
         this.startSpin(S, dir * (3.2 + Math.min(spdNow, 80) * 0.035 + Math.random() * 1.2));
@@ -442,7 +442,7 @@ class Car {
         // the contact is on the corner that touched: a front corner pushes the nose off
         // the wall, a rear one swings the nose into it. Either way, at speed, it spins.
         const lf = hitL.lf, lr = hitL.lr, spd0 = Math.hypot(this.vx, this.vy) + into;
-        if(into > 3.5 && spd0 > 30 && this.spinT <= 0 && !this.wrecked){
+        if(into > 4.5 && spd0 > 32 && this.spinT <= 0 && !this.wrecked){
           const side = Math.abs(lf) < 0.15 ? 1 : (lf > 0 ? -1 : 1);
           const dirS = side * (Math.sign(lr) || 1);
           this.startSpin(S, dirS * clamp(2.4 + into * 0.18 + spd0 * 0.03, 2.6, 7));
@@ -556,7 +556,8 @@ class Car {
     const boxDist = (bd > T.n / 2 ? 0 : bd) * T.ds;        // metres to the service box, 0 once past it
     let v = this.pitV;
     if(this.pitT > 0){ v = this.pitV = 0; this.pitT -= dt;
-      if(this.pitT <= 0){ this.tyre = this.nextTyre || TYRES.medium; this.used.add(this.tyre.key);
+      if(this.pitT <= 0 && this.servePen){ /* a stop-and-go: nothing is touched */ }
+      else if(this.pitT <= 0){ this.tyre = this.nextTyre || TYRES.medium; this.used.add(this.tyre.key);
         this.life = 1; this.temp = 0.45; this.stops++; this.wearRate = null; this.lifeAtLap = null; if(!this.ai) S.toast((this.repaired && this.repaired.length ? this.repaired.join(" + ") + " replaced · " : this.tyre.name + " tyres · ") + this.pitStopTime.toFixed(1) + "s");
         this.repaired = null; } }
     else if(this.pitDone){                                    // released: pull away up to the limiter
@@ -566,6 +567,10 @@ class Car {
       this.pitDone = true;
       try{ AUDIO.event("pitstop", this, S); }catch(e){}
       let extra = 0, fixed = [];
+      if(this.servePen){                                       // a penalty visit: no work allowed
+        if(this.servePen === "dt"){ this.pitT = 0; v = this.pitV = 22; }
+        else { this.pitStopTime = 10; this.pitT = 10; v = this.pitV = 0; }
+      } else {
       for(const k of this.broken){ if(PARTS[k].tyre){ fixed.push(k); continue; }
         extra += PARTS[k].fix; fixed.push(k); }
       this.repaired = fixed.map(k => PARTS[k].name);
@@ -573,6 +578,7 @@ class Car {
       this.damage = Math.max(0, this.damage - 0.5);
       this.pitStopTime = 2.1 + Math.random() * 1.4 + (this.ai ? Math.random() * 0.6 : 0) + extra;
       this.pitT = this.pitStopTime; v = this.pitV = 0;
+      }
     }
     else {                                                    // rolling up to the box: limiter, then brake to stop on the mark
       const target = Math.min(22, Math.max(1.4, Math.sqrt(2 * 9 * boxDist)));
@@ -590,6 +596,7 @@ class Car {
     this.vx = Math.cos(this.h) * v; this.vy = Math.sin(this.h) * v;
     if(this.pitT <= 0 && this.pitDone && T.pitRamp(j) <= 0.04){
       this.pitting = 0; this.pitDone = false; this.pitS = null; this.pitV = null; this.pitReq = false; this.inPit = false;
+      if(this.servePen) this.penServedFlag = true;
     }
   }
 }
