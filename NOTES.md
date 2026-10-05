@@ -2147,3 +2147,17 @@ Fewer draw calls than before (the old scene was 1,460 separate baked meshes) and
 2. At the wreck: an orange marshal waving a yellow flag before it, the yellow recovery truck arriving and parking beside it, the crane lifting the car onto the bed, the truck driving away, two marshals sweeping the bits of car off the track.
 3. The safety car stays out until all that is done, then "SAFETY CAR IN THIS LAP" and the green flag.
 4. Drive into a wreck yourself: you should stop and take damage, not pass through.
+
+## AI no longer reset after a spin
+
+- **Before:** when an AI spin ended the car snapped back onto its rail, facing down the track, and drove off; on its rail it could never touch a wall, so damage hardly ever reached it.
+- **Now:** the spin end sets `c.aiFree`; the car stays on the full car physics (the player's) and `freeDrive` in `src/ai/driver.js` drives it back: turns round if facing the wrong way, reverses off a wall it is nosed into, waits off the road (at most 8 s) for a car that would arrive within 3 s, and rejoins the rail only when on the road, pointing down it and moving (`hBlend` eases the nose in aiStep). Stuck for 30 s with under 40 m of progress = retired ("Beached in the gravel" / "Stuck — could not rejoin"). A car that loses a wheel pulls off and retires (`limp`). Off its rail it hits walls, takes the full damage model (dents, wings, wheels, retirements), and a retirement brings out the recovery and safety car.
+- **Physics fix (all cars):** grass drag fades at a crawl (it used to exceed the engine from a standstill, so a car stopped on grass, yours too, could never pull away).
+- **Spin causes** are tagged in `c.lastSpinWhy` (mistake, contact, grip, wall, wreck).
+- **Test:** `node --import ./scripts/asset-register.mjs scripts/ai-free-test.mjs [track] [spins]`: 24 forced spins per track on Monza, Singapore, Spa, Baku: all drove back (median ~3 s) or retired from real crashes, none stuck, 0° heading jump on rejoining; plus natural-race damage counts.
+- **Merged before the adversarial review finished** (at the user's request); its findings are still to be applied.
+
+### Visual checklist
+1. Watch an AI car spin: it should stop where it ends up, turn itself round, wait for traffic and drive back on, not snap back.
+2. On a street circuit, AI cars should hit walls, lose wings and wheels, and sometimes retire.
+3. Stop your own car on the grass: it should crawl off with the throttle on.
