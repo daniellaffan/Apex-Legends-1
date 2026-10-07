@@ -23,6 +23,9 @@ import { COTA } from './worlds/cota.js';
 import { WEATHER } from './weather.js';
 import { CRASH } from './crash.js';
 import { CFG } from '../config/settings.js';
+import { FIELD } from './ground/field.js';
+import { GMAT } from './ground/materials.js';
+import { KERBS3D } from './ground/kerbs3d.js';
 
 G3.tileSplit = function(root, cell, minTris){
   const jobs = [];
@@ -122,11 +125,13 @@ G3.build = function(S){
   const T = S.track, P = T.pal, n = T.n, w = T.half, ro = T.runoffMax, wall = T.barrier === "wall";
   // the boundary is now a pair of curves, not a number
   const roR = i => T.roR[i], roL = i => T.roL[i];
+  KERBS3D.dispose();
   if(this.world){
     this.world.traverse(o => {
       if(o.geometry) o.geometry.dispose();
       const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
-      for(const m of ms){ if(m.map) m.map.dispose(); m.dispose(); }
+      // the ground's textures are generated once and kept (ground/materials.js marks them)
+      for(const m of ms){ if(m.map && !(m.map.userData && m.map.userData.keep)) m.map.dispose(); m.dispose(); }
     });
     this.scene.remove(this.world);
   }
@@ -243,54 +248,65 @@ G3.build = function(S){
 
   /* the circuit surface, band by band, each one lifted clear of the last */
   const road = this.world; let lift = 0.02;
-  const bandTex = (col, kind) => {
-    const t = TEX.ground(col, kind);
-    let tt = this.texes.get(t);
-    if(!tt){ tt = G3.srgb(new THREE.CanvasTexture(t.img)); tt.wrapS = tt.wrapT = THREE.RepeatWrapping; this.texes.set(t, tt); }
-    const c = tt.clone(); c.needsUpdate = true; c.encoding = THREE.sRGBEncoding; c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(2, 6);
-    return new THREE.MeshStandardMaterial({ map:c, roughness:0.94, metalness:0.02 });
-  };
+  /* The ground's materials (ground/materials.js): textured asphalt, tarmac, gravel,
+     astroturf, grass and concrete, all tiled in world metres. G3.strip's own UVs are
+     a fraction across by metres along, so every strip is re-mapped (wuv). Every band
+     starts flush at the road edge: the old 0.2 m slot showed from the cockpit. */
+  const GM = GMAT.build(this, T, P);
+  const wuv = g => GMAT.worldUV(g, T);
+  // a world that mows its own verges (Spa and the circuits built on it, Suzuka) keeps them; elsewhere grass is laid here
+  const mows = ["spa", "interlagos", "mexico", "suzuka"].includes(T.def.world);
   if(!wall && T.surfAt){
     /* run-off made of what the circuit says it is: tarmac, gravel traps, grass,
-       and the strip of artificial grass along the kerbs */
-    this.add(road, this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift - baseDrop, 9), bandTex(shade(P.grass, -0.05), "grass"));
+       and the strip of artificial grass along the kerbs. The wide strip under it all
+       is grass too, so any seam between the bands shows grass, not a hole. */
+    this.add(road, wuv(this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift - baseDrop, 9)), GM.grass);
     lift += 0.02;
-    const tarmac = bandTex("#6E7176", "asphalt"), gravelM = bandTex("#ADA38C", "gravel"), astroM = bandTex("#3E8A4A", "grass");
+    const tarmac = GM.tarmac, gravelM = GM.gravel, astroM = GM.astro;
     const gEdge = this.mat("#8E8670");
     for(const sd of [-1, 1]){
       const code = i => (sd < 0 ? T.rsL[i] : T.rsR[i]), rf = sd < 0 ? roL : roR, rt = i => (sd < 0 ? T.rtL[i] : T.rtR[i]);
-      const band = (a, b, f, m, l) => this.add(road, sd < 0 ? this.strip(T, i => -b(i), i => -a(i), lift + l, 9, f) : this.strip(T, a, b, lift + l, 9, f), m);
-      band(() => w + 0.2, i => w + rf(i), i => code(i) === 1, tarmac, 0);
-      band(() => w + 0.2, i => w + rf(i), i => code(i) === 2, gravelM, 0.004);
-      band(() => w + 0.2, i => w + Math.max(0.5, rt(i)), i => code(i) === 5, tarmac, 0);
+      const band = (a, b, f, m, l) => this.add(road, wuv(sd < 0 ? this.strip(T, i => -b(i), i => -a(i), lift + l, 9, f) : this.strip(T, a, b, lift + l, 9, f)), m);
+      band(() => w, i => w + rf(i), i => code(i) === 1, tarmac, 0);
+      band(() => w, i => w + rf(i), i => code(i) === 2, gravelM, 0.004);
+      band(() => w, i => w + Math.max(0.5, rt(i)), i => code(i) === 5, tarmac, 0);
       band(i => w + Math.max(0.5, rt(i)), i => w + rf(i), i => code(i) === 5, gravelM, 0.004);
       // the raked lip where a gravel trap meets the grass
       band(i => w + rf(i) - 0.5, i => w + rf(i), i => code(i) === 2 || code(i) === 5, gEdge, 0.008);
-      band(() => w + 0.2, i => w + Math.min(rf(i), T.astro + 1.6), i => code(i) === 3 || code(i) === 4, astroM, 0.002);
+      band(() => w, i => w + Math.min(rf(i), mows ? 1.8 : T.astro + 1.6), i => code(i) === 3 || code(i) === 4, astroM, 0.002);
       band(i => w + T.astro + 1.6, i => w + rf(i), i => code(i) === 4 && rf(i) > T.astro + 1.8, astroM, 0.002);
       // the white line down the edge of a tarmac escape
       band(i => w + rf(i) - 0.6, i => w + rf(i) - 0.25, i => code(i) === 1 && rf(i) > 10, this.mat("#E8E8EA"), 0.01);
       // plain run-off: a tarmac apron behind the kerb, then the verge (a world may mow it)
-      band(() => w + 0.2, i => w + Math.min(rf(i), 2.0), i => code(i) === 6, tarmac, 0);
+      band(() => w, i => w + Math.min(rf(i), 2.0), i => code(i) === 6, tarmac, 0);
+      // the grass: on a grass run-off past its strip of astro, past an apron, and the verge beyond any run-off
+      if(!mows){
+        const gStart = i => code(i) === 3 ? w + Math.min(rf(i), T.astro + 1.6) : code(i) === 6 ? w + Math.min(rf(i), 2.0) : w + rf(i);
+        band(gStart, i => w + rf(i) + 6, null, GM.grass, -0.005);
+      }
     }
   } else if(!wall){
-    this.add(road, this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift - baseDrop, 9), bandTex(shade(P.grass, -0.05), "grass"));
+    this.add(road, wuv(this.strip(T, i => -(w + roL(i) + 6), i => (w + roR(i) + 6), lift - baseDrop, 9)), GM.grass);
     lift += 0.02;
-    const runCol = T.id === "zandvoort" || T.id === "baku" ? "#C9B78E" : shade(P.road, 0.22);
-    this.add(road, this.strip(T, i => -(w + roL(i)), -(w + 0.2), lift, 9), bandTex(runCol, "asphalt"));
-    this.add(road, this.strip(T, w + 0.2, i => w + roR(i), lift, 9), bandTex(runCol, "asphalt"));
+    this.add(road, wuv(this.strip(T, i => -(w + roL(i)), -w, lift, 9)), GM.tarmac);
+    this.add(road, wuv(this.strip(T, w, i => w + roR(i), lift, 9)), GM.tarmac);
+    if(!mows){
+      this.add(road, wuv(this.strip(T, i => -(w + roL(i) + 6), i => -(w + roL(i)), lift - 0.005, 9)), GM.grass);
+      this.add(road, wuv(this.strip(T, i => w + roR(i), i => w + roR(i) + 6, lift - 0.005, 9)), GM.grass);
+    }
   } else {
-    this.add(road, this.strip(T, i => -(w + roL(i) + 1.4), i => (w + roR(i) + 1.4), lift, 9), this.mat(shade(P.wall, -0.30)));
+    this.add(road, wuv(this.strip(T, i => -(w + roL(i) + 1.4), i => (w + roR(i) + 1.4), lift, 9)), GM.concrete);
     lift += 0.02;
     // the escape roads are laid in a lighter, dustier asphalt than the circuit
-    const escape = bandTex(shade(P.road, 0.34), "asphalt");
-    const plain = bandTex(shade(P.road, 0.26), "asphalt");
+    const escape = GM.tarmac;
+    const plain = GM.tarmac;
     for(const [sd, rf] of [[-1, roL], [1, roR]]){
       const wide = i => rf(i) > T.def.runoff + 2.5;
-      this.add(road, this.strip(T, i => sd * (w + 0.15), i => sd * (w + rf(i)), lift, 9,
-        i => rf(i) > 0.5 && !wide(i)), plain);
-      this.add(road, this.strip(T, i => sd * (w + 0.15), i => sd * (w + rf(i)), lift, 9,
-        i => wide(i)), escape);
+      const lo = i => Math.min(sd * w, sd * (w + rf(i))), hi = i => Math.max(sd * w, sd * (w + rf(i)));
+      this.add(road, wuv(this.strip(T, lo, hi, lift, 9,
+        i => rf(i) > 0.5 && !wide(i))), plain);
+      this.add(road, wuv(this.strip(T, lo, hi, lift, 9,
+        i => wide(i))), escape);
       const kf = i => rf(i) > 0.5 && !wide(i) && Math.abs(T.curv[i]) > 0.004 && (Math.floor(i / 2) % 2);
       this.add(road, this.strip(T, i => sd * (w + rf(i)), i => sd * (w + rf(i) - 0.5), lift + 0.01, 9, kf), this.mat(P.kerbA));
       // an escape road is painted: a line down its outer edge and arrows on it
@@ -302,20 +318,13 @@ G3.build = function(S){
   }
   lift += 0.03;
   this.roadLift = lift;
-  this.roadMat = bandTex(P.road, "asphalt");
-  this.add(road, this.strip(T, -w, w, lift, 7), this.roadMat);
-  // the rubbered-in line down the racing line
-  this.add(road, this.strip(T, i => T.line[i] - 1.7, i => T.line[i] + 1.7, lift + 0.012, 9),
-    new THREE.MeshStandardMaterial({ color:new THREE.Color("#141518"), roughness:0.72, metalness:0, transparent:true, opacity:0.18 }));
-  // kerbs, alternating along the corners
-  const kOn = i => Math.abs(T.curv[i]) > 0.0032, kAlt = i => (Math.floor(i / 2) % 2);
-  const sgn = i => Math.sign(T.curv[i]) || 1;
-  for(const [pick, ca, cb] of [[true, P.kerbA, P.kerbB], [false, P.kerbB, P.kerbA]]){
-    this.add(road, this.strip(T, i => sgn(i) * w, i => sgn(i) * (w + 1.5), lift + 0.02, 3,
-      i => kOn(i) && (!!kAlt(i) === pick)), this.mat(pick ? ca : cb));
-    this.add(road, this.strip(T, i => -sgn(i) * w, i => -sgn(i) * (w + 1.5), lift + 0.02, 3,
-      i => Math.abs(T.curv[i]) > 0.010 && (!!kAlt(i) === pick)), this.mat(pick ? cb : ca));
-  }
+  /* The road: textured asphalt laid exactly on the surface in 1.5 m lanes, its vertex
+     colours carrying the rubbered-in racing line, repair patches and skid marks
+     (ground/materials.js roadColour). G3.roadMat stays the one material the wet look drives. */
+  this.roadMat = GM.road;
+  this.add(road, FIELD.ribbon(T, -w, w, { lift, lane:1.5, sub:2, colour:GMAT.roadColourOf(T) }), this.roadMat);
+  // the kerbs, as solids: ridged where the corner is slow, painted flat where it is fast, sausages behind the slowest apexes (ground/kerbs3d.js)
+  try{ this.world.add(KERBS3D.build(this, T, P)); }catch(e){ console.warn("kerbs3d", e.message); }
   // the white lines
   this.add(road, this.strip(T, w - 0.45, w - 0.05, lift + 0.025, 9), this.mat(P.line));
   this.add(road, this.strip(T, -(w - 0.05), -(w - 0.45), lift + 0.025, 9), this.mat(P.line));

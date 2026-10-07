@@ -11,6 +11,8 @@ import { CINE } from './cine.js';
 import { CFG } from '../config/settings.js';
 import { CAR_SPEC } from '../car/spec.js';
 import { COCKPIT } from './cockpit.js';
+import { GMAT } from './ground/materials.js';
+import { KERBS3D } from './ground/kerbs3d.js';
 
 /* ---- the cockpit camera ----------------------------------------------------
    The driver's eyes: on the car's centre line at the back of the helmet's
@@ -99,7 +101,17 @@ G3.frame = function(S){
     const ni = c.node || 0, nn = T.n, HB = 1.57;
     const al = Math.cos(c.h - T.ang[ni]);
     const hx = Math.cos(c.h), hy = Math.sin(c.h);
-    const zr = T.surfZ(c.x - hx * HB, c.y - hy * HB, ni), zf = T.surfZ(c.x + hx * HB, c.y + hy * HB, ni);
+    let zr = T.surfZ(c.x - hx * HB, c.y - hy * HB, ni), zf = T.surfZ(c.x + hx * HB, c.y + hy * HB, ni);
+    /* Over a kerb the wheels ride up on it (src/tracks/kerbs.js): each axle's wheels,
+       0.83 m either side, lift that end of the car by the mean of their two heights,
+       and the difference tilts it, so a car climbs a ridged kerb or bucks over a sausage. */
+    let kslope = 0;
+    if(T.kerbH && Math.abs(c.off || 0) > T.half - 1.2){
+      const ox = c.x - T.x[ni], oy = c.y - T.y[ni], o0 = ox * T.nx[ni] + oy * T.ny[ni], ao = (hx * T.nx[ni] + hy * T.ny[ni]) * HB;
+      const hlR = T.kerbH(ni, o0 - ao - 0.83), hrR = T.kerbH(ni, o0 - ao + 0.83), hlF = T.kerbH(ni, o0 + ao - 0.83), hrF = T.kerbH(ni, o0 + ao + 0.83);
+      zr += (hlR + hrR) / 2; zf += (hlF + hrF) / 2;
+      kslope = ((hrR - hlR) + (hrF - hlF)) / (2 * 1.66);
+    }
     const gzA = T.grade((ni + 1) % nn), gzB = T.grade((ni - 1 + nn) % nn);
     const vcurv = (gzA - gzB) / (2 * T.ds);                  // + at the foot of a climb, - over a crest
     const sp = c.speed || 0;
@@ -107,7 +119,7 @@ G3.frame = function(S){
     e.sq = lerp(e.sq || 0, clamp(sp * sp * vcurv * 0.010, -0.09, 0.07), 0.25);
     // the road's own cross-slope under the car: camber, and the banking at this offset
     const bsl = T.bankZf ? (bankZ(T, ni, (c.off || 0) + 0.6) - bankZ(T, ni, (c.off || 0) - 0.6)) / 1.2 : 0;
-    const cross = (T.camber[ni] + bsl) * al;
+    const cross = (T.camber[ni] + bsl + kslope) * al;
     g.position.set(c.x, (zr + zf) / 2 + (c.air || 0) + 0.03 + Math.max(0, -e.sq) * 0.6, c.y);
     g.rotation.set(-(c.roll || 0) - Math.atan(cross), -c.h, e.sp - (c.pitch || 0), "YXZ");
     if(c === pl){
@@ -320,6 +332,8 @@ G3.frame = function(S){
      Without it the frame goes straight to the screen: the renderer's own ACES
      and sRGB steps (the same curve, which divides by 0.6 inside, hence the
      0.6 here), and 4x multisampling in place of FXAA, which is sharper. */
+  // the run-off, gravel, grass and kerb paint darken and gloss up in the wet with the road (weather.js eases wetVis)
+  GMAT.wet(this.wetVis || 0); KERBS3D.wet(this.wetVis || 0);
   const gr = this.grade || { exposure:1, strength:0.4, radius:0.6, threshold:1.0, knee:0.4 };
   if(PP.ready && CFG.fx !== 0 && (gr.strength >= 0.3 || CFG.fx === 2)){
     PP.render(this.scene, this.cam, gr);
