@@ -174,8 +174,17 @@ const CARGEO = {
     return E;
   },
   chipped(G, t){ const E = this.team(G, t); if(!E.bodyChipped) E.bodyChipped = this.buildBody(E.C, true); return E.bodyChipped; },
+  /* The player's own body in the cockpit view: the same car, but the halo's
+     centre pillar is a thin strut. From the driver's eye it stands under a third
+     of a metre away, and at its full thickness it would blank out a fifth of the
+     screen; two eyes see past a real one, a single lens cannot. */
+  cockpit(G, t, chipped){
+    const E = this.team(G, t), k = chipped ? "fpChipped" : "fpBody";
+    if(!E[k]) E[k] = this.buildBody(E.C, chipped, true);
+    return E[k];
+  },
 
-  buildBody(C, chipped){
+  buildBody(C, chipped, slimPillar){
     const b = this.soup();
     /* the tub: nose, monocoque, airbox and engine cover in one loft */
     const oct = (w, zb, zt, tw) => { const h = zt - zb;
@@ -232,8 +241,8 @@ const CARGEO = {
     const halo = [[1.62, 0.30, 0.66], [1.50, 0.29, 0.86], [1.30, 0.25, H - 0.015], [1.10, 0.14, H], [1.00, 0, H]];
     for(const sd of [-1, 1]) for(let i = 0; i < halo.length - 1; i++)
       this.tube(b, [halo[i][0], halo[i][1] * sd, halo[i][2]], [halo[i + 1][0], halo[i + 1][1] * sd, halo[i + 1][2]], hr, C.carbon, 6);
-    this.tube(b, [1.00, 0, H], [0.92, 0, 0.78], hr * 1.1, C.carbon, 6);
-    this.tube(b, [0.92, 0, 0.78], [0.86, 0, 0.64], hr * 1.2, C.carbon, 6);
+    this.tube(b, [1.00, 0, H], [0.92, 0, 0.78], slimPillar ? 0.008 : hr * 1.1, C.carbon, 6);
+    this.tube(b, [0.92, 0, 0.78], [0.86, 0, 0.64], slimPillar ? 0.008 : hr * 1.2, C.carbon, 6);
     this.box(b, 1.52, 0, 0.62, 0.14, 0.40, 0.10, C.body2, 0.85);                     // headrest behind the helmet
     this.box(b, 1.24, 0, 0.72, 0.05, 0.20, 0.035, C.dark);                           // visor strip (the helmet's own is in the driver mesh)
     for(const sd of [-1, 1]){
@@ -653,7 +662,7 @@ G3.carAnim = function(g, c, S, dt){
   // the bodywork crumples where it was hit; rebuilt at most a few times a second while a car is being ground along a wall
   if(chip !== P.chipped || (dv !== P.dentVer && now - (P.dentT || -9) > 0.15)){
     P.chipped = chip; P.dentVer = dv; P.dentT = now;
-    const base = chip ? CARGEO.chipped(this, c.team) : CARGEO.team(this, c.team).body;
+    const base = P.fp ? CARGEO.cockpit(this, c.team, chip) : chip ? CARGEO.chipped(this, c.team) : CARGEO.team(this, c.team).body;
     if(P.ownGeo){ P.body.geometry.dispose(); P.ownGeo = false; }
     if(c.dents && c.dents.length){ P.body.geometry = CRASH.deformed(base, c.dents); P.ownGeo = true; }
     else P.body.geometry = base;
@@ -712,7 +721,8 @@ G3.fadeOccluders = function(S, p){
     // in camera space the lens looks down -z, so a larger z is nearer the camera
     const inFront = v.z > pv.z;
     const over = Math.abs(v.x - pv.x) < oc.rx + 14 && Math.abs(v.y - pv.y) < oc.ry + 14;
-    const want = (inFront && over) ? 0.22 : 1;
+    // (from the cockpit nothing stands between you and your car)
+    const want = (inFront && over && cam !== this.camFP) ? 0.22 : 1;
     oc.fade += (want - oc.fade) * 0.12;
     const o = oc.fade;
     for(const m of oc.meshes){

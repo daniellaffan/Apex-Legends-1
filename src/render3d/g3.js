@@ -19,7 +19,8 @@ const V3 = (x, y, z) => new THREE.Vector3(x, z || 0, y);
 function cssOf(c){ return (typeof c === "string") ? c : "#888888"; }
 
 const G3 = {
-  ok:false, scene:null, rend:null, cv:null, camIso:null, camTV:null,
+  ok:false, scene:null, rend:null, cv:null, camIso:null, camTV:null, camFP:null,
+  view:"iso",              // the player's chosen view: "iso" overhead or "cockpit"
   world:null, cars:[], sun:null, built:null, wet:0, sparks:null, sparkN:0,
   mats:new Map(), texes:new Map(), dyn:[],
 
@@ -162,6 +163,8 @@ const G3 = {
     // the true isometric angle: 45 degrees round, 35.26 up
     this.camIso = new THREE.OrthographicCamera(-50, 50, 50, -50, 0.5, 6000);
     this.camTV = new THREE.PerspectiveCamera(38, 1, 0.5, 6000);
+    // the driver's eye: the halo is a quarter of a metre away, the sky domes up to seven kilometres
+    this.camFP = new THREE.PerspectiveCamera(52, 1, 0.15, 8000);
     this.resize();
     addEventListener("resize", () => this.resize());
     this.ok = true;
@@ -172,6 +175,7 @@ const G3 = {
     const w = this.cv.clientWidth || 1, h = this.cv.clientHeight || 1;
     this.rend.setSize(w, h, false);
     this.camTV.aspect = w / h; this.camTV.updateProjectionMatrix();
+    this.camFP.aspect = w / h; this.camFP.updateProjectionMatrix();
   },
 
   /* ---- geometry helpers ---- */

@@ -2161,3 +2161,20 @@ Fewer draw calls than before (the old scene was 1,460 separate baked meshes) and
 1. Watch an AI car spin: it should stop where it ends up, turn itself round, wait for traffic and drive back on, not snap back.
 2. On a street circuit, AI cars should hit walls, lose wings and wheels, and sometimes retire.
 3. Stop your own car on the grass: it should crawl off with the throttle on.
+
+## Cockpit camera (driver's eye)
+
+- **What:** press **C** (or the **CAM** touch pad) to switch between the overhead view and the cockpit. The choice is remembered (`localStorage ar26_view`). This is the only other gameplay view: the game had one overhead lens and no chase cameras, and no TV/broadcast angles were added. (The pause screen's old "T: Broadcast cameras" line is for a feature that is never switched on.)
+- **Lens:** `G3.camFP` (perspective, near 0.15 m, far 8 km for the sky domes) and `G3.cockpitCam` in `src/render3d/frame.js`. The eye is on the centre line inside the helmet (`CAR_SPEC.X(1.28)`, `Z(0.82)`), looking down the nose 3° below level. Position is bolted to the car model (bounce and all); orientation follows the car's yaw, pitch, road camber and banking in full, and half the chassis lean (`FP.ROLL`, so the head is a little steadier than the exaggerated overhead-view body roll), slerped with a 35 ms time constant. A jump over 20 m or 0.6 rad in one frame (recovery, restart) snaps. FOV is fixed (about 80° across at 16:9, never under 70° across on narrow screens), plus at most 3° with speed, eased over about a second.
+- **The car:** the player's helmet is hidden and the body is swapped for `CARGEO.cockpit` (the same body with the halo's centre pillar at r = 8 mm), which is put back on the way out. From about 0.3 m a full-size pillar covered a fifth of the screen.
+- **World:** fog as the cutscene lenses use it (near 220 m); the shadow box (±96 m) is centred 45 m up the road; rain is centred 22 m ahead; occluder fading, the overhead cutaway and the Monaco tunnel fade are off in the cockpit. Crash/DNF/podium cutscenes still take over, and a retired car goes back to the overhead view.
+- **Test:** `node --import ./scripts/asset-register.mjs scripts/cockpit-test.mjs [track] [detail]` checks eye placement, heading, FOV, banking roll, half-lean, smoothing lag (27 ms in a 25°/s sweep), teleport snap, pause hold, cutscene/retirement hand-back and a lap of frames, and prints an ASCII picture of the view by ray-casting it. The car takes about 41 % of the frame (halo front at the top, front tyres at the edges, nose at the bottom), the road either side of the 2.3° pillar is clear, and the horizon sits about 40 % down.
+- **Not measured:** GPU cost. The cockpit sees much further than the overhead lens, so on heavy worlds the frame rate may drop; tiled meshes are frustum-culled.
+
+### Visual checklist
+1. Start a race, press C on the grid: you should sit behind the halo with a thin centre pillar, the front tyres at the screen edges and the nose below the horizon. No helmet in the way.
+2. Drive a lap at full speed: the horizon should tilt through Zandvoort's banking and over kerbs, the view should never judder or swim, and the speed should feel fast but readable.
+3. Check the frame rate in the cockpit against the overhead view on Monaco, Silverstone and Singapore.
+4. Look down long straights for the edges of the world (where the built scenery stops); fog should hide them.
+5. Spin or crash: the view should follow the car, the crash cutscene should still play, and after a retirement the overhead view should come back.
+6. Press C again: back to the overhead view with the normal car (helmet back, full pillar).

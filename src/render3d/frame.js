@@ -9,11 +9,59 @@ import { WEATHER } from './weather.js';
 import { CRASH } from './crash.js';
 import { CINE } from './cine.js';
 import { CFG } from '../config/settings.js';
+import { CAR_SPEC } from '../car/spec.js';
+
+/* ---- the cockpit camera ----------------------------------------------------
+   The driver's eyes: on the car's centre line inside the helmet, a little behind
+   the front of the cockpit opening, high enough over the rim that the cockpit
+   sides sit low in the frame, looking down the nose with a slight tilt towards
+   the road. The halo's top bar runs across the top of the view. */
+const FP = {
+  EYE:new THREE.Vector3(CAR_SPEC.X(1.28), CAR_SPEC.Z(0.82), 0),
+  LOOK:new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.05, -Math.PI / 2, 0, "YXZ")),  // lens -z onto the nose (+x), 3 degrees down
+  ROLL:0.5,          // share of the cornering lean the head takes: the neck holds it a little steadier than the chassis
+  TAU:0.035,         // seconds: just enough smoothing to take the edge off, never a lag you can feel
+  e:new THREE.Euler(0, 0, 0, "YXZ"), q:new THREE.Quaternion(), v:new THREE.Vector3(),
+};
+
+/* The cockpit lens, once a frame. Its position is bolted to the car (the eye
+   point carried by the car model's own matrix, bounce and all), so the nose and
+   the halo never swim against the view. Its heading, pitch and roll are the
+   car's, eased over a few hundredths of a second so a kerb strike reads as a
+   jolt rather than a judder; a jump bigger than any car can make in a frame (a
+   recovery to the track, a restart) is taken at once. */
+G3.cockpitCam = function(S, p, e){
+  const cam = this.camFP, g = e.g;
+  g.updateMatrixWorld();
+  const pos = FP.v.copy(FP.EYE).applyMatrix4(g.matrixWorld);
+  const r = e.fpRot;
+  const want = FP.q.setFromEuler(FP.e.set(r[0], r[1], r[2], "YXZ")).multiply(FP.LOOK);
+  const t = S.clock || 0, dt = clamp(t - (this.fpT == null ? t : this.fpT), 0, 0.1);
+  this.fpT = t;
+  const jump = !this.fpQ || cam.position.distanceToSquared(pos) > 400 || this.fpQ.angleTo(want) > 0.6 || this.fpUid !== S.uid;
+  if(jump){ this.fpQ = (this.fpQ || new THREE.Quaternion()).copy(want); this.fpUid = S.uid; }
+  else this.fpQ.slerp(want, 1 - Math.exp(-dt / FP.TAU));
+  cam.position.copy(pos);
+  cam.quaternion.copy(this.fpQ);
+  /* A fixed lens, sized to the screen: about 80 degrees across a 16:9 view,
+     never under 70 across on a narrow or upright one. Speed widens it by
+     only 3 degrees, and slowly, which helps the sense of pace without the
+     tunnel-vision zoom that makes people queasy. */
+  const asp = cam.aspect || 1, D = Math.PI / 180;
+  const base = clamp(Math.max(50, 2 * Math.atan(Math.tan(35 * D) / asp) / D), 50, 84);
+  this.fpFov = lerp(this.fpFov || base, base + 3 * clamp((p.speed || 0) / 90, 0, 1), jump ? 1 : 1 - Math.exp(-dt / 1.2));
+  if(Math.abs(cam.fov - this.fpFov) > 1e-3){ cam.fov = this.fpFov; cam.updateProjectionMatrix(); }
+  cam.updateMatrixWorld();
+  return cam;
+};
 
 /* ---- the frame --------------------------------------------------------- */
 G3.frame = function(S){
   const T = S.track;
   if(this.built !== S.uid || this.cars.length !== S.cars.length) this.build(S);
+  // the cockpit view, when chosen and while there is a car to sit in (cutscenes keep their own cameras)
+  const pl = S.player;
+  const fp = this.view === "cockpit" && !S.cine && !(R.tv && S.tv) && !!pl && !pl.dnf && !pl.recovering && !pl.recovered;
 
   for(const e of this.cars){
     const c = e.c, g = e.g;
@@ -40,6 +88,14 @@ G3.frame = function(S){
     const cross = (T.camber[ni] + bsl) * al;
     g.position.set(c.x, (zr + zf) / 2 + (c.air || 0) + 0.03 + Math.max(0, -e.sq) * 0.6, c.y);
     g.rotation.set(-(c.roll || 0) - Math.atan(cross), -c.h, e.sp - (c.pitch || 0), "YXZ");
+    if(c === pl){
+      // the driver's head: the road's camber and banking in full, the chassis lean in part
+      e.fpRot = [-(c.roll || 0) * FP.ROLL - Math.atan(cross), -c.h, e.sp - (c.pitch || 0)];
+      // in the cockpit the helmet is where the lens is, and the halo pillar goes thin
+      const P = g.userData.parts;
+      if(P && !!P.fp !== fp){ P.fp = fp; P.dentVer = NaN; P.dentT = -9; P.drv.visible = !fp; }
+      this.fpCar = e;
+    }
     // steering, wheels, flaps, lights, damage and the pit stop
     const A = g.userData.anim;
     const dtc = A.clock == null ? 0 : clamp((S.clock || 0) - A.clock, 0, 0.05); A.clock = S.clock || 0;
@@ -152,6 +208,24 @@ G3.frame = function(S){
     if(this.scene.fog){ this.scene.fog.near = 220; this.scene.fog.far = 220 + this.fogSpan * (1 - this.wet * 0.5); }
     this.cam = cam;
     WEATHER.step(this, S, p.x, p.y, p.z, 60, 45, 8);
+  } else if(fp && this.fpCar && this.fpCar.fpRot){
+    const cam = this.cockpitCam(S, p, this.fpCar);
+    this.cam = cam;
+    // the haze as the cutscene lenses have it, which is how the worlds were judged from the ground
+    if(this.scene.fog){ this.scene.fog.near = 220; this.scene.fog.far = 220 + this.fogSpan * (1 - this.wet * 0.5); }
+    const hx = Math.cos(p.h), hy = Math.sin(p.h);
+    // rain and spray round what is ahead of you, not round the car
+    WEATHER.step(this, S, p.x + hx * 22, p.y + hy * 22, p.z, 45, 30, 8);
+    if(this.sun){
+      /* The shadows that matter are the ones on the road ahead: centre the shadow
+         box 45 m up the road, big enough to reach the car and well past the apex. */
+      const ext = 96, sc = this.sun.shadow.camera;
+      if(sc.right !== ext){ sc.left = -ext; sc.right = ext; sc.top = ext; sc.bottom = -ext; sc.updateProjectionMatrix(); }
+      const tx = p.x + hx * 45, ty = p.y + hy * 45, tz = p.z;
+      this.sun.target.position.set(tx, tz, ty); this.sun.target.updateMatrixWorld();
+      const sa = T.sun == null ? 0.9 : T.sun;
+      this.sun.position.set(tx + Math.cos(sa) * 300, tz + 420 * (T.def.sunH || 1), ty + Math.sin(sa) * 300);
+    }
   } else if(R.tv && S.tv){
     const cam = this.camTV;
     cam.position.set(S.tv.x, S.tv.z, S.tv.y);

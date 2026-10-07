@@ -1,4 +1,4 @@
-import { $, TAU, clamp, fmtTime, lerp } from '../config/util.js';
+import { $, TAU, clamp, fmtTime, lerp, store } from '../config/util.js';
 import { TEAMS } from '../config/teams.js';
 import { PARTS, TYRES } from '../car/parts.js';
 import { TRACKS } from '../tracks/index.js';
@@ -153,6 +153,17 @@ function recover(){
   // back on the road, but the car is as broken as it was: only the pit crew fix damage
   c.place(i, T.line[i]); c.vx = Math.cos(c.h) * 12; c.vy = Math.sin(c.h) * 12;
   showToast("Recovered to the track");
+}
+
+/* C (or the CAM pad): the overhead view or the driver's eye. The cockpit needs
+   the 3D renderer; the choice is remembered between sessions. */
+G3.view = store("view") === "cockpit" ? "cockpit" : "iso";
+function cycleView(){
+  if(!S) return;
+  if(!G3.ok || G3.lost){ showToast("The cockpit view needs the 3D renderer"); return; }
+  G3.view = G3.view === "cockpit" ? "iso" : "cockpit";
+  store("view", G3.view);
+  showToast(G3.view === "cockpit" ? "Cockpit view" : "Overhead view", 1.4);
 }
 
 function playerInput(c, dt){
@@ -564,4 +575,4 @@ function loop(t){
 
 function setPaused(v){ paused = v; }
 function setS(v){ S = v; }
-export { S, endSession, loop, paused, recover, requestPit, setPaused, setS, startSession, update, updateStatus };
+export { S, cycleView, endSession, loop, paused, recover, requestPit, setPaused, setS, startSession, update, updateStatus };
