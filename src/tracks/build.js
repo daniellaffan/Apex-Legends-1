@@ -1,3 +1,4 @@
+import { addKerbs } from './kerbs.js';
 import { RAD, TAU, angWrap, clamp, dist, lerp, mulberry } from '../config/util.js';
 import { TEAMS } from '../config/teams.js';
 import { bankZ, ELEV_VISUAL } from './shared.js';
@@ -541,6 +542,7 @@ function buildTrack(def){
     T.tecpro = (i, sd) => (sd >= 0 ? T.roR[i] : T.roL[i]) > base + 2.5;
   }
 
+  addKerbs(T);
   return T;
 }
 

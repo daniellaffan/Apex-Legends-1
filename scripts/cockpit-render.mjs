@@ -34,10 +34,14 @@ G3.camFP = new THREE.PerspectiveCamera(52, W / H, 0.15, 8000);
 const team = TEAMS.find(t => t.id === 'mcl') || TEAMS[0], car = new Car(team, team.drivers[0], 0, T);
 const S = { track: T, uid: 1, cars: [car], clock: 0, player: car, weather: { wet: 0 }, wet: 0, rain: 0, state: 'run', mode: 'race', laps: 5 };
 G3.build(S);
+/* HOOKS=a.mjs,b.mjs: modules exporting install(G3, S, THREE) (after the build) and frame(G3, S, THREE) (every frame),
+   to try a ground system in the picture before it is wired into the game */
+const HOOKS = [];
+for (const h of (process.env.HOOKS || '').split(',').filter(Boolean)) { const m = await import(new URL('file://' + (await import('node:path')).resolve(h)).href); HOOKS.push(m); if (m.install) await m.install(G3, S, THREE); }
 const i0 = +nodeArg % T.n;
 car.place(i0, T.line[i0]); car.vx = Math.cos(car.h) * 70; car.vy = Math.sin(car.h) * 70; car.ai = false; car.steer = +steerArg; car.pos = 7; car.lap = 2; car.lapStart = 0;
 G3.view = 'cockpit';
-for (let k = 0; k < 40; k++) { S.clock += 1 / 60; G3.frame(S); }
+for (let k = 0; k < 40; k++) { S.clock += 1 / 60; G3.frame(S); for (const m of HOOKS) if (m.frame) m.frame(G3, S, THREE); }
 const cam = G3.camFP;
 /* CAM=front|rear: stand outside, low, at the front-left or rear-left corner, looking at the suspension instead */
 if (process.env.CAM) {
