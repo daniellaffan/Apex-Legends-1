@@ -236,6 +236,16 @@ class Car {
     }
     else S.toast(this.drv.last + " is out — " + this.retiredBy.toLowerCase());
   }
+  /* How hard the kerb under the outer wheels shakes the car (0 if there is none):
+     a painted kerb a little, a ridged one fully, the sausage behind it with a jolt.
+     The outer wheels run about 0.8 m out from the car's centre. src/tracks/kerbs.js */
+  kerbRattle(T, off){
+    const a = Math.abs(off) + 0.8 - T.half;
+    if(a < 0.05 || a > 2.1) return 0;
+    if(!T.kerbKind) return 1;
+    const k = T.kerbKind(this.node, off);
+    return k === 0 ? 0 : k === 1 ? 0.45 : (k === 3 && a > 1.55) ? 1.3 : 1;
+  }
   place(node, lateral){
     const T = this.T, i = ((node % T.n) + T.n) % T.n;
     this.x = T.x[i] + T.nx[i] * lateral; this.y = T.y[i] + T.ny[i] * lateral;
@@ -455,8 +465,9 @@ class Car {
         this.wallHit = 1; if(!this.ai) S.shake = Math.min(1, S.shake + into * 0.03);
       }
     }
-    // kerb rattle
-    this.kerbShake = surf === SURF.kerb ? 1 : Math.max(0, this.kerbShake - dt * 4);
+    // kerb rattle: only where a kerb is drawn, and by its kind (the grip stays the kerb band's, as before)
+    const rattle = surf === SURF.kerb ? this.kerbRattle(T, this.off) : 0;
+    this.kerbShake = rattle > 0 ? rattle : Math.max(0, this.kerbShake - dt * 4);
 
     // battery + tyres
     if(boosting) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
@@ -545,7 +556,8 @@ class Car {
     // wear, heat, battery — driven by how hard the corner is
     const lat = Math.abs(T.lcurv[j]) * v * v;
     this.slide = lerp(this.slide, clamp(lat / (GRIP * 1.05) - 0.72, 0, 1), 0.18);
-    this.kerbShake = Math.abs(off) > T.half - 0.8 ? 1 : Math.max(0, this.kerbShake - dt * 4);
+    const rattle = this.kerbRattle(T, off);
+    this.kerbShake = rattle > 0 ? rattle : Math.max(0, this.kerbShake - dt * 4);
     if(this.boost > 0 && this.batt > 0.01) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
     else this.batt = clamp(this.batt + dt * (this.brk > 0.2 ? 0.20 : 0.035), 0, 1);
     const load = tyreLoad(lat, this.brk);
