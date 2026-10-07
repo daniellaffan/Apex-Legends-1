@@ -13,6 +13,10 @@ import { CAR_SPEC } from '../car/spec.js';
 import { COCKPIT } from './cockpit.js';
 import { GMAT } from './ground/materials.js';
 import { KERBS3D } from './ground/kerbs3d.js';
+import { GRAVEL } from './ground/gravel.js';
+import { GRASS } from './ground/grass.js';
+// where the near-ground detail centres, reused every frame (game coordinates)
+const GV = { fp:false, x:0, y:0, z:0, hx:1, hy:0, dt:0 }, GS = { fp:false, x:0, y:0, z:0, hx:1, hy:0, dt:0 }, GDIR = new THREE.Vector3();
 
 /* ---- the cockpit camera ----------------------------------------------------
    The driver's eyes: on the car's centre line at the back of the helmet's
@@ -333,7 +337,26 @@ G3.frame = function(S){
      and sRGB steps (the same curve, which divides by 0.6 inside, hence the
      0.6 here), and 4x multisampling in place of FXAA, which is sharper. */
   // the run-off, gravel, grass and kerb paint darken and gloss up in the wet with the road (weather.js eases wetVis)
-  GMAT.wet(this.wetVis || 0); KERBS3D.wet(this.wetVis || 0);
+  GMAT.wet(this.wetVis || 0); KERBS3D.wet(this.wetVis || 0); GRASS.wet(this.wetVis || 0);
+  /* The ground near the eye: pebbles and flying gravel in the traps (overhead too, larger), and
+     grass in the cockpit only, where a blade is more than a pixel. Paused, S.clock stands still and so do they. */
+  if(p){
+    const t = S.clock || 0, gdt = this.gravT == null ? 0 : Math.min(Math.max(t - this.gravT, 0), 0.05); this.gravT = t;
+    const cock = this.cam === this.camFP;
+    if(GRAVEL.on){
+      const hx = Math.cos(p.h), hy = Math.sin(p.h);
+      GV.fp = cock; GV.hx = hx; GV.hy = hy; GV.dt = gdt; GV.z = p.z;
+      GV.x = cock ? p.x + hx * GRAVEL.AHEAD : p.x; GV.y = cock ? p.y + hy * GRAVEL.AHEAD : p.y;
+      try{ GRAVEL.frame(this, S, GV); }catch(e){ console.warn("gravel frame", e.message); GRAVEL.dispose(); }
+    }
+    GS.fp = cock; GS.dt = gdt;
+    if(cock){
+      const cp = this.camFP.position; this.camFP.getWorldDirection(GDIR);
+      const L = Math.hypot(GDIR.x, GDIR.z) || 1;
+      GS.x = cp.x; GS.y = cp.z; GS.z = cp.y; GS.hx = GDIR.x / L; GS.hy = GDIR.z / L;
+    }
+    try{ GRASS.frame(this, S, GS); }catch(e){ console.warn("grass frame", e.message); GRASS.dispose(); }
+  }
   const gr = this.grade || { exposure:1, strength:0.4, radius:0.6, threshold:1.0, knee:0.4 };
   if(PP.ready && CFG.fx !== 0 && (gr.strength >= 0.3 || CFG.fx === 2)){
     PP.render(this.scene, this.cam, gr);

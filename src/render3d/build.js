@@ -26,6 +26,8 @@ import { CFG } from '../config/settings.js';
 import { FIELD } from './ground/field.js';
 import { GMAT } from './ground/materials.js';
 import { KERBS3D } from './ground/kerbs3d.js';
+import { GRAVEL } from './ground/gravel.js';
+import { GRASS } from './ground/grass.js';
 
 G3.tileSplit = function(root, cell, minTris){
   const jobs = [];
@@ -125,7 +127,7 @@ G3.build = function(S){
   const T = S.track, P = T.pal, n = T.n, w = T.half, ro = T.runoffMax, wall = T.barrier === "wall";
   // the boundary is now a pair of curves, not a number
   const roR = i => T.roR[i], roL = i => T.roL[i];
-  KERBS3D.dispose();
+  KERBS3D.dispose(); GRAVEL.dispose(); GRASS.dispose();
   if(this.world){
     this.world.traverse(o => {
       if(o.geometry) o.geometry.dispose();
@@ -325,6 +327,9 @@ G3.build = function(S){
   this.add(road, FIELD.ribbon(T, -w, w, { lift, lane:1.5, sub:2, colour:GMAT.roadColourOf(T) }), this.roadMat);
   // the kerbs, as solids: ridged where the corner is slow, painted flat where it is fast, sausages behind the slowest apexes (ground/kerbs3d.js)
   try{ this.world.add(KERBS3D.build(this, T, P)); }catch(e){ console.warn("kerbs3d", e.message); }
+  // the traps' pebbles, the gravel and sand the cars throw and the wind moves (ground/gravel.js), and grass round the cockpit (ground/grass.js)
+  try{ GRAVEL.build(this, S); }catch(e){ console.warn("gravel", e.message); }
+  try{ GRASS.build(this, S); }catch(e){ console.warn("grass", e.message); }
   // the white lines
   this.add(road, this.strip(T, w - 0.45, w - 0.05, lift + 0.025, 9), this.mat(P.line));
   this.add(road, this.strip(T, -(w - 0.05), -(w - 0.45), lift + 0.025, 9), this.mat(P.line));
