@@ -42,6 +42,7 @@ const CAP = PAGE * NP;       // 9408 instances x 8 triangles: 75k, under the 80k
 const GEN_MS = 0.08;         // milliseconds a frame for making new chunks (at least one is made when any is due)
 const BAND = 8;              // a chunk's width across the verge, metres
 const KEEP = 600;            // chunks kept generated before the least recently seen are dropped
+const POOL = 400;            // dropped chunks kept for their buffers, so a lap does not make ~60 MB of garbage
 const CELL = 24;             // the node grid's cell, metres
 
 // the fraction of tufts drawn at d metres from the camera (the shader has the same curve)
@@ -141,7 +142,7 @@ uniform float uTime; uniform float uWind; uniform vec2 uWindDir;`)
 const GRASS = {
   mesh:null, geo:null, mat:null, rank:null, T:null,
   U:{ time:{ value:0 }, wind:{ value:0.22 }, windDir:{ value:new THREE.Vector2(0.8, 0.6) } },
-  chunks:new Map(), runsC:null, grid:null, others:null, frameNo:0, gen:0,
+  chunks:new Map(), pool:new Map(), pooled:0, runsC:null, grid:null, others:null, frameNo:0, gen:0,
   live:[], shown:[], ord:[], pageUsed:new Uint8Array(NP), free:NP, dLo:0, dHi:-1, stats:{ count:0, chunks:0, gen:0, uploads:0, ms:0 },
 
   /* once per G3.build, after the ground is laid: what about the lap does not
@@ -359,7 +360,7 @@ const GRASS = {
     const B = this.bk; B.fill(0);
     for(let k = 0; k < N; k++) B[Math.min(255, (scr[k * 10 + 9] * 256) | 0) + 1]++;
     for(let k = 1; k < 257; k++) B[k] += B[k - 1];
-    const d = new Float32Array(N * 10), rank = new Float32Array(N);
+    const ch = this.take((N + 63) & ~63), d = ch.d, rank = ch.rank;
     for(let k = 0; k < N; k++){
       const t = B[Math.min(255, (scr[k * 10 + 9] * 256) | 0)]++;
       for(let e = 0; e < 10; e++) d[t * 10 + e] = scr[k * 10 + e];
@@ -369,7 +370,29 @@ const GRASS = {
     let r2 = 0;
     for(let k = 0; k < N; k++) r2 = Math.max(r2, (d[k * 10 + 3] - cx) ** 2 + (d[k * 10 + 5] - cy) ** 2);
     this.stats.gen++;
-    return { n:N, d, rank, x:cx, y:cy, r:Math.sqrt(r2) + 0.3, seen:0, pages:null, np:0, shown:0, want:0, liveFr:0 };
+    ch.n = N; ch.x = cx; ch.y = cy; ch.r = Math.sqrt(r2) + 0.3; ch.seen = 0; ch.np = 0; ch.shown = 0; ch.want = 0; ch.liveFr = 0;
+    return ch;
+  },
+
+  /* A chunk's storage for cap tufts (a multiple of 64): one a dropped chunk left
+     behind if there is one. Some 5000 chunks are made in a lap and only KEEP are
+     kept, so fresh typed arrays for each would be tens of megabytes of garbage a
+     lap, and the collector's pauses (a millisecond or two) were the grass's only
+     slow frames. */
+  take(cap){
+    const l = this.pool.get(cap);
+    if(l && l.length){ this.pooled--; return l.pop(); }
+    return { n:0, d:new Float32Array(cap * 10), rank:new Float32Array(cap), cap, x:0, y:0, r:0, seen:0,
+      pages:cap ? new Int16Array(cap / PAGE) : null, np:0, shown:0, want:0, liveFr:0 };
+  },
+  // drop the chunks not seen for a while (Map.forEach with a bound function: no allocation)
+  evict(ch, k){
+    const G = GRASS;
+    if(G.frameNo - ch.seen <= 120 || ch.np) return;
+    G.chunks.delete(k);
+    if(G.pooled >= POOL) return;
+    let l = G.pool.get(ch.cap); if(!l){ l = []; G.pool.set(ch.cap, l); }
+    l.push(ch); G.pooled++;
   },
 
   // FIELD.locate's answer when the nearest node is already known (one reused object)
@@ -414,7 +437,7 @@ const GRASS = {
     ord.sort(this.byDist);
     this.place(L, fr);
     // forget the chunks not seen for a while once there are too many
-    if(this.chunks.size > KEEP) for(const [k, ch] of this.chunks) if(fr - ch.seen > 120 && !ch.np) this.chunks.delete(k);
+    if(this.chunks.size > KEEP && fr % 30 === 0) this.chunks.forEach(this.evict);
     this.stats.count = m.count; this.stats.chunks = L; this.stats.ms = this.now() - t0;
   },
 
@@ -551,7 +574,7 @@ const GRASS = {
     if(this.geo) this.geo.dispose();
     if(this.mat) this.mat.dispose();
     this.mesh = this.geo = this.mat = this.rank = null; this.T = null; this.runsC = null; this.grid = null; this.others = null;
-    this.chunks.clear(); this.live.length = 0; this.shown.length = 0; this.pageUsed.fill(0); this.free = NP; this.frameNo = 0;
+    this.chunks.clear(); this.pool.clear(); this.pooled = 0; this.live.length = 0; this.shown.length = 0; this.pageUsed.fill(0); this.free = NP; this.frameNo = 0;
   },
 
   gkey(cx, cy){ return cx * 65536 + cy; },
