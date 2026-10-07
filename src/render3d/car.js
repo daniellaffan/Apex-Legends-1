@@ -156,6 +156,28 @@ const CARGEO = {
     }
     return { top:0.3, w:0.1 };
   },
+  /* How far out the tub's surface is at d along the car and z up: its eight-sided
+     section, full width in the middle band, narrowing below to the floor and above
+     to the top. 0 above or below it. */
+  tubHalf(d, z){
+    const T = this.TUB;
+    d = clamp(d, T[0][0], T[T.length - 1][0]);
+    let i = 0; while(i < T.length - 2 && d > T[i + 1][0]) i++;
+    const f = (d - T[i][0]) / (T[i + 1][0] - T[i][0]), L = k => lerp(T[i][k], T[i + 1][k], f);
+    const w = L(1), zb = L(2), zt = L(3), tw = L(4), h = zt - zb;
+    if(z < zb || z > zt) return 0;
+    if(z < zb + h * 0.28) return w * (0.72 + 0.28 * (z - zb) / (h * 0.28));
+    if(z < zb + h * 0.72) return w;
+    return w - w * (1 - tw) * (z - zb - h * 0.72) / (h * 0.28);
+  },
+  // a suspension pick-up on the tub: pulled in (and down, below the top) until it sits just inside the surface
+  onTub(d, y, z){
+    const T = this.TUB; let i = 0; const dd = clamp(d, T[0][0], T[T.length - 1][0]);
+    while(i < T.length - 2 && dd > T[i + 1][0]) i++;
+    const f = (dd - T[i][0]) / (T[i + 1][0] - T[i][0]), zb = lerp(T[i][2], T[i + 1][2], f), zt = lerp(T[i][3], T[i + 1][3], f);
+    const zz = clamp(z, zb + 0.03, zt - 0.03);
+    return [d, Math.min(y, this.tubHalf(d, zz) - 0.012), zz];
+  },
   palette(G, t){
     const c = x => G.col(x);
     return {
@@ -254,17 +276,20 @@ const CARGEO = {
     }
     // the two front-wing pylons under the nose
     for(const sd of [-1, 1]) this.plateY(b, [[-0.92, 0.10], [-0.62, 0.10], [-0.62, 0.17], [-0.90, 0.14]], 0.07 * sd, 0.02, C.carbon);
-    /* suspension: wishbones and push/pull rods at each corner, and brake-duct fairings */
+    /* suspension: wishbones and push/pull rods at each corner, and brake-duct
+       fairings. The inboard ends are pick-ups on the tub (onTub), so every arm
+       runs into the bodywork instead of stopping short of it in mid air. */
     const R2 = CAR_SPEC.R, yf = R2.trackF / 2, yr = R2.trackR / 2;
     for(const sd of [-1, 1]){
       const ar = (p, q, r) => this.tube(b, [p[0], p[1] * sd, p[2]], [q[0], q[1] * sd, q[2]], r || 0.016, C.black, 4);
+      const tub = (d, y, z) => this.onTub(d, y, z);
       const uf = [0.0, yf - 0.10, 0.44], lf = [0.02, yf - 0.10, 0.17];
-      ar([-0.18, 0.16, 0.46], uf); ar([0.22, 0.20, 0.48], uf); ar([-0.22, 0.16, 0.20], lf); ar([0.26, 0.20, 0.22], lf);
-      ar([0.02, yf - 0.14, 0.20], [-0.05, 0.20, 0.52], 0.02);
+      ar(tub(-0.18, 0.16, 0.42), uf); ar(tub(0.22, 0.20, 0.46), uf); ar(tub(-0.22, 0.16, 0.20), lf); ar(tub(0.26, 0.20, 0.22), lf);
+      ar([0.02, yf - 0.14, 0.20], tub(-0.05, 0.20, 0.44), 0.02);
       this.box(b, 0.08, (yf - 0.20) * sd, 0.26, 0.26, 0.06, 0.18, C.body2);
       const ur = [3.40, yr - 0.14, 0.44], lr = [3.40, yr - 0.14, 0.17];
-      ar([3.10, 0.20, 0.44], ur); ar([3.62, 0.18, 0.42], ur); ar([3.05, 0.22, 0.18], lr); ar([3.65, 0.20, 0.18], lr);
-      ar([3.40, yr - 0.18, 0.42], [3.10, 0.20, 0.22], 0.02);
+      ar(tub(3.10, 0.20, 0.44), ur); ar(tub(3.62, 0.18, 0.40), ur); ar(tub(3.05, 0.22, 0.18), lr); ar(tub(3.65, 0.20, 0.20), lr);
+      ar([3.40, yr - 0.18, 0.42], tub(3.10, 0.20, 0.22), 0.02);
     }
     return this.geo(b);
   },

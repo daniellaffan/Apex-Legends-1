@@ -38,7 +38,15 @@ const i0 = +nodeArg % T.n;
 car.place(i0, T.line[i0]); car.vx = Math.cos(car.h) * 70; car.vy = Math.sin(car.h) * 70; car.ai = false; car.steer = +steerArg; car.pos = 7; car.lap = 2; car.lapStart = 0;
 G3.view = 'cockpit';
 for (let k = 0; k < 40; k++) { S.clock += 1 / 60; G3.frame(S); }
-const cam = G3.camFP; cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+const cam = G3.camFP;
+/* CAM=front|rear: stand outside, low, at the front-left or rear-left corner, looking at the suspension instead */
+if (process.env.CAM) {
+  const g0 = G3.cars.find(e => e.c === car).g; g0.updateMatrixWorld(true);
+  const rear = process.env.CAM === 'rear', at = new THREE.Vector3(rear ? -1.4 : 1.4, 0.35, 0).applyMatrix4(g0.matrixWorld);
+  cam.position.copy(new THREE.Vector3(rear ? -3.4 : 3.4, 1.1, -2.2).applyMatrix4(g0.matrixWorld)); cam.fov = 40; cam.lookAt(at);
+  for (const o of g0.children) if (o.name === 'cockpit') o.visible = false;
+}
+cam.updateMatrixWorld(); cam.updateProjectionMatrix();
 
 /* ---- the rasteriser ---- */
 const col = new Float32Array(W * H * 3), zb = new Float32Array(W * H).fill(1e9);
