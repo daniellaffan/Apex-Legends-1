@@ -59,7 +59,7 @@ const msPer = (performance.now() - t0) / 30;
 let c = lens();
 check(c === G3.camFP, 'cockpit lens in use');
 check(!P.drv.visible && P.fp, 'helmet hidden, cockpit flag on the body');
-check(P.body.geometry !== normalBody, 'slim-pillar body swapped in');
+check(P.body.geometry !== normalBody, 'open-cockpit body (no solid pillar, no visor strip) swapped in');
 const eyeW = new THREE.Vector3(G3.camFP.position.x, G3.camFP.position.y, G3.camFP.position.z);
 const eyeL = g.worldToLocal(eyeW.clone());
 check(Math.abs(eyeL.z) < 1e-3, `eye on the centre line (lateral ${eyeL.z.toFixed(4)} m)`);
@@ -73,8 +73,8 @@ console.log(`       frame() in Node: ${msPer.toFixed(2)} ms (CPU only, no GPU)`)
 
 /* 3. what the driver sees: rays through a 72 x 30 grid; # car, . road/kerb, - everything else, ' ' sky */
 {
-  const carMeshes = []; g.traverse(o => { if (o.isMesh && o.visible) carMeshes.push(o); });
-  const world = []; const mine = new Set(carMeshes); G3.world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && o.visible && !mine.has(o)) world.push(o); });
+  const carMeshes = [], seeThrough = []; g.traverse(o => { if (o.isMesh && o.visible) (o.material.transparent ? seeThrough : carMeshes).push(o); });
+  const world = []; const mine = new Set(carMeshes.concat(seeThrough)); G3.world.traverse(o => { if (o.isMesh && !o.isInstancedMesh && o.visible && !mine.has(o)) world.push(o); });
   const rc = new THREE.Raycaster(); rc.near = 0.15; rc.far = 400;
   const W = 72, H = 30; let carPx = 0, centreCar = 0, centreN = 0, pillarCols = 0, rows = [];
   g.updateMatrixWorld(true); G3.world.updateMatrixWorld(true);
@@ -88,8 +88,8 @@ console.log(`       frame() in Node: ${msPer.toFixed(2)} ms (CPU only, no GPU)`)
       let ch = ' ';
       if (hc && (!hw || hc.distance < hw.distance)) { ch = '#'; carPx++; }
       else if (hw) ch = hw.point.y < T.z[car.node] + 1.0 && hw.distance < 400 ? '.' : '-';
-      // the road ahead, either side of the pillar: the lower middle of the frame
-      if (Math.abs(nd.x) < 0.4 && Math.abs(nd.x) > 0.08 && nd.y < 0.05 && nd.y > -0.35) { centreN++; if (ch === '#') centreCar++; }
+      // the road ahead, either side of the pillar: the band between the horizon and the nose
+      if (Math.abs(nd.x) < 0.4 && Math.abs(nd.x) > 0.08 && nd.y < 0.12 && nd.y > -0.12) { centreN++; if (ch === '#') centreCar++; }
       if (y === Math.round(H * 0.4) && ch === '#' && Math.abs(nd.x) < 0.2) pillarCols++;
       row += ch;
     }
@@ -100,7 +100,7 @@ console.log(`       frame() in Node: ${msPer.toFixed(2)} ms (CPU only, no GPU)`)
   const share = carPx / (W * H), mid = centreCar / centreN;
   const pillarDeg = pillarCols * 2 * Math.atan(Math.tan(G3.camFP.fov * Math.PI / 360) * 16 / 9) * 180 / Math.PI / W;
   console.log(`       own car fills ${(share * 100).toFixed(1)}% of the screen, ${(mid * 100).toFixed(1)}% of the road ahead beside the pillar; pillar about ${pillarDeg.toFixed(1)} deg wide`);
-  check(share > 0.15 && share < 0.45, 'the nose, front tyres and halo are in view without walling it off');
+  check(share > 0.30 && share < 0.58, 'the halo, nose, front tyres, wheel and cockpit frame the view without walling it off');
   check(mid < 0.10, 'the road ahead is clear either side of the halo pillar');
   check(pillarDeg < 4.5, 'the halo pillar is a thin line');
 }
@@ -137,10 +137,52 @@ console.log(`       frame() in Node: ${msPer.toFixed(2)} ms (CPU only, no GPU)`)
   car.roll = 0;
 }
 
+/* 5b. a spin from the cockpit: the view turns with the car, no snaps, no look-into-the-corner on top */
+{
+  put(300 % T.n, null, 60); car.ai = false; car.steer = 0;
+  for (let k = 0; k < 30; k++) step(1 / 60);
+  car.spinT = 2; car.spinV = 5.5;
+  let maxErr = 0, maxStep = 0, maxLook = 0, prev = G3.camFP.quaternion.clone();
+  for (let k = 0; k < 90; k++) {
+    car.h += car.spinV / 60; car.spinV *= Math.pow(0.5, 1 / 60); step(1 / 60); c = lens();
+    const yaw = Math.atan2(fwd.z, fwd.x); let d = Math.abs(yaw - Math.atan2(Math.sin(car.h), Math.cos(car.h))); d = Math.min(d, 2 * Math.PI - d);
+    maxErr = Math.max(maxErr, d); maxStep = Math.max(maxStep, c.quaternion.angleTo(prev)); prev.copy(c.quaternion); maxLook = Math.max(maxLook, Math.abs(G3.fpLook || 0));
+  }
+  car.spinT = 0; car.spinV = 0;
+  check(c === G3.camFP && maxErr < 0.2, `a 5.5 rad/s spin: the view follows the car (worst lag ${(maxErr * 57.3).toFixed(1)} deg, biggest frame-to-frame turn ${(maxStep * 57.3).toFixed(1)} deg)`);
+  check(maxStep < 0.2, 'no snap in the middle of a spin');
+  check(maxLook < 0.03, `no look-into-the-corner added to a spin (${(maxLook * 57.3).toFixed(1)} deg)`);
+}
+
+/* 5c. the tyres: at 300 km/h they still visibly roll forwards (no strobing past the markings' spacing) */
+{
+  put(100, null, 84); for (let k = 0; k < 5; k++) step(1 / 60);
+  const A = g.userData.anim, s0 = A.spinF; step(1 / 60);
+  let d = A.spinF - s0; if (d < 0) d += 2 * Math.PI;
+  check(d > 0.05 && d <= 0.3 + 1e-9, `front tyre turns ${d.toFixed(2)} rad a frame at 300 km/h (forwards, under the 0.39 rad strobe limit of its markings)`);
+}
+
+/* 5d. the steering wheel: clockwise from the driver's seat for a right turn, less lock at speed */
+{
+  const K = P.cockpit;
+  check(!!K && K.root.visible, 'the cockpit (wheel, gloves, well) is built and showing');
+  const grip = new THREE.Vector3();
+  const rightGripY = () => { K.turn.updateMatrixWorld(true); grip.set(0.13, 0, 0).applyMatrix4(K.turn.matrixWorld).applyMatrix4(G3.camFP.matrixWorldInverse); return grip.y; };
+  put(150, null, 12); car.steer = 0; for (let k = 0; k < 30; k++) step(1 / 60);
+  const y0 = rightGripY(), r0 = K.turn.rotation.z;
+  car.steer = 1; for (let k = 0; k < 40; k++) step(1 / 60);
+  const slowTurn = Math.abs(K.turn.rotation.z - r0);
+  check(rightGripY() < y0 - 0.02, `steering right drops the right-hand grip (clockwise from the seat), ${(slowTurn * 57.3).toFixed(0)} deg at 43 km/h`);
+  put(150, null, 85); car.steer = 1; for (let k = 0; k < 40; k++) step(1 / 60);
+  const fastTurn = Math.abs(K.turn.rotation.z);
+  check(fastTurn < slowTurn * 0.6, `full input at 306 km/h turns it only ${(fastTurn * 57.3).toFixed(0)} deg`);
+  car.steer = 0; for (let k = 0; k < 40; k++) step(1 / 60);
+}
+
 /* 6. paused (clock still): the view holds and nothing drifts */
 {
   const q0 = G3.camFP.quaternion.clone(); step(0); step(0);
-  check(G3.camFP.quaternion.angleTo(q0) < 1e-6, 'paused: the view holds');
+  check(G3.camFP.quaternion.angleTo(q0) < 1e-6, 'paused: the view holds (no buzz either)');
 }
 
 /* 7. a cutscene or a retirement takes the camera; back to the overhead view puts the car back */

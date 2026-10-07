@@ -607,4 +607,10 @@ class Car {
   }
 }
 
-export { BRAKE, Car, DRAG, GRIP, LAUNCH_HI, LAUNCH_LO, VMAX, tyreGripK, tyreLoad };
+// the engine's revs from the road speed, through eight gears 42 km/h apart (the HUD's tacho and the wheel's shift lights)
+function rpmOfCar(c){
+  const kph = c.speed * 3.6, gear = clamp(Math.ceil(kph / 42), 1, 8);
+  return 4200 + clamp((kph - (gear - 1) * 42) / 42, 0, 1) * 9200;
+}
+
+export { BRAKE, Car, DRAG, GRIP, LAUNCH_HI, LAUNCH_LO, VMAX, rpmOfCar, tyreGripK, tyreLoad };

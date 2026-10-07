@@ -1,6 +1,6 @@
 import { $, clamp, el, fmtGap, fmtTime } from '../config/util.js';
 import { PARTS } from '../car/parts.js';
-import { LAUNCH_HI, LAUNCH_LO } from '../car/physics.js';
+import { LAUNCH_HI, LAUNCH_LO, rpmOfCar } from '../car/physics.js';
 import { S, updateStatus } from '../game/session.js';
 import { hudLine } from '../game/penalties.js';
 
@@ -10,10 +10,6 @@ function buildBoard(){
     const r = el("div", "tw", `<span class="p"></span><span class="n"></span><span class="g"></span>`);
     b.appendChild(r);
   }
-}
-function rpmOfCar(c){
-  const kph = c.speed * 3.6, gear = clamp(Math.ceil(kph / 42), 1, 8);
-  return 4200 + clamp((kph - (gear - 1) * 42) / 42, 0, 1) * 9200;
 }
 function updateHUD(){
   if(!S || !S.player) return;

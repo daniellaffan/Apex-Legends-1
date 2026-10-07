@@ -10,18 +10,20 @@ import { CRASH } from './crash.js';
 import { CINE } from './cine.js';
 import { CFG } from '../config/settings.js';
 import { CAR_SPEC } from '../car/spec.js';
+import { COCKPIT } from './cockpit.js';
 
 /* ---- the cockpit camera ----------------------------------------------------
-   The driver's eyes: on the car's centre line inside the helmet, a little behind
-   the front of the cockpit opening, high enough over the rim that the cockpit
-   sides sit low in the frame, looking down the nose with a slight tilt towards
-   the road. The halo's top bar runs across the top of the view. */
+   The driver's eyes: on the car's centre line at the back of the helmet's
+   visor, under the halo's hoop, looking down the nose over the steering wheel
+   with a slight tilt towards the road. Far enough back that the wheel, the
+   cockpit sides and the halo frame the view instead of filling it. */
 const FP = {
-  EYE:new THREE.Vector3(CAR_SPEC.X(1.28), CAR_SPEC.Z(0.82), 0),
-  LOOK:new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.05, -Math.PI / 2, 0, "YXZ")),  // lens -z onto the nose (+x), 3 degrees down
+  EYE:new THREE.Vector3(CAR_SPEC.X(1.40), CAR_SPEC.Z(0.80), 0),
+  LOOK:new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.085, -Math.PI / 2, 0, "YXZ")),  // lens -z onto the nose (+x), 5 degrees down
   ROLL:0.5,          // share of the cornering lean the head takes: the neck holds it a little steadier than the chassis
   TAU:0.035,         // seconds: just enough smoothing to take the edge off, never a lag you can feel
-  e:new THREE.Euler(0, 0, 0, "YXZ"), q:new THREE.Quaternion(), v:new THREE.Vector3(),
+  APEX:0.07,         // seconds of yaw the head looks ahead into a corner (at most 5 degrees)
+  e:new THREE.Euler(0, 0, 0, "YXZ"), q:new THREE.Quaternion(), v:new THREE.Vector3(), o:new THREE.Vector3(), dq:new THREE.Quaternion(), de:new THREE.Euler(),
 };
 
 /* The cockpit lens, once a frame. Its position is bolted to the car (the eye
@@ -35,20 +37,40 @@ G3.cockpitCam = function(S, p, e){
   g.updateMatrixWorld();
   const pos = FP.v.copy(FP.EYE).applyMatrix4(g.matrixWorld);
   const r = e.fpRot;
-  const want = FP.q.setFromEuler(FP.e.set(r[0], r[1], r[2], "YXZ")).multiply(FP.LOOK);
   const t = S.clock || 0, dt = clamp(t - (this.fpT == null ? t : this.fpT), 0, 0.1);
   this.fpT = t;
+  /* Into a corner the eyes go to the apex: the head turns a little ahead of the
+     car, by how fast it is turning. Not in a spin, where it would only add to
+     the whirl, and never more than 5 degrees. */
+  if(dt > 0){
+    let yr = (r[1] - (this.fpYaw == null ? r[1] : this.fpYaw)) / dt;
+    yr = Math.atan2(Math.sin(yr * dt), Math.cos(yr * dt)) / dt;      // across the +-pi seam
+    const look = (p.spinT > 0 || p.wrecked) ? 0 : clamp(yr * FP.APEX, -0.09, 0.09);
+    this.fpLook = (this.fpLook || 0) + (look - (this.fpLook || 0)) * (1 - Math.exp(-dt / 0.3));
+  }
+  this.fpYaw = r[1];
+  const want = FP.q.setFromEuler(FP.e.set(r[0], r[1] + (this.fpLook || 0), r[2], "YXZ")).multiply(FP.LOOK);
   const jump = !this.fpQ || cam.position.distanceToSquared(pos) > 400 || this.fpQ.angleTo(want) > 0.6 || this.fpUid !== S.uid;
-  if(jump){ this.fpQ = (this.fpQ || new THREE.Quaternion()).copy(want); this.fpUid = S.uid; }
+  if(jump){ this.fpQ = (this.fpQ || new THREE.Quaternion()).copy(FP.q.setFromEuler(FP.e.set(r[0], r[1], r[2], "YXZ")).multiply(FP.LOOK)); this.fpUid = S.uid; this.fpLook = 0; }
   else this.fpQ.slerp(want, 1 - Math.exp(-dt / FP.TAU));
   cam.position.copy(pos);
   cam.quaternion.copy(this.fpQ);
-  /* A fixed lens, sized to the screen: about 80 degrees across a 16:9 view,
-     never under 70 across on a narrow or upright one. Speed widens it by
+  /* What the seat passes up the spine: a fine buzz that grows with speed, a
+     rattle over the kerbs and a knock from a hit. Millimetres and fractions of
+     a degree, on smooth waves of the race clock (so it holds still when paused). */
+  const sp = clamp((p.speed || 0) / 90, 0, 1), kb = p.kerbShake || 0, hit = clamp(S.shake || 0, 0, 1);
+  const n1 = Math.sin(t * 231.0) + 0.6 * Math.sin(t * 337.0 + 1.3), n2 = Math.sin(t * 173.0 + 0.7) + 0.5 * Math.sin(t * 291.0 + 2.1);
+  const amp = 0.0006 * sp * sp + 0.0035 * kb + 0.010 * hit;
+  if(amp > 1e-5){
+    cam.position.add(FP.o.set(n2 * amp * 0.4, n1 * amp, 0).applyQuaternion(cam.quaternion));
+    cam.quaternion.multiply(FP.dq.setFromEuler(FP.de.set(n2 * (0.0015 * kb + 0.006 * hit), 0, n1 * (0.001 * kb + 0.004 * hit))));
+  }
+  /* A fixed lens, sized to the screen: about 88 degrees across a 16:9 view,
+     never under 78 across on a narrow or upright one. Speed widens it by
      only 3 degrees, and slowly, which helps the sense of pace without the
      tunnel-vision zoom that makes people queasy. */
   const asp = cam.aspect || 1, D = Math.PI / 180;
-  const base = clamp(Math.max(50, 2 * Math.atan(Math.tan(35 * D) / asp) / D), 50, 84);
+  const base = clamp(Math.max(55, 2 * Math.atan(Math.tan(39 * D) / asp) / D), 55, 90);
   this.fpFov = lerp(this.fpFov || base, base + 3 * clamp((p.speed || 0) / 90, 0, 1), jump ? 1 : 1 - Math.exp(-dt / 1.2));
   if(Math.abs(cam.fov - this.fpFov) > 1e-3){ cam.fov = this.fpFov; cam.updateProjectionMatrix(); }
   cam.updateMatrixWorld();
@@ -91,15 +113,22 @@ G3.frame = function(S){
     if(c === pl){
       // the driver's head: the road's camber and banking in full, the chassis lean in part
       e.fpRot = [-(c.roll || 0) * FP.ROLL - Math.atan(cross), -c.h, e.sp - (c.pitch || 0)];
-      // in the cockpit the helmet is where the lens is, and the halo pillar goes thin
+      // in the cockpit the helmet is where the lens is, the cockpit opens up and the halo pillar goes see-through
       const P = g.userData.parts;
-      if(P && !!P.fp !== fp){ P.fp = fp; P.dentVer = NaN; P.dentT = -9; P.drv.visible = !fp; }
+      if(P && !!P.fp !== fp){
+        P.fp = fp; P.dentVer = NaN; P.dentT = -9; P.drv.visible = !fp;
+        if(fp && !P.cockpit) P.cockpit = COCKPIT.build(this, c, g);
+        if(P.cockpit) P.cockpit.root.visible = fp;
+        // the HUD makes room for the steering wheel
+        try{ document.body.classList.toggle("fpv", fp); }catch(err){}
+      }
       this.fpCar = e;
     }
     // steering, wheels, flaps, lights, damage and the pit stop
     const A = g.userData.anim;
     const dtc = A.clock == null ? 0 : clamp((S.clock || 0) - A.clock, 0, 0.05); A.clock = S.clock || 0;
     this.carAnim(g, c, S, dtc);
+    if(c === pl && fp && g.userData.parts.cockpit) COCKPIT.update(g.userData.parts.cockpit, g, c, S, A.steer);
     if(g.userData.lift) g.position.y += g.userData.lift;
     this.crewUpdate(e, c, S, g);
   }

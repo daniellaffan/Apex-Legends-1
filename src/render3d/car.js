@@ -39,7 +39,8 @@ const CARGEO = {
         const cx = (a[0] + q[0] + r[0] + s[0]) / 4, cy = (a[1] + q[1] + r[1] + s[1]) / 4, cz = (a[2] + q[2] + r[2] + s[2]) / 4;
         // which way the face looks: out from the ring centre
         const oy = cy - inside[1], oz = cz - inside[2];
-        this.quad(b, a, q, r, s, colOf(cx, cy, cz, oy, oz), inside);
+        const fc = colOf(cx, cy, cz, oy, oz);
+        if(fc) this.quad(b, a, q, r, s, fc, inside);                        // (no colour: an opening)
       }
     }
     for(const [R0, col, dir] of [[rings[0], capA, -1], [rings[rings.length - 1], capB, 1]]){
@@ -174,17 +175,17 @@ const CARGEO = {
     return E;
   },
   chipped(G, t){ const E = this.team(G, t); if(!E.bodyChipped) E.bodyChipped = this.buildBody(E.C, true); return E.bodyChipped; },
-  /* The player's own body in the cockpit view: the same car, but the halo's
-     centre pillar is a thin strut. From the driver's eye it stands under a third
-     of a metre away, and at its full thickness it would blank out a fifth of the
-     screen; two eyes see past a real one, a single lens cannot. */
+  /* The player's own body in the cockpit view: the same car without the halo's
+     centre pillar (render3d/cockpit.js draws it see-through: two eyes look past
+     a real one, a single lens cannot) and without the visor strip that sits in
+     front of the driver's eyes. */
   cockpit(G, t, chipped){
     const E = this.team(G, t), k = chipped ? "fpChipped" : "fpBody";
     if(!E[k]) E[k] = this.buildBody(E.C, chipped, true);
     return E[k];
   },
 
-  buildBody(C, chipped, slimPillar){
+  buildBody(C, chipped, cockpit){
     const b = this.soup();
     /* the tub: nose, monocoque, airbox and engine cover in one loft */
     const oct = (w, zb, zt, tw) => { const h = zt - zb;
@@ -193,7 +194,7 @@ const CARGEO = {
     this.skin(b, rings, (d, y, z, oy, oz) => {
       if(oz < -0.02 && Math.abs(oz) > Math.abs(oy)) return C.under;              // the underside
       if(d < -0.34) return C.nose;                                               // the nose in the contrast colour
-      if(d > 1.0 && d < 1.62 && z > 0.58 && Math.abs(y) < 0.29) return C.dark;   // into the cockpit
+      if(d > 1.0 && d < 1.62 && z > 0.58 && Math.abs(y) < 0.29) return cockpit ? null : C.dark;   // into the cockpit (open, when you sit in it)
       if(d > 1.62 && d < 1.80 && z > 0.62) return C.dark;                        // the airbox mouth
       if(d > 1.9 && d < 3.5 && Math.abs(y) < 0.075 && oz > 0) return C.accent;    // a spine stripe along the engine cover
       return C.body;
@@ -241,10 +242,12 @@ const CARGEO = {
     const halo = [[1.62, 0.30, 0.66], [1.50, 0.29, 0.86], [1.30, 0.25, H - 0.015], [1.10, 0.14, H], [1.00, 0, H]];
     for(const sd of [-1, 1]) for(let i = 0; i < halo.length - 1; i++)
       this.tube(b, [halo[i][0], halo[i][1] * sd, halo[i][2]], [halo[i + 1][0], halo[i + 1][1] * sd, halo[i + 1][2]], hr, C.carbon, 6);
-    this.tube(b, [1.00, 0, H], [0.92, 0, 0.78], slimPillar ? 0.008 : hr * 1.1, C.carbon, 6);
-    this.tube(b, [0.92, 0, 0.78], [0.86, 0, 0.64], slimPillar ? 0.008 : hr * 1.2, C.carbon, 6);
+    if(!cockpit){
+      this.tube(b, [1.00, 0, H], [0.92, 0, 0.78], hr * 1.1, C.carbon, 6);
+      this.tube(b, [0.92, 0, 0.78], [0.86, 0, 0.64], hr * 1.2, C.carbon, 6);
+    }
     this.box(b, 1.52, 0, 0.62, 0.14, 0.40, 0.10, C.body2, 0.85);                     // headrest behind the helmet
-    this.box(b, 1.24, 0, 0.72, 0.05, 0.20, 0.035, C.dark);                           // visor strip (the helmet's own is in the driver mesh)
+    if(!cockpit) this.box(b, 1.24, 0, 0.72, 0.05, 0.20, 0.035, C.dark);              // visor strip (the helmet's own is in the driver mesh)
     for(const sd of [-1, 1]){
       this.tube(b, [1.02, 0.34 * sd, 0.58], [1.02, 0.52 * sd, 0.63], 0.014, C.carbon, 4);
       this.box(b, 1.03, 0.57 * sd, 0.60, 0.07, 0.15, 0.075, C.body, 0.9);
@@ -357,6 +360,11 @@ const CARGEO = {
     // the profile, from the rim on one face round the tread to the rim on the other
     const P = [[0.60, W], [0.78, W], [0.87, W], [0.955, W * 0.96], [1, W * 0.80], [1, -W * 0.80], [0.955, -W * 0.96], [0.87, -W], [0.78, -W], [0.60, -W]];
     const cols = [rubber, ring, rubber, rubber, rubber, rubber, rubber, ring, rubber];
+    /* Something to see it turn by: a slick is round and plain, and from the
+       cockpit the front tyres look frozen. Lettering in the compound band (two
+       pale blocks each side) and faint scuffing across the tread. */
+    const pale = ring.clone().lerp(new THREE.Color(1, 1, 1), 0.55), scuff = rubber.clone().lerp(new THREE.Color(1, 1, 1), 0.035);
+    const colAt = (s, k) => (s === 1 || s === 7) ? ((k % 8) < 2 ? pale : ring) : (s >= 3 && s <= 5 && (k & 1)) ? scuff : cols[s];
     const pos = [], col = [];
     const push = (a, q, r, c) => {
       // face away from the wheel's centre
@@ -369,7 +377,7 @@ const CARGEO = {
     const pt = (f, z, k) => { const a = k / seg * TAU; return [Math.cos(a) * f * Rr, Math.sin(a) * f * Rr, z]; };
     for(let s = 0; s < P.length - 1; s++) for(let k = 0; k < seg; k++){
       const a = pt(P[s][0], P[s][1], k), q = pt(P[s][0], P[s][1], k + 1), r = pt(P[s + 1][0], P[s + 1][1], k + 1), t = pt(P[s + 1][0], P[s + 1][1], k);
-      push(a, q, r, cols[s]); push(a, r, t, cols[s]);
+      push(a, q, r, colAt(s, k)); push(a, r, t, colAt(s, k));
     }
     // the wheel covers, slightly dished, and a hub nut that shows the wheel turning
     for(const sd of [-1, 1]) for(let k = 0; k < seg; k++){
@@ -611,8 +619,10 @@ G3.carAnim = function(g, c, S, dt){
   if(!P) return;
   const gone = c.broken || new Set();
   const v = (c.ai && c.railV != null) ? c.railV : Math.hypot(c.vx || 0, c.vy || 0);
-  // the wheels turn with the road
-  A.spinF = (A.spinF + v * dt / SP.front.r) % TAU; A.spinR = (A.spinR + v * dt / SP.rear.r) % TAU;
+  /* The wheels turn with the road, but never more than 0.3 rad in a frame: past
+     that the markings would strobe (a tyre at 300 km/h turns 40 times a second)
+     and seem to stand still or run backwards. Capped, they always roll forwards. */
+  A.spinF = (A.spinF + Math.min(v * dt / SP.front.r, 0.3)) % TAU; A.spinR = (A.spinR + Math.min(v * dt / SP.rear.r, 0.3)) % TAU;
   // steering: the player's input directly; a rail-following car's from how fast it is turning
   let want = 0;
   if(!c.ai) want = clamp(c.steer || 0, -1, 1) * 0.35;
