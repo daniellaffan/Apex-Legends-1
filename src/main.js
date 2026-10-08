@@ -89,8 +89,9 @@ function boot(){
   endBtn.id = "pb-end";
   $("#pause .actions").insertBefore(endBtn, $("#pb-quit"));
   endBtn.onclick = () => { setPaused(false); $("#pause").hidden = true; endSession(); };
-  $("#pit-go").onclick = () => { if(S) closePitMenu(S); };
-  $("#pit-skip").onclick = () => { if(S){ S.player.pitPlan = { none:true, done:true, repairs:new Set() }; closePitMenu(S); } };
+  $("#pit-go").onclick = () => { if(S) closePitMenu(S, "box"); };
+  $("#pit-skip").onclick = () => { if(S) closePitMenu(S, "through"); };
+  $("#pit-out").onclick = () => { if(S) closePitMenu(S, "out"); };
   $("#pb-resume").onclick = togglePause;
   $("#pb-restart").onclick = () => { setPaused(false); $("#pause").hidden = true;
     startSession(S.mode, S.champ ? { grid:S.gridAbbr } : null); };

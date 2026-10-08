@@ -14,7 +14,8 @@ import { PART, spawn, stepParts } from '../render2d/particles.js';
 import { drawMini } from '../ui/minimap.js';
 import { KEY, TOUCH, ZOOM_HOLD } from '../input/input.js';
 import { AI_SCALE, CFG, COMBAT } from '../config/settings.js';
-import { playerPit } from '../car/pit.js';
+import { playerPit, callPit } from '../car/pit.js';
+import { pilotStart, aiPlan } from '../car/pitpilot.js';
 import * as PEN from './penalties.js';
 import * as SC from './safetycar.js';
 import * as REC from './recovery.js';
@@ -29,6 +30,26 @@ import { applyChampionship, saveRecord } from '../ui/championship.js';
 let S = null, paused = false, lastT = 0, hudT = 0;
 
 let SESSION_N = 0;
+/* What the pit lane tells the rest of the game (car/pitpilot.js calls these) */
+const PIT_HOOKS = {
+  stopped(c, S, P){
+    try{ AUDIO.event(c.ai ? "pitstop" : "stop", c, S); }catch(e){}
+    if(!c.ai) showToast(P.pen === "sg" ? "Stop-and-go — ten seconds, hands off" : "Stopped — crew working");
+  },
+  released(c, S, P){
+    const t = P.st ? P.st.t : 0;
+    c.lastStop = t;
+    if(P.pen === "sg"){ PEN.served(S, c, "sg"); c.servePen = null; }
+    if(!c.ai){
+      try{ AUDIO.event("away", c, S, t.toFixed(1) + " seconds, P" + c.pos + "."); }catch(e){}
+      const slow = P.st && P.st.slowBy > 1.5 ? " — a wheel stuck" : P.st && P.st.slowBy > 0 ? " — a slow corner" : "";
+      showToast("Away · " + t.toFixed(1) + "s" + (P.held > 0.3 ? " · held for traffic" : "") + slow);
+    }
+  },
+  unsafe(c, S, o){ if(S.mode === "race") PEN.issue(S, c, "t5", "Unsafe release into the path of " + o.drv.last); },
+  ended(c, S, P){ if(P.pen === "dt"){ PEN.served(S, c, "dt"); c.servePen = null; } },
+};
+
 function startSession(mode, champ){
   if(S && S.cine) CINE.end(G3, S);
   $("#cine").hidden = true;
@@ -45,7 +66,7 @@ function startSession(mode, champ){
         aiScale:AI_SCALE[CFG.diff], combat:COMBAT[CFG.diff], shake:0, champ:!!champ,
         mustPit:mode === "race", assistLine:!!CFG.line, damage:!!CFG.damage,
         finishOrder:[], ended:false, ghost:null, ghostCar:null, rec:[], bestRec:null,
-        toast:msg => showToast(msg) };
+        toast:msg => showToast(msg), pitHooks:PIT_HOOKS };
 
   // field
   const entries = [];
@@ -136,15 +157,11 @@ function updateStatus(c){
   if(pod) pod.setAttribute("fill", "#0E1217");
 }
 function requestPit(){
-  const c = S.player; if(!c || c.pitting || c.stopT > 0 || c.inPit) return;
+  const c = S.player; if(!c || c.pitting || c.pitVisit || c.inPit || S.mode === "tt") return;
+  if(c.pitReq){ c.pitReq = false; c.pitWarned = false; c.pitPlan = null; showToast("Pit call cancelled — stay out"); return; }
   const u = S.track.pitU(c.node);
-  if(!c.pitReq && u > 0.05 && u < 0.88){ showToast("Too late — the pit entry is behind you"); return; }
-  c.pitReq = !c.pitReq;
-  c.pitWarned = false;
-  const jobs = [...c.broken].map(k => PARTS[k].name.toLowerCase());
-  showToast(c.pitReq
-    ? "Box, box — pit entry open" + (jobs.length ? " · " + jobs.join(", ") + " to fix" : "")
-    : "Pit call cancelled — stay out");
+  if(u > 0.05 && u < 0.88){ showToast("Too late — the pit entry is behind you"); return; }
+  callPit(c, S);
 }
 
 function recover(){
@@ -226,10 +243,12 @@ function updateTiming(c){
     // pit release
     if(c.pitReq && !c.pitting && S.mode === "race" && c.lap <= S.laps) { /* entry handled below */ }
   }
-  // pit entry
-  if(c.ai && !c.dnf && !c.aiFree && c.pitReq && !c.pitting && S.mode === "race" && c.node >= T.pitIn && c.node < T.pitIn + 6 && c.lap <= S.laps){
-    c.pitting = 1; c.pitS = c.node; c.pitDone = false; c.pitT = 0;
-    if(!c.ai) showToast("Pit entry — limiter on");
+  // pit entry: a rival is taken down the lane by the pit pilot (car/pitpilot.js) from the entry
+  const pu = T.pitU(c.node);
+  if(c.ai && !c.dnf && !c.aiFree && c.spinT <= 0 && c.pitReq && !c.pitting && S.mode === "race" && pu >= 0 && pu < 0.10 && c.lap <= S.laps){
+    const plan = c.servePen ? { tyre:"none", repairs:[], none:c.servePen === "dt", pen:c.servePen } : aiPlan(c);
+    if(!plan.pen) plan.wait = PEN.serveAtStop(S, c);
+    pilotStart(c, S, "ai", plan);
     // the race leader diving in is news; so is anyone just ahead or behind you
     c.pitNews = c.pos === 1 ? "lead" : (S.player && !S.player.dnf && Math.abs(c.pos - S.player.pos) === 1) ? "near" : null;
     if(c.pitNews === "lead") showMsg("LEADER PITS", `${c.drv.last} is in — ${c.tyre.name.toLowerCase()}s off, ${(c.nextTyre || TYRES.medium).name.toLowerCase()}s on`, 2.4);
@@ -308,7 +327,7 @@ function update(dt, rdt){
       continue;
     }
     if(c.ai){ if(!c.dnf) driveAI(c, S, dt); }          // a retired car has nobody driving it: it stays where it stopped
-    else { playerPit(c, S, dt); if(c.stopT > 0){ c.vx = 0; c.vy = 0; continue; } playerInput(c, dt); SC.limitPlayer(S, c); }
+    else { playerPit(c, S, dt); if(!c.pitting){ playerInput(c, dt); SC.limitPlayer(S, c); } }
     c.step(dt, S);
     if(S.state === "run") updateTiming(c);
     // particles
@@ -488,7 +507,7 @@ function update(dt, rdt){
   const ty = ty0 - lc * 0.17 * R.H / Math.max(R.zoom, 1);            // sit the car low in frame
   R.camX = lerp(R.camX, tx, 1 - Math.pow(0.0008, dt));
   R.camY = lerp(R.camY, ty, 1 - Math.pow(0.0008, dt));
-  const inLane = p.inPit || p.stopT > 0 || p.pitting;
+  const inLane = p.inPit || p.pitting;
   S.pitFocus = lerp(S.pitFocus || 0, inLane ? 1 : 0, 1 - Math.pow(0.05, dt));
   // the zoom is sized to the view: never work it out from a view that measured nothing
   if(!(R.W > 0) || !(R.H > 0)) R.resize();

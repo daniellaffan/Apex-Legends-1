@@ -402,8 +402,24 @@ function driveAI(c, S, dt){
       if(S.player && !S.player.dnf && Math.abs(c.pos - S.player.pos) <= 3) S.toast(c.drv.last + " spins!");
     }
   }
+  /* Called in: over the last few hundred metres it moves across to the pit side of the road and
+     brakes so as to reach the speed limit at the line (car/pitpilot.js takes it from the entry). */
+  let vtPit = Infinity;
+  if(c.pitReq && S.mode === "race" && T.pitLimit){
+    const toIn = (((T.pitIn - i) % T.n + T.n) % T.n) * T.ds;
+    if(toIn < 380 && T.pitU(i) < 0){
+      want = lerp(want, T.pitSide * (T.half - 1.3), clamp((380 - toIn) / 200, 0, 1));
+      vtPit = Math.sqrt(T.pitLimit * T.pitLimit + 2 * 15 * (toIn + T.pitLimA));
+      // another car heading in just ahead: drop in behind it, so they come down the entry road in single file
+      for(const o of S.cars){
+        if(o === c || o.dnf || !(o.pitReq || o.pitting)) continue;
+        let d = o.s - c.s; if(d < -T.length / 2) d += T.length; if(d > T.length / 2) d -= T.length;
+        if(d > 0 && d < 30) vtPit = Math.min(vtPit, Math.max(10, o.speed - 3 + (d - 16) * 0.6));
+      }
+    }
+  }
   c.aiWant = want;
-  c.aiTargetV = vt * Math.sqrt(c.perf.grip);
+  c.aiTargetV = Math.min(vt * Math.sqrt(c.perf.grip), vtPit);
   c.mistake = lerp(c.mistake, (Math.random() - 0.5) * (1.04 - c.drv.skill) * 1.4, dt * 2.4);
   const straight = T.vprof[ti] > 74;
   c.boost = (straight && c.batt > 0.2 && v > 30 && (gap < 90 || c.batt > 0.6)) ? 1 : 0;

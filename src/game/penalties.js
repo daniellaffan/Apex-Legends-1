@@ -9,7 +9,6 @@ import { AUDIO } from '../audio/audio.js';
    still owed at the flag, or can no longer be served, turns into time (20 s / 30 s).
    The player hears about their own through the message and the radio; the AI's arrive as steward notices. */
 
-const PIT_LIMIT = 140 / 3.6;
 const K = {
   warn: { name:"Warning", pts:0 },
   rep:  { name:"Reprimand", pts:0 },
@@ -55,7 +54,7 @@ function issue(S, c, kind, reason, opts){
       p.todo.push({ kind, by:c.lap + 3 });
       small = reason + (me ? " · pit (P) within 3 laps" : "");
     }
-  } else if(k.sec) p.time += k.sec;
+  } else if(k.sec){ p.time += k.sec; p.serve = (p.serve || 0) + k.sec; }    // a time penalty can be served at the next stop
   else if(kind === "dsq") p.dsq = true;
   (S.penLog || (S.penLog = [])).push({ lap:Math.max(1, c.lap), abbr:c.drv.abbr, last:c.drv.last, me, text:line, reason });
   if(me){
@@ -176,24 +175,22 @@ function limits(S, c, dt){
   }
 }
 
+/* The pit lane's own offences are called where they happen: speeding at the speed-limit
+   line (car/pit.js) and an unsafe release from the box (car/pitpilot.js through session.js). */
 function pitLane(S, c, dt){
   const p = st(c);
-  const lane = !!(c.pitting || c.inPit);
-  if(c.inPit && !c.pitting && c.stopT <= 0){
-    p.laneT += dt;
-    if(c.speed > PIT_LIMIT + 2.5 && p.laneT > 2.6 && !p.laneSpeed){
-      p.laneSpeed = true; issue(S, c, "t5", "Speeding in the pit lane");
-    }
-  }
-  if(p.lane && !lane){
-    // rolled out of the pit lane: an unsafe release if a car is right there
-    if(c.speed > 5 && Math.random() < 0.12){
-      const near = S.cars.some(o => o !== c && !o.dnf && !o.pitting && !o.inPit && Math.hypot(o.x - c.x, o.y - c.y) < 26);
-      if(near) issue(S, c, "t5", "Unsafe release — a car was released into traffic");
-    }
-    p.laneT = 0; p.laneSpeed = false;
-  }
-  p.lane = lane;
+  p.lane = !!(c.pitting || c.inPit);
+}
+/* A stop serves any time penalty owed: the car waits that long before anyone touches it,
+   and the seconds come off what will be added to its race time. Returns the wait. */
+function serveAtStop(S, c){
+  const p = st(c), w = p.serve || 0;
+  if(w <= 0) return 0;
+  p.serve = 0; p.time = Math.max(0, p.time - w);
+  (S.penLog || (S.penLog = [])).push({ lap:Math.max(1, c.lap), abbr:c.drv.abbr, last:c.drv.last, me:c === S.player,
+                                       text:w + " s penalty served at the stop", reason:"" });
+  if(c === S.player){ showMsg("SERVING " + w + " SECONDS", "Hands off until the time is up", 2.2); }
+  return w;
 }
 
 function blue(S, c, dt){
@@ -300,4 +297,4 @@ function hudLine(S, c){
   return out.join("  ·  ");
 }
 
-export { K, announceGrid, classify, contact, gridDrops, hudLine, issue, launch, nextServe, notify, owed, served, st, tick };
+export { K, announceGrid, classify, contact, gridDrops, hudLine, issue, launch, nextServe, notify, owed, served, serveAtStop, st, tick };

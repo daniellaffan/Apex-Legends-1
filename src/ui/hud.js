@@ -3,6 +3,7 @@ import { PARTS } from '../car/parts.js';
 import { LAUNCH_HI, LAUNCH_LO, rpmOfCar } from '../car/physics.js';
 import { S, updateStatus } from '../game/session.js';
 import { hudLine } from '../game/penalties.js';
+import { stopPose } from '../car/pitstop.js';
 
 function buildBoard(){
   const b = $("#h-board"); b.innerHTML = "";
@@ -11,6 +12,37 @@ function buildBoard(){
     b.appendChild(r);
   }
 }
+/* The pit panel under the clock: what the lane wants from you right now. Called in: your box and the limit;
+   on the entry road: the line and your speed against the limit; on the limiter: metres to your box; stopped:
+   the stop's own clock, a light per wheel (amber off, green done), the jacks and the release light. */
+let pitHTML = "";
+function pitPanel(c, S){
+  const host = $("#h-lim"), T = S.track;
+  let h = "";
+  const lim = Math.round((T.pitLimit || 22.2) * 3.6);
+  const box = T.boxOf ? T.boxOf(c.team) : null, nth = box ? box.k + 1 : 0;
+  const P = c.pp;
+  if(P && P.phase === "stopped" && P.st){
+    const st = P.st, po = stopPose(st, pitPanel.po || (pitPanel.po = {}));
+    const pip = q => { const k = po["c" + q]; return '<i class="pip ' + (st.corners[q].none ? "" : k >= 3 ? "ok" : k >= 1 ? "on" : "") + '"></i>'; };
+    h = '<b>' + (st.noWork ? "STOP-GO" : po.work ? "IN THE BOX" : "SERVING") + '</b> ' + st.t.toFixed(1) + 's' +
+        (st.noWork ? "" : ' <span class="pips">' + pip(3) + pip(2) + '<br>' + pip(1) + pip(0) + '</span>') +
+        ' <i class="lamp ' + (po.light ? "go" : "") + '"></i>';
+  } else if(P && c.pitting){
+    const d = Math.max(0, (P.stopA != null && P.relA == null ? P.stopA : P.box.a) - P.a);
+    h = P.relA == null && P.stop ? '<b>PIT LIMITER · ' + lim + '</b> your box ' + Math.round(d) + ' m' : '<b>PIT LIMITER · ' + lim + '</b>';
+  } else if(c.pitReq && c.inPit && !c.pitVisit){
+    const s = c.s, a = T.pitAlong(s), toLine = Math.max(0, T.pitLimA - a), kph = Math.round(c.speed * 3.6);
+    h = '<b>LIMIT ' + lim + ' IN ' + Math.round(toLine) + ' m</b> <span class="' + (kph > lim + 4 ? "hot" : "") + '">' + kph + ' km/h</span>';
+  } else if(c.pitReq && !c.pitVisit){
+    h = '<b>BOX THIS LAP</b> ' + (box ? c.team.short + ' · box ' + nth + ' from the exit · ' : '') + lim + ' km/h';
+  } else if(c.pitVisit && c.inPit){
+    h = '<b>LIMITER OFF</b> rejoin with care';
+  }
+  host.hidden = !h;
+  if(h !== pitHTML){ pitHTML = h; host.innerHTML = h; }
+}
+
 function updateHUD(){
   if(!S || !S.player) return;
   const c = S.player, T = S.track, ms = S.clock * 1000;
@@ -57,7 +89,7 @@ function updateHUD(){
     const host = $("#h-chips");
     if(host.dataset.k !== chips){ host.dataset.k = chips; host.innerHTML = chips; }
   }
-  $("#h-lim").hidden = !c.inPit;
+  pitPanel(c, S);
   $("#h-status").hidden = false;
   updateStatus(c);
   $("#h-ebat").textContent = Math.round(c.batt * 100) + "%";
