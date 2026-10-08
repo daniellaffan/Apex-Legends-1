@@ -18,6 +18,7 @@ import { playerPit, callPit } from '../car/pit.js';
 import { pilotStart, aiPlan } from '../car/pitpilot.js';
 import * as PEN from './penalties.js';
 import * as SC from './safetycar.js';
+import * as AERO from '../car/aero.js';
 import * as REC from './recovery.js';
 import { AUDIO } from '../audio/audio.js';
 import { show, showMsg, showToast } from '../ui/screens.js';
@@ -312,6 +313,8 @@ function update(dt, rdt){
   // weather drift
   S.wet = lerp(S.wet, S.wetTarget, dt * 0.15);
   if(S.wetTarget > 0 && S.wet > 0.25 && !S.wetToast){ S.wetToast = true; showToast("Rain — the track is going wet"); }
+
+  AERO.update(S, dt);                                   // slipstream and dirty air, once a frame, before anyone moves
 
   for(const c of S.cars){
     if(S.state === "lights"){

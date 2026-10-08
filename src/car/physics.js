@@ -5,6 +5,7 @@ import { spawn } from '../render2d/particles.js';
 import { AUDIO } from '../audio/audio.js';
 import { addDent, contactLocal, contactTorque, pushFx } from './damage.js';
 import { pilotStep, pilotEnd } from './pitpilot.js';
+import * as AERO from './aero.js';
 
 /* ---------- 3. cars: physics --------------------------------------------- */
 const LAUNCH_LO = 0.52, LAUNCH_HI = 0.74;          // the rev window for a clean getaway
@@ -43,6 +44,7 @@ class Car {
     this.ai = true; this.pace = 1; this.pos = idx + 1; this.gap = null; this.total = 0;
     this.aiOff = 0; this.aiTarget = 0; this.mistake = 0; this.kerbShake = 0; this.wallHit = 0;
     this.dents = []; this.dentVer = 0; this.wheelOff = -1; this.wheelOff2 = -1; this.lossT = 0; this.spinCool = 0; this.lastHit = null;
+    this.tow = 0; this.dirty = 0; this.wakeOf = null; this.wakeGap = null;      // slipstream and dirty air, see aero.js
   }
   /* ---------- crash dynamics ----------------------------------------------
      A wrecked car leaves the track model entirely and becomes a ballistic
@@ -307,9 +309,9 @@ class Car {
     const surf = this.surface();
     const wetK = S.wet > 0 ? lerp(1, this.tyre.key === "wet" ? 0.93 : 0.68, S.wet) : 1;
     const tyreGrip = tyreGripK(this);
-    const g = GRIP * surf * wetK * tyreGrip * (1 - this.damage * 0.22) * this.pace * this.perf.grip;
+    const g = GRIP * surf * wetK * tyreGrip * (1 - this.damage * 0.22) * this.pace * this.perf.grip * AERO.gripK(this);
     const boosting = this.boost > 0 && this.batt > 0.01 && vf > 8 && this.perf.boost;
-    const vmax = VMAX * (boosting ? 1.055 : 1) * this.pace * this.perf.top;
+    const vmax = VMAX * (boosting ? 1.055 : 1) * this.pace * this.perf.top * AERO.topK(this);
 
     // longitudinal
     const eng = ENGINE * (boosting ? 1.10 : 1) * (1 - this.damage * 0.18) * surf * this.pace * this.perf.power * this.launchMul;
@@ -329,7 +331,7 @@ class Car {
     // gravel digs in, and harder the faster you arrive, but a car can still crawl out of it (and off the grass:
     // its drag fades at a crawl, or a car that stopped there could never pull away again)
     const gravel = surf === SURF.gravel;
-    af -= Math.sign(vf) * (DRAG * vf * vf) + vf * 0.035 + (surf < 0.72 ? Math.sign(vf) * (gravel ? 1.4 : 6.5) * clamp(Math.abs(vf) / 10, 0.25, 1) : 0)
+    af -= Math.sign(vf) * (DRAG * AERO.dragK(this) * vf * vf) + vf * 0.035 + (surf < 0.72 ? Math.sign(vf) * (gravel ? 1.4 : 6.5) * clamp(Math.abs(vf) / 10, 0.25, 1) : 0)
       + (gravel ? Math.sign(vf) * clamp((Math.abs(vf) - 5) / 6, 0, 1) * (9 + Math.abs(vf) * 0.32) : 0);
     // the hill: gravity along the road, at half strength so it is felt without
     // rebalancing the field — slower up Beau Rivage, quicker down to the hairpin
@@ -475,8 +477,8 @@ class Car {
     if(boosting) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
     else this.batt = clamp(this.batt + dt * (this.brk > 0.2 ? 0.20 : 0.035), 0, 1);
     const load = tyreLoad(Math.abs(yaw) * Math.abs(vf), this.brk) + Math.abs(vs) * 0.00055;
-    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * dt * 0.34, 0, 1);
-    this.temp = clamp(this.temp + (Math.abs(vs) * 0.02 + Math.abs(vf) * 0.004 - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
+    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * AERO.wearK(this) * dt * 0.34, 0, 1);
+    this.temp = clamp(this.temp + (Math.abs(vs) * 0.02 + Math.abs(vf) * 0.004 + AERO.heat(this) - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
   }
 
   /* Rivals follow the line with real speed dynamics: they brake, accelerate and
@@ -511,7 +513,7 @@ class Car {
     if(vt > v){
       // the same pull of the hill as the player feels, on the way up to speed
       const accCap = Math.max(1.4, ENGINE * this.pace * this.perf.power * (this.boost > 0 && this.batt > 0.02 && this.perf.boost ? 1.10 : 1) *
-        (1 - this.damage * 0.20) * Math.min(1, 0.55 + v / 25) - DRAG * v * v - v * 0.035 - GRADE_G * T.grade(i));
+        (1 - this.damage * 0.20) * Math.min(1, 0.55 + v / 25) - DRAG * AERO.dragK(this) * v * v - v * 0.035 - GRADE_G * T.grade(i));
       v = Math.min(vt, v + Math.min(accCap, (vt - v) * 3.2) * dt);
       this.brk = 0; this.thr = 1;
     } else if(v - vt < 0.8 && !(this.brk > 0.02)){
@@ -563,8 +565,8 @@ class Car {
     if(this.boost > 0 && this.batt > 0.01) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
     else this.batt = clamp(this.batt + dt * (this.brk > 0.2 ? 0.20 : 0.035), 0, 1);
     const load = tyreLoad(lat, this.brk);
-    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * dt * 0.34, 0, 1);
-    this.temp = clamp(this.temp + (lat * 0.0016 + v * 0.004 - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
+    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * AERO.wearK(this) * dt * 0.34, 0, 1);
+    this.temp = clamp(this.temp + (lat * 0.0016 + v * 0.004 + AERO.heat(this) - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
   }
 
   /* In the pit lane every car is driven by car/pitpilot.js; when it lets go, the car goes

@@ -155,6 +155,10 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   color:#111;background:#FFC21A;border:1px solid #FFE27A;animation:scpulse 1s ease-in-out infinite}
 .h-tc .scline[hidden]{display:none!important}
 @keyframes scpulse{50%{background:#C98F00}}
+.h-tc .aeroline{margin-top:4px;padding:3px 9px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:#7FE3FF;background:rgba(4,14,20,.72);border:1px solid rgba(127,227,255,.45)}
+.h-tc .aeroline.dirty{color:#FFB070;background:rgba(24,12,4,.74);border-color:rgba(255,150,70,.55)}
+.h-tc .aeroline[hidden]{display:none!important}
 .h-tc .penline[hidden]{display:none!important}
 @keyframes penpulse{50%{opacity:.62}}
 .pennotes{margin:16px 0 0;font-size:12px;color:var(--dim);line-height:1.7}

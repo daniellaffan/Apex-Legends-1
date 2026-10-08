@@ -74,6 +74,15 @@ function updateHUD(){
     const t = scs === "out" ? "SAFETY CAR · NO OVERTAKING" : "SAFETY CAR IN THIS LAP";
     if(scEl.textContent !== t) scEl.textContent = t;
   }
+  // slipstream / dirty air (aero.js): dirty air wins when both are present
+  const aeEl = $("#h-aero"), live = S.state !== "lights" && !c.dnf && !c.wrecked;
+  const aeK = !live ? "" : c.dirty > 0.2 ? "dirty" : c.tow > 0.15 ? "tow" : "";
+  aeEl.hidden = !aeK;
+  if(aeK){
+    const t = aeK === "tow" ? "SLIPSTREAM" : "DIRTY AIR";
+    if(aeEl.textContent !== t) aeEl.textContent = t;
+    aeEl.classList.toggle("dirty", aeK === "dirty");
+  }
   const ty = c.tyre;
   const cmp = $("#h-cmp"); cmp.textContent = ty.label; cmp.style.setProperty("--tyc", ty.col);
   const wear = $("#h-wear"); wear.style.width = (c.life * 100).toFixed(0) + "%";

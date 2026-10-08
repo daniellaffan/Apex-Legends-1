@@ -3,6 +3,7 @@ import { angWrap, clamp, lerp } from '../config/util.js';
 import { AUDIO } from '../audio/audio.js';
 import { BRAKE, DRAG, GRIP, VMAX, tyreGripK, tyreLoad } from '../car/physics.js';
 import { TYRES } from '../car/parts.js';
+import * as AERO from '../car/aero.js';
 
 /* ---------- 4. AI --------------------------------------------------------- */
 // The rail followers track their own speed in railV; the player's car does not,
@@ -174,8 +175,8 @@ function driveAI(c, S, dt){
   const fi = (((sNow + v * 0.06) / T.ds) % T.n + T.n) % T.n, j0 = Math.floor(fi), j1 = (j0 + 1) % T.n;
   const vline = lerp(P[j0], P[j1], fi - j0);
   const wetK = S.wet > 0 ? lerp(1, c.tyre.key === "wet" ? 0.93 : 0.68, S.wet) : 1;
-  const gripK = tyreGripK(c) * wetK * c.perf.grip * c.pace * (1 - c.damage * 0.22);
-  const topV = VMAX * c.pace * c.perf.top * (c.boost > 0 && c.batt > 0.02 && c.perf.boost ? 1.055 : 1);
+  const gripK = tyreGripK(c) * wetK * c.perf.grip * c.pace * (1 - c.damage * 0.22) * AERO.gripK(c);   // dirty air: brakes earlier, corners slower
+  const topV = VMAX * c.pace * c.perf.top * AERO.topK(c) * (c.boost > 0 && c.batt > 0.02 && c.perf.boost ? 1.055 : 1);
   let vt = Math.min(topV, vline * Math.sqrt(gripK) * S.aiScale * (1 + c.mistake * 0.05));
   // under the safety car the field runs to a delta, well off the limit (a little freer once the car is in)
   if(S.sc && S.sc.state !== "off") vt = Math.min(vt, vline * (S.sc.car ? 0.66 : 0.88));
@@ -238,8 +239,8 @@ function driveAI(c, S, dt){
     const quicker = mine > theirs * 0.998;
     // a car that has crashed, spun or stopped is an obstacle, not a rival to follow
     const stricken = ahead.stalled === true;
-    // tow down the straights — this is what actually breaks a train up
-    if(gap > 8 && gap < 45 && v > 52 && kNow < 0.0045 && lane) vt *= 1.018 + D.push;
+    // the real slipstream (aero.js) lifts topV; a driver in the tow also commits to the run past — this is what breaks a train up
+    if(c.tow > 0.15 && v > 52 && kNow < 0.0045 && lane) vt *= 1 + (0.012 + D.push) * c.tow;
     if(avenging) vt *= 1 + D.push;                        // dig in while the place is fresh
 
     if(stricken){
