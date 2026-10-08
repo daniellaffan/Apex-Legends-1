@@ -45,18 +45,18 @@ function issue(S, c, kind, reason, opts){
   if(kind === "rep"){ p.reps++; if(p.reps >= 3){ kind = "dt"; reason = "Third reprimand — " + reason.toLowerCase(); } }
   const k = K[kind];
   p.n++; p.points += k.pts || 0;
-  let line = k.name, small = reason;
+  let line = k.name, small = reason, sec = 0, conv = 0;
   if(kind === "dt" || kind === "sg"){
     if(S.mode !== "race" || c.finished || c.lap >= S.laps){
-      p.time += k.conv; line = k.name + " → +" + k.conv + " s (no time left to serve it)";
+      p.time += k.conv; sec = k.conv; line = k.name + " → +" + k.conv + " s (no time left to serve it)";
       small = reason + " · +" + k.conv + " s on your race time";
     } else {
-      p.todo.push({ kind, by:c.lap + 3 });
+      p.todo.push({ kind, by:c.lap + 3 }); conv = k.conv;
       small = reason + (me ? " · pit (P) within 3 laps" : "");
     }
-  } else if(k.sec){ p.time += k.sec; p.serve = (p.serve || 0) + k.sec; }    // a time penalty can be served at the next stop
+  } else if(k.sec){ p.time += k.sec; sec = k.sec; p.serve = (p.serve || 0) + k.sec; }    // a time penalty can be served at the next stop
   else if(kind === "dsq") p.dsq = true;
-  (S.penLog || (S.penLog = [])).push({ lap:Math.max(1, c.lap), abbr:c.drv.abbr, last:c.drv.last, me, text:line, reason });
+  (S.penLog || (S.penLog = [])).push({ lap:Math.max(1, c.lap), abbr:c.drv.abbr, last:c.drv.last, me, text:line, reason, sec, conv, kind });
   if(me){
     if(kind === "warn") showMsg("WARNING", reason, 2.8);
     else if(kind === "rep") showMsg("REPRIMAND", reason, 3);
@@ -136,6 +136,7 @@ function served(S, c, kind){
   const p = st(c), i = p.todo.findIndex(t => t.kind === kind);
   if(i < 0) return;
   p.todo.splice(i, 1);
+  for(let j = (S.penLog || []).length - 1; j >= 0; j--){ const e = S.penLog[j]; if(e.kind === kind && e.me === (c === S.player) && e.abbr === c.drv.abbr && e.conv && !e.served){ e.served = true; break; } }
   (S.penLog || (S.penLog = [])).push({ lap:Math.max(1, c.lap), abbr:c.drv.abbr, last:c.drv.last, me:c === S.player,
                                        text:K[kind].name + " served", reason:"" });
   if(c === S.player){ showMsg("PENALTY SERVED", "Back to racing", 2.2); radio("Penalty served. Push."); }

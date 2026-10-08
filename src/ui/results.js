@@ -35,11 +35,18 @@ function showResults(res){
   }
   t.appendChild(body);
   const old = t.parentNode.querySelector(".pennotes"); if(old) old.remove();
-  if(S.mode === "race" && S.penLog && S.penLog.length){
-    const n = el("div", "pennotes", "<b>Stewards' decisions</b>");
-    for(const e of S.penLog.slice(0, 14))
-      n.appendChild(el("div", "", `Lap ${e.lap} · <span>${e.abbr}</span> — ${e.text}${e.reason ? " · " + e.reason : ""}`));
-    if(S.penLog.length > 14) n.appendChild(el("div", "", "…and " + (S.penLog.length - 14) + " more"));
+  const mine = S.mode === "race" ? (S.penLog || []).filter(e => e.me && !/ served$/.test(e.text)) : [];
+  if(mine.length){
+    const n = el("div", "pennotes", "<b>Your penalties</b>");
+    let total = 0;
+    for(const e of mine){
+      const sec = e.sec || (e.conv && !e.served ? e.conv : 0);
+      total += sec;
+      const tail = sec ? ` · +${sec} s` : e.served ? " · served in the pit lane" : "";
+      n.appendChild(el("div", "", `Lap ${e.lap} · ${e.text}${e.reason ? " — " + e.reason : ""}${tail}`));
+    }
+    const pl = S.penPlaces || 0;
+    n.appendChild(el("div", "", `<b>Total +${total} s · ${pl ? pl + (pl === 1 ? " place" : " places") + " lost" : "no places lost"}</b>`));
     t.after(n);
   }
 

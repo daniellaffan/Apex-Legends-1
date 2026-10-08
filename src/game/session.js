@@ -537,6 +537,10 @@ function endSession(){
   const T = S.track;
   const cl = PEN.classify(S, arr);
   const first = cl.order[0], key0 = first ? cl.key.get(first) : 0;
+  if(S.mode === "race"){
+    const a = arr.indexOf(S.player), b = cl.order.indexOf(S.player);
+    S.penPlaces = (S.player.dnf || a < 0 || b < 0) ? 0 : Math.max(0, b - a);
+  }
   const res = cl.order.map(c => {
     const gap = c === first ? null
       : cl.any ? cl.key.get(c) - key0
