@@ -1,6 +1,6 @@
 import { $, clamp, el, fmtGap, fmtTime } from '../config/util.js';
 import { PARTS } from '../car/parts.js';
-import { LAUNCH_HI, LAUNCH_LO, rpmOfCar } from '../car/physics.js';
+import { LAUNCH_HI, LAUNCH_LO, gearOf, rpmOfCar } from '../car/physics.js';
 import { S, updateStatus } from '../game/session.js';
 import { hudLine } from '../game/penalties.js';
 import { stopPose } from '../car/pitstop.js';
@@ -112,7 +112,7 @@ function updateHUD(){
   bar.classList.toggle("good", launching && c.revs >= LAUNCH_LO && c.revs <= LAUNCH_HI);
   bar.classList.toggle("hot", launching ? c.revs > LAUNCH_HI : revN > 0.9);
   $("#h-spd").textContent = Math.round(kph);
-  $("#h-gear").textContent = c.speed < 0.5 ? "N" : clamp(Math.ceil(kph / 42), 1, 8);
+  $("#h-gear").textContent = c.speed < 0.5 ? "N" : gearOf(c);
 
   const arr = S.cars.filter(x => !x.dnf).sort((a, b) => a.pos - b.pos);
   let start = clamp(c.pos - 3, 0, Math.max(0, arr.length - 6));

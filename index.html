@@ -143,6 +143,7 @@
         <button class="btn primary" data-go="quick">Quick race<small>Pick a grid slot and go</small></button>
         <button class="btn" data-go="champ">Championship<small id="m-champ">12 rounds · qualifying + race</small></button>
         <button class="btn" data-go="tt">Time trial<small>Empty track, chase the ghost</small></button>
+        <button class="btn" data-go="garage">Garage<small>Car setups &amp; lap telemetry</small></button>
         <button class="btn ghost" data-go="standings">Standings &amp; records</button>
       </div>
       <div class="strip" id="title-strip"></div>
@@ -186,6 +187,38 @@
           <p class="foot">Races of ten laps or more carry the <b>two-compound rule</b>: you must run at least two different tyre compounds or you are classified last. The pit window opens on the main straight — press <b>P</b> as you approach.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ============ GARAGE ============ -->
+  <section class="screen" id="screen-garage" hidden>
+    <div class="wrap">
+      <div class="topbar">
+        <div class="mark">The <i>garage</i></div>
+        <div class="sub">Car setups · lap telemetry</div>
+        <div style="flex:1"></div>
+        <button class="btn ghost" data-back>← Back</button>
+      </div>
+      <div class="cols">
+        <div>
+          <div class="field"><span class="eyebrow">Saved setups</span><div class="gsets" id="g-sets"></div>
+            <div class="actions"><button class="btn" id="g-add">New setup</button><button class="btn ghost" id="g-dup">Duplicate</button><button class="btn ghost" id="g-del">Delete</button></div></div>
+          <div class="field"><span class="eyebrow">Name</span><input id="g-name" class="ginput" maxlength="18" autocomplete="off"></div>
+          <div class="field"><span class="eyebrow">Settings</span><div id="g-sliders"></div>
+            <div class="actions"><button class="btn ghost" id="g-reset">Reset to standard</button></div></div>
+          <div class="field"><span class="eyebrow">What it does to the car</span><div class="gfx" id="g-fx"></div></div>
+        </div>
+        <div>
+          <div class="field"><span class="eyebrow">Circuit</span><select id="g-track" class="ginput"></select></div>
+          <div class="field"><span class="eyebrow">Telemetry · best lap vs last lap</span>
+            <canvas id="g-chart" class="gchart" width="520" height="300"></canvas>
+            <div class="glegend"><span><i style="background:var(--purple)"></i>Best</span><span><i style="background:var(--amber)"></i>Last</span><span class="dim">Speed · throttle · brake</span></div></div>
+          <div class="field"><span class="eyebrow">Engineer</span><p class="gnote" id="g-note"></p><div class="gstats" id="g-stats"></div></div>
+          <div class="field"><span class="eyebrow">Best lap by setup</span><div class="gby" id="g-by"></div>
+            <div class="actions"><button class="btn ghost" id="g-clear">Clear this circuit's data</button></div></div>
+        </div>
+      </div>
+      <p class="foot">The fitted setup applies to <b>your car only</b>, in every mode. Every slider trades one thing for another: downforce costs top speed, a long gearbox costs pull, forward brake bias costs stopping force, hard tyres cost grip. Clean laps are recorded automatically; pit and recovery laps and laps with cut corners are not.</p>
     </div>
   </section>
 

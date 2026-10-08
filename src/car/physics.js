@@ -6,6 +6,7 @@ import { AUDIO } from '../audio/audio.js';
 import { addDent, contactLocal, contactTorque, pushFx } from './damage.js';
 import { pilotStep, pilotEnd } from './pitpilot.js';
 import * as AERO from './aero.js';
+import { NEUTRAL } from './tune.js';
 
 /* ---------- 3. cars: physics --------------------------------------------- */
 const LAUNCH_LO = 0.52, LAUNCH_HI = 0.74;          // the rev window for a clean getaway
@@ -45,6 +46,7 @@ class Car {
     this.aiOff = 0; this.aiTarget = 0; this.mistake = 0; this.kerbShake = 0; this.wallHit = 0;
     this.dents = []; this.dentVer = 0; this.wheelOff = -1; this.wheelOff2 = -1; this.lossT = 0; this.spinCool = 0; this.lastHit = null;
     this.tow = 0; this.dirty = 0; this.wakeOf = null; this.wakeGap = null;      // slipstream and dirty air, see aero.js
+    this.su = NEUTRAL;                                                          // the garage setup's multipliers (tune.js); only the player's differ
   }
   /* ---------- crash dynamics ----------------------------------------------
      A wrecked car leaves the track model entirely and becomes a ballistic
@@ -309,12 +311,13 @@ class Car {
     const surf = this.surface();
     const wetK = S.wet > 0 ? lerp(1, this.tyre.key === "wet" ? 0.93 : 0.68, S.wet) : 1;
     const tyreGrip = tyreGripK(this);
-    const g = GRIP * surf * wetK * tyreGrip * (1 - this.damage * 0.22) * this.pace * this.perf.grip * AERO.gripK(this);
+    const g = GRIP * surf * wetK * tyreGrip * (1 - this.damage * 0.22) * this.pace * this.perf.grip * AERO.gripK(this) * this.su.grip;
     const boosting = this.boost > 0 && this.batt > 0.01 && vf > 8 && this.perf.boost;
-    const vmax = VMAX * (boosting ? 1.055 : 1) * this.pace * this.perf.top * AERO.topK(this);
+    const vmax = VMAX * (boosting ? 1.055 : 1) * this.pace * this.perf.top * AERO.topK(this) * this.su.top;
 
     // longitudinal
-    const eng = ENGINE * (boosting ? 1.10 : 1) * (1 - this.damage * 0.18) * surf * this.pace * this.perf.power * this.launchMul;
+    const eng = ENGINE * (boosting ? 1.10 : 1) * (1 - this.damage * 0.18) * surf * this.pace * this.perf.power * this.launchMul
+      * lerp(this.su.power, this.su.top, clamp(vf / 70, 0, 1));      // setup: pull off the line, then reach at speed (gearing trades one for the other)
     if(this.launchT > 0){
       this.launchT -= dt;
       if(this.launchT <= 0) this.launchMul = 1;
@@ -326,12 +329,12 @@ class Car {
     // the speed limit holds between the pit lane's two lines (the lane drives itself there; this is the backstop)
     const limZone = this.inPit && T.pitInLimit && T.pitInLimit(this.s), plim = T.pitLimit || 22.2;
     if(limZone && vf > plim) af = Math.min(af, -26);
-    af -= this.brk * BRAKE * this.perf.brake * surf * wetK * (vf > 0.4 ? 1 : 0);
+    af -= this.brk * BRAKE * this.perf.brake * this.su.brake * surf * wetK * (vf > 0.4 ? 1 : 0);
     if(this.brk > 0 && vf <= 0.4 && vf > -11) af -= this.brk * eng * 0.5;          // reverse
     // gravel digs in, and harder the faster you arrive, but a car can still crawl out of it (and off the grass:
     // its drag fades at a crawl, or a car that stopped there could never pull away again)
     const gravel = surf === SURF.gravel;
-    af -= Math.sign(vf) * (DRAG * AERO.dragK(this) * vf * vf) + vf * 0.035 + (surf < 0.72 ? Math.sign(vf) * (gravel ? 1.4 : 6.5) * clamp(Math.abs(vf) / 10, 0.25, 1) : 0)
+    af -= Math.sign(vf) * (DRAG * AERO.dragK(this) * this.su.drag * vf * vf) + vf * 0.035 + (surf < 0.72 ? Math.sign(vf) * (gravel ? 1.4 : 6.5) * clamp(Math.abs(vf) / 10, 0.25, 1) : 0)
       + (gravel ? Math.sign(vf) * clamp((Math.abs(vf) - 5) / 6, 0, 1) * (9 + Math.abs(vf) * 0.32) : 0);
     // the hill: gravity along the road, at half strength so it is felt without
     // rebalancing the field — slower up Beau Rivage, quicker down to the hairpin
@@ -367,7 +370,7 @@ class Car {
     if(!spinning && !this.dnf && this.spinCool <= 0){
       const spdNow = Math.hypot(vf, vs);
       const latDem = Math.abs(yaw * vf) / Math.max(g, 1);
-      const brkDem = this.brk * BRAKE * this.perf.brake * surf * wetK * (vf > 0.4 ? 1 : 0) / Math.max(g, 1);
+      const brkDem = this.brk * BRAKE * this.perf.brake * this.su.brake * this.su.stab * surf * wetK * (vf > 0.4 ? 1 : 0) / Math.max(g, 1);
       const use = Math.hypot(latDem, brkDem + this.thr * 0.12 * (spdNow < 30 ? 1.8 : 0.4));
       let over = use > 1.38 ? (use - 1.27) * 4.2 : 0;
       if(surf < 0.7 && spdNow > 55 && Math.abs(this.steer) > 0.65) over += (1 - surf) * 1.5 * Math.abs(this.steer);
@@ -477,8 +480,8 @@ class Car {
     if(boosting) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
     else this.batt = clamp(this.batt + dt * (this.brk > 0.2 ? 0.20 : 0.035), 0, 1);
     const load = tyreLoad(Math.abs(yaw) * Math.abs(vf), this.brk) + Math.abs(vs) * 0.00055;
-    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * AERO.wearK(this) * dt * 0.34, 0, 1);
-    this.temp = clamp(this.temp + (Math.abs(vs) * 0.02 + Math.abs(vf) * 0.004 + AERO.heat(this) - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
+    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * AERO.wearK(this) * this.su.wear * dt * 0.34, 0, 1);
+    this.temp = clamp(this.temp + (Math.abs(vs) * 0.02 + Math.abs(vf) * 0.004 + AERO.heat(this) + this.su.heat - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
   }
 
   /* Rivals follow the line with real speed dynamics: they brake, accelerate and
@@ -565,8 +568,8 @@ class Car {
     if(this.boost > 0 && this.batt > 0.01) this.batt = clamp(this.batt - dt * 0.30, 0, 1);
     else this.batt = clamp(this.batt + dt * (this.brk > 0.2 ? 0.20 : 0.035), 0, 1);
     const load = tyreLoad(lat, this.brk);
-    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * AERO.wearK(this) * dt * 0.34, 0, 1);
-    this.temp = clamp(this.temp + (lat * 0.0016 + v * 0.004 + AERO.heat(this) - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
+    this.life = clamp(this.life - load * this.tyre.wear * S.wearMul * AERO.wearK(this) * this.su.wear * dt * 0.34, 0, 1);
+    this.temp = clamp(this.temp + (lat * 0.0016 + v * 0.004 + AERO.heat(this) + this.su.heat - (this.temp - 0.35) * 0.55) * dt, 0, 1.2);
   }
 
   /* In the pit lane every car is driven by car/pitpilot.js; when it lets go, the car goes
@@ -578,10 +581,13 @@ class Car {
   }
 }
 
-// the engine's revs from the road speed, through eight gears 42 km/h apart (the HUD's tacho and the wheel's shift lights)
+// the engine's revs from the road speed, through eight gears 42 km/h apart (the HUD's tacho and the wheel's shift lights);
+// the garage's gearing slider stretches the gears, so a long box spreads the same eight over more road
+const GEAR_KPH = 42;
+function gearOf(c){ return clamp(Math.ceil(c.speed * 3.6 / (GEAR_KPH * c.su.gearSpan)), 1, 8); }
 function rpmOfCar(c){
-  const kph = c.speed * 3.6, gear = clamp(Math.ceil(kph / 42), 1, 8);
-  return 4200 + clamp((kph - (gear - 1) * 42) / 42, 0, 1) * 9200;
+  const span = GEAR_KPH * c.su.gearSpan, kph = c.speed * 3.6, gear = clamp(Math.ceil(kph / span), 1, 8);
+  return 4200 + clamp((kph - (gear - 1) * span) / span, 0, 1) * 9200;
 }
 
-export { BRAKE, Car, DRAG, GRIP, LAUNCH_HI, LAUNCH_LO, VMAX, rpmOfCar, tyreGripK, tyreLoad };
+export { BRAKE, Car, DRAG, GRIP, LAUNCH_HI, LAUNCH_LO, VMAX, gearOf, rpmOfCar, tyreGripK, tyreLoad };

@@ -7,6 +7,7 @@ import './car/parts.js';
 import './car/spec.js';
 import './tracks/shared.js';
 import { TRACKS } from './tracks/index.js';
+import { openGarage } from './ui/garage-ui.js';
 import './tracks/monaco.js';
 import './tracks/singapore.js';
 import './tracks/vegas.js';
@@ -75,6 +76,7 @@ function boot(){
   document.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
     const g = b.dataset.go;
     if(g === "standings") return showStandings();
+    if(g === "garage") return openGarage();
     if(g === "champ"){ const c = champState();
       if(c.round >= TRACKS.length){ showStandings(); return; }
       CFG.trackId = TRACKS[c.round].id; buildSetup("champ"); return; }

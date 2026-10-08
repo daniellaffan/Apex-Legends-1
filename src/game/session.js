@@ -19,6 +19,8 @@ import { pilotStart, aiPlan } from '../car/pitpilot.js';
 import * as PEN from './penalties.js';
 import * as SC from './safetycar.js';
 import * as AERO from '../car/aero.js';
+import * as Garage from './garage.js';
+import * as Tele from './telemetry.js';
 import * as REC from './recovery.js';
 import { AUDIO } from '../audio/audio.js';
 import { show, showMsg, showToast } from '../ui/screens.js';
@@ -52,6 +54,7 @@ const PIT_HOOKS = {
 };
 
 function startSession(mode, champ){
+  Tele.reset();
   if(S && S.cine) CINE.end(G3, S);
   $("#cine").hidden = true;
   const def = TRACKS.find(t => t.id === CFG.trackId) || TRACKS[0];
@@ -106,7 +109,7 @@ function startSession(mode, champ){
     if(mode !== "race"){ const vv = T.vprof[node] * 0.8; c.railV = vv;
       c.vx = Math.cos(c.h) * vv; c.vy = Math.sin(c.h) * vv; }
     c.pos = slot + 1;
-    if(!c.ai) S.player = c;
+    if(!c.ai){ c.su = Garage.fitted(); c.setup = Garage.selected(); S.player = c; }
     S.cars.push(c);
   });
   if(mode !== "race"){ S.state = "run"; S.lights = 5; }
@@ -229,12 +232,13 @@ function updateTiming(c){
         if(!c.ai){
           if(S.mode === "tt" && (S.bestRec == null || t < (S.bestTT ?? 1e9))){ S.bestTT = t; S.bestRec = c.recBuf.slice(); }
           saveRecord(S.track.id, t, c);
+          c.teleLap = Tele.finish(S, c, t, c.setup);
         }
       }
       c.lap++;
     } else { c.lap = 1; }
     c.lapStart = ms; c.secStart = ms; c.curSec = 0; c.lapInvalid = false;
-    if(!c.ai){ c.recBuf = []; }
+    if(!c.ai){ c.recBuf = []; if(c.lapStart != null) Tele.startLap(c); }
     if(S.mode === "race" && c.lap > S.laps && !c.finished){
       c.finished = true; c.finishTime = ms; S.finishOrder.push(c);
       if(!c.ai) endSession();
@@ -332,6 +336,7 @@ function update(dt, rdt){
     if(c.ai){ if(!c.dnf) driveAI(c, S, dt); }          // a retired car has nobody driving it: it stays where it stopped
     else { playerPit(c, S, dt); if(!c.pitting){ playerInput(c, dt); SC.limitPlayer(S, c); } }
     c.step(dt, S);
+    if(c === S.player) Tele.sample(S, c);
     if(S.state === "run") updateTiming(c);
     // particles
     const spd = c.speed;
