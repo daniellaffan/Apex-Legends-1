@@ -32,6 +32,7 @@ function planStop(c, opts){
   if(st.noWork){
     // a stop-and-go: the car sits on the mark for ten seconds, untouched
     st.jackF = st.jackR = st.drop = Infinity; st.rep = {};
+    for(let q = 0; q < 4; q++) st.corners.push({ off:Infinity, swap:Infinity, on:Infinity, none:true });   // the renderer and HUD index corners[q].none
     st.green = 10; st.go = 10.15;
     return st;
   }
