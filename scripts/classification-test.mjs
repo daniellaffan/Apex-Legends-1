@@ -14,12 +14,15 @@ const { CFG } = await import('../src/config/settings.js');
 const { R } = await import('../src/render2d/view.js'); R.cv = { clientWidth: 1280, clientHeight: 720, style: {} }; R.ctx = { setTransform() {} }; R.W = 1280; R.H = 720;
 
 const id = process.argv[2] || 'monza', rounds = +(process.argv[3] || 60);
-CFG.trackId = id; CFG.lapsIdx = 0; CFG.weather = 'dry'; CFG.damage = true;
+CFG.trackId = id;
+// each round runs a different mix of the options menu: damage, safety car, weather, grid, length, difficulty, tyre
+const WX = ['dry', 'auto', 'wet'];
+const setCfg = r => { CFG.damage = r & 1; CFG.sc = (r >> 1) & 1; CFG.weather = WX[(r >> 2) % 3]; CFG.grid = (r >> 3) % 3; CFG.lapsIdx = (r >> 5) % 3; CFG.diff = r % 4; CFG.tyre = ['soft', 'medium', 'hard'][(r >> 1) % 3]; };
 let fail = 0, checks = 0; const ok = (c, m) => { checks++; if (!c) { fail++; if (fail < 25) console.log('FAIL', m); } };
 let seed = 12345; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
 
 for (let round = 0; round < rounds; round++) {
-  SS.startSession('race', null); const S = SS.S; S.state = 'run'; S.clock = 400;
+  setCfg(round); SS.startSession('race', null); const S = SS.S; S.state = 'run'; S.clock = 400;
   const cars = S.cars.slice();
   // a random finishing order with random gaps, some close enough that penalties reshuffle them
   const order = cars.slice().sort(() => rnd() - 0.5);
