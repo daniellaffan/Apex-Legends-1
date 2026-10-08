@@ -560,6 +560,20 @@ function endSession(){
     res.sort((a, b) => (a.dnf - b.dnf) || (a.dq - b.dq) || (a.pos - b.pos));
     res.forEach((r, i) => r.pos = i + 1);
   }
+  // gaps and the winner's total are measured from the car that actually won: if the car that crossed the line first was
+  // disqualified, the new P1 inherits the total and everyone's gap is re-based on them
+  const win = res.find(r => !r.dq && !r.dnf);
+  if(win && win.car !== first){
+    const wc = win.car, wk = cl.any ? cl.key.get(wc) : wc.finishTime;
+    for(const r of res){
+      if(r.dnf || r.dq) continue;
+      const c = r.car;
+      r.gap = c === wc ? null
+        : cl.any ? cl.key.get(c) - wk
+        : (c.finished && wc.finished ? c.finishTime - wc.finishTime : (c.gap != null && wc.gap != null ? c.gap - wc.gap : c.gap));
+      r.total = c === wc && c.finished && cl.any ? wk : null;
+    }
+  }
   for(const r of res) r.car.pos = r.pos;
   S.results = res;
   if(S.champ && S.mode === "race") applyChampionship(res);
