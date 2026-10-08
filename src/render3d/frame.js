@@ -11,6 +11,8 @@ import { CINE } from './cine.js';
 import { CFG } from '../config/settings.js';
 import { CAR_SPEC } from '../car/spec.js';
 import { COCKPIT } from './cockpit.js';
+import { PITBOX } from './pitbox.js';
+import { PITCREW } from './pitcrew.js';
 import { GMAT } from './ground/materials.js';
 import { KERBS3D } from './ground/kerbs3d.js';
 import { GRAVEL } from './ground/gravel.js';
@@ -124,7 +126,8 @@ G3.frame = function(S){
     // the road's own cross-slope under the car: camber, and the banking at this offset
     const bsl = T.bankZf ? (bankZ(T, ni, (c.off || 0) + 0.6) - bankZ(T, ni, (c.off || 0) - 0.6)) / 1.2 : 0;
     const cross = (T.camber[ni] + bsl + kslope) * al;
-    g.position.set(c.x, (zr + zf) / 2 + (c.air || 0) + 0.03 + Math.max(0, -e.sq) * 0.6, c.y);
+    // the tyres stand on the drawn road, which sits G3.roadLift (0.07) over the surface the heights describe
+    g.position.set(c.x, (zr + zf) / 2 + (c.air || 0) + 0.072 + Math.max(0, -e.sq) * 0.6, c.y);
     g.rotation.set(-(c.roll || 0) - Math.atan(cross), -c.h, e.sp - (c.pitch || 0), "YXZ");
     if(c === pl){
       // the driver's head: the road's camber and banking in full, the chassis lean in part
@@ -146,9 +149,12 @@ G3.frame = function(S){
     this.carAnim(g, c, S, dtc);
     if(c === pl && fp && g.userData.parts.cockpit) COCKPIT.update(g.userData.parts.cockpit, g, c, S, A.steer);
     if(g.userData.lift) g.position.y += g.userData.lift;
-    this.crewUpdate(e, c, S, g);
+    // in the box the jacks lift each end separately: the car tips as they go up and down
+    if(g.userData.liftPitch) g.rotation.z += g.userData.liftPitch;
   }
 
+  // the boxes' lights and the pit crews (render3d/pitbox.js, pitcrew.js)
+  try{ PITBOX.frame(this, S); PITCREW.frame(this, S); }catch(err){ console.warn("pit crews", err.message); }
   if(this.safetyCar) this.safetyCar(S);
   if(this.recoveryFrame) this.recoveryFrame(S);
   CRASH.fx(this, S); CRASH.step(this, S);

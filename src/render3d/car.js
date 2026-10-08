@@ -4,6 +4,7 @@ import { TYRES } from '../car/parts.js';
 import { CAR_SPEC } from '../car/spec.js';
 import { G3 } from './g3.js';
 import { CRASH } from './crash.js';
+import { stopPose } from '../car/pitstop.js';
 
 /* ---- the cars ----------------------------------------------------------
    Built from simple faceted shapes in the dimensions of CAR_SPEC: a lofted tub
@@ -566,79 +567,6 @@ G3.car = function(c){
 /* Everything about the car that is not where it is on the track: steering,
    the wheels turning, the active-aero flaps, the lights, damage and the pit
    stop. It reads the car's state and never writes to it. */
-/* The pit crew. They wait behind the wall, run out as the car rolls up to its box, take their
-   places (wheel guns at the corners, men on the wing, a jack at each end), work through the
-   stop in step with the car's own lift and wheel-off timeline, then step back and drop away
-   as it pulls out. The crew stand at the box, not on the car, so they never move with it. */
-G3.crewUpdate = function(e, c, S, g){
-  const T = S.track, n = T.n, ds = T.ds, pb = T.pitBox;
-  const gap = (a, b) => ((a - b) % n + n) % n;
-  const stopping = c.stopT > 0 ? c.stopT : (c.pitT > 0 ? c.pitT : 0);
-  const stotal = (c.stopT > 0 ? c.stopTotal : c.pitStopTime) || 1;
-  const carview = !T.pitCentre || c.stopT > 0;
-  let u = 0, sp = 0;
-  if(stopping > 0){ u = 1; sp = clamp(1 - stopping / stotal, 0, 1); }
-  else if(!carview && c.pitting && c.pitS != null){
-    if(!c.pitDone){ const bd = gap(pb, c.pitS), d = (bd > n / 2 ? 0 : bd) * ds; u = clamp((64 - d) / 40, 0, 1); }
-    else { u = 1 - clamp(gap(c.pitS, pb) * ds / 12, 0, 1); sp = 1; }
-  }
-  if(u <= 0){ if(e.crew) e.crew.visible = false; return; }
-  const lerpf = (a, b, k) => a + (b - a) * k, ease = k => k * k * (3 - 2 * k);
-  if(!e.crew){
-    const cr = e.crew = new THREE.Group(), geo = CARGEO.mechanic(this, c.team);
-    const mt = this.mat("#FFFFFF", { vertexColors:true, flatShading:true, roughness:0.8 });
-    // wheel guns, wing men, jack men: station (x forward, z right), and whether they have to come round the car
-    const st = [[1.55, 1.7, 0], [1.55, -1.7, 0], [-1.58, 1.7, 0], [-1.58, -1.7, 0], [3.4, 1.15, 1], [3.4, -1.15, 1], [3.15, 0, 2], [-3.15, 0, 2]];
-    e.mem = st.map(([x, z, kind], q) => {
-      const piv = new THREE.Group(), m = new THREE.Mesh(geo, mt); m.castShadow = true; piv.add(m); cr.add(piv);
-      return { piv, m, x, z, kind, q, px:null, pz:null };
-    });
-    e.jacks = [2.0, -2.2].map(x => { const j = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.3, 0.34), this.mat("#3A424C")); j.position.x = x; j.castShadow = true; cr.add(j); return j; });
-    e.crewLight = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 6), new THREE.MeshBasicMaterial({ color:0xFF4B3E }));
-    e.crewPole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 3.6, 0.14), this.mat("#2C333B")); e.crewPole.position.y = 1.8; e.crewPole.castShadow = true;
-    cr.add(e.crewPole, e.crewLight);
-    this.world.add(cr);
-  }
-  const cr = e.crew; cr.visible = true;
-  const lat = T.pitCentre(pb), h = T.ang[pb];
-  cr.position.set(T.x[pb] + T.nx[pb] * lat, T.z[pb] + 0.03, T.y[pb] + T.ny[pb] * lat); cr.rotation.set(0, -h, 0);
-  const gs = Math.sign(T.pitSide * (-T.nx[pb] * Math.sin(h) + T.ny[pb] * Math.cos(h))) || 1;
-  const t = S.clock || 0, k = ease(u), run = u > 0 && u < 1;
-  const out = (g.userData && g.userData.wheelOut) || 0, lift = (g.userData && g.userData.lift) || 0;
-  for(const m of e.mem){
-    const ax = m.x, awayZ = gs * 6.4, far = m.kind !== 2 && Math.sign(m.z) === -gs;
-    let px, pz;
-    if(far){ const mx = ax > 0 ? 4.7 : -4.7;                      // round the nose or tail, not through the car
-      if(k < 0.5){ const q = k * 2; px = lerpf(ax, mx, q); pz = lerpf(awayZ, 0, q); } else { const q = (k - 0.5) * 2; px = lerpf(mx, ax, q); pz = lerpf(0, m.z, q); } }
-    else { px = lerpf(ax, ax, k); pz = lerpf(awayZ, m.z, k); }
-    let lean = 0, bob = 0, dx, dz;
-    if(!run){
-      // at the car: gun on, wheel carried, wing adjusted, jack worked
-      if(m.kind === 0){ const side = Math.sign(m.z), on = sp < 0.14 || (sp > 0.60 && sp < 0.84);
-        pz += side * out * 0.8; lean = on ? 0.30 + Math.sin(t * 38 + m.q) * 0.05 : (out > 0.05 ? -0.18 : 0.08); bob = on ? Math.sin(t * 38 + m.q) * 0.02 : 0; }
-      else if(m.kind === 1){ const on = sp > 0.20 && sp < 0.55; lean = on ? 0.22 + Math.sin(t * 9 + m.q) * 0.08 : 0.05; pz += Math.sign(m.z) * (on ? -0.05 : 0); }
-      else { const on = sp < 0.12 || sp > 0.86; lean = on ? 0.35 : 0.02; bob = on ? Math.sin(t * 20 + m.q) * 0.05 : 0; }
-      dx = -px; dz = -pz;
-    } else {
-      bob = Math.abs(Math.sin(t * 17 + m.q * 1.7)) * 0.13; lean = 0.18;
-      dx = m.px == null ? 0 : px - m.px; dz = m.pz == null ? gs * -1 : pz - m.pz;
-      if(u < 0.5 && stopping <= 0 && sp >= 1){ dx = -dx; dz = -dz; }
-      if(Math.abs(dx) + Math.abs(dz) < 1e-5){ dx = -px; dz = -pz; }
-    }
-    m.px = px; m.pz = pz;
-    m.piv.position.set(px, bob, pz);
-    m.piv.rotation.y = Math.atan2(-dz, dx);
-    m.m.rotation.z = -lean;
-  }
-  // the jacks rise and fall with the car
-  const jh = 0.14 + lift, js = u >= 1 && stopping > 0 ? 1 : 0.0001;
-  e.jacks.forEach(j => { j.scale.y = jh / 0.3 * js; j.position.y = jh * js / 2; j.visible = stopping > 0; });
-  // the release light: red while they work, green when they are clear
-  e.crewPole.position.set(0.0, 1.8, gs * 3.3); e.crewLight.position.set(0, 3.7, gs * 3.3);
-  e.crewPole.position.x = e.crewLight.position.x = 0;
-  e.crewLight.material.color.set((stopping > 0 && stopping < 0.45) || (stopping <= 0 && sp >= 1) ? 0x2FD07A : 0xFF4B3E).multiplyScalar(2.2);
-};
-
 G3.carAnim = function(g, c, S, dt){
   const P = g.userData.parts, A = g.userData.anim, SP = CAR_SPEC;
   if(!P) return;
@@ -657,27 +585,28 @@ G3.carAnim = function(g, c, S, dt){
   }
   A.h = c.h;
   A.steer += (want - A.steer) * (1 - Math.exp(-dt * 14));
-  // pit stop: jacked up, wheels out, as the 2D car does
-  const stopping = c.stopT > 0 ? c.stopT : (c.pitT > 0 ? c.pitT : 0);
-  const stotal = (c.stopT > 0 ? c.stopTotal : c.pitStopTime) || 1;
-  let lift = 0, wheelOut = 0;
-  if(stopping > 0){
-    const sp = clamp(1 - stopping / stotal, 0, 1);
-    lift = 0.30 * clamp(Math.min(sp / 0.10, (1 - sp) / 0.10), 0, 1);
-    wheelOut = 0.55 * clamp(Math.min((sp - 0.14) / 0.08, (0.60 - sp) / 0.08), 0, 1);   // wheels come off early, the fresh set goes on at 60%
-  }
-  g.userData.lift = lift; g.userData.wheelOut = wheelOut; g.userData.stopP = stopping > 0 ? clamp(1 - stopping / stotal, 0, 1) : -1;
-  // tyre compound: swap the wheels to the fitted set when it changes
+  /* The pit stop (car/pitstop.js): the jacks lift each end 6 cm, and each wheel comes off and the new one goes
+     on at its own moment. While a corner is off the car its wheel is in a mechanic's hands (render3d/pitcrew.js),
+     so the car hides its own; once the new one is on it shows that, in the new compound. */
+  const st = c.pp && c.pp.phase === "stopped" ? c.pp.st : null;
+  const po = st ? stopPose(st, A.po || (A.po = {})) : null;
+  let lift = 0, liftPitch = 0;
+  if(po){ lift = 0.06 * (po.jackF + po.jackR) / 2; liftPitch = Math.atan2((po.jackF - po.jackR) * 0.06, SP.wheelbase); }
+  const wheelOut = 0;
+  g.userData.lift = lift; g.userData.liftPitch = liftPitch; g.userData.wheelOut = 0; g.userData.stopP = st ? clamp(st.t / Math.max(0.1, st.go + st.hold), 0, 1) : -1;
   const compound = (c.tyre && c.tyre.col) || TYRES.medium.col;
-  if(compound !== P.compound){
-    P.compound = compound;
-    P.pivots.forEach((pv, i) => { const ax = pv.userData.base.ax;
-      g.userData.wheels[i].geometry = CARGEO.wheel(this, ax.r, ax.w, compound, c.team.wheel || "#2A2D31"); });
-  }
+  const newKey = st && st.tyre && st.tyre !== "none" ? st.tyre : null;
+  P.pivots.forEach((pv, i) => {
+    let comp = compound;
+    if(po && newKey) comp = po["c" + i] >= 2 ? TYRES[newKey].col : (TYRES[st.oldTyre] || TYRES.medium).col;
+    const w = g.userData.wheels[i];
+    if(w.userData.comp !== comp){ const ax = pv.userData.base.ax; w.geometry = CARGEO.wheel(this, ax.r, ax.w, comp, c.team.wheel || "#2A2D31"); w.userData.comp = comp; }
+  });
+  P.compound = compound;
   const bent = gone.has("susp") && !(c.wheelOff >= 0) ? (c.idx % 4) : -1, flat = gone.has("punct") ? ((c.idx + 1) % 4) : -1;
   P.pivots.forEach((pv, i) => {
     const B = pv.userData.base, front = i >= 2, w = g.userData.wheels[i];
-    pv.visible = !(c.wheelOff === i || c.wheelOff2 === i);
+    pv.visible = !(c.wheelOff === i || c.wheelOff2 === i) && !(po && !st.corners[i].none && po["c" + i] >= 1 && po["c" + i] < 2);
     const out = wheelOut + (i === bent ? 0.34 : 0);
     pv.position.set(B.x, B.y - (i === flat ? 0.09 : 0) + wheelOut * 0.45, B.z + B.sd * out);
     pv.rotation.set(i === bent ? 0.42 * B.sd : 0, (front ? -A.steer : 0) + (i === bent ? 0.3 : 0), 0, "YXZ");

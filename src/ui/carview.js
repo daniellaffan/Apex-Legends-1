@@ -1,3 +1,4 @@
+import { planStop } from '../car/pitstop.js';
 import * as THREE from 'three';
 import { clamp } from '../config/util.js';
 import { TEAMS } from '../config/teams.js';
@@ -64,7 +65,9 @@ const CARVIEW = {
   render(){
     const cv = G3.cv, w = cv.clientWidth || 800, h = cv.clientHeight || 600, asp = w / h, st = this.state;
     const c = this.c; c.steer = st.steer; c.boost = st.boost ? 1 : 0; c.brk = st.brake ? 1 : 0; c.vx = st.spin;
-    c.stopT = st.pit > 0 ? (1 - st.pit) * 3 + 0.001 : 0;
+    // the pit-stop preview plays a real stop's timeline (car/pitstop.js): jacks, each wheel off and on
+    if(st.pit > 0){ if(!this.fakeStop) this.fakeStop = planStop(c, { tyre:"soft" }); this.fakeStop.t = (1 - st.pit) * this.fakeStop.go; c.pp = { phase:"stopped", st:this.fakeStop }; }
+    else { c.pp = null; this.fakeStop = null; }
     this.clock += 1 / 60;
     G3.carAnim(this.car, c, { clock:this.clock, wet:0, track:null }, 1 / 60);
     this.car.position.y = (this.car.userData.lift || 0);

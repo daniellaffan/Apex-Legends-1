@@ -48,8 +48,8 @@ if (process.env.TILT) cam.rotateX(-(+process.env.TILT) * Math.PI / 180);
 /* CAM=front|rear: stand outside, low, at the front-left or rear-left corner, looking at the suspension instead */
 if (process.env.CAM) {
   const g0 = G3.cars.find(e => e.c === car).g; g0.updateMatrixWorld(true);
-  const rear = process.env.CAM === 'rear', at = new THREE.Vector3(rear ? -1.4 : 1.4, 0.35, 0).applyMatrix4(g0.matrixWorld);
-  cam.position.copy(new THREE.Vector3(rear ? -3.4 : 3.4, 1.1, -2.2).applyMatrix4(g0.matrixWorld)); cam.fov = 40; cam.lookAt(at);
+  const rear = process.env.CAM === 'rear', far = process.env.CAM === 'far', at = new THREE.Vector3(far ? 0 : rear ? -1.4 : 1.4, far ? 0.3 : 0.35, 0).applyMatrix4(g0.matrixWorld);
+  cam.position.copy(new THREE.Vector3(far ? -8 : rear ? -3.4 : 3.4, far ? 6.5 : 1.1, far ? -7 : -2.2).applyMatrix4(g0.matrixWorld)); cam.fov = far ? 45 : 40; cam.lookAt(at);
   for (const o of g0.children) if (o.name === 'cockpit') o.visible = false;
 }
 cam.updateMatrixWorld(); cam.updateProjectionMatrix();

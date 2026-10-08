@@ -26,6 +26,8 @@ import { CFG } from '../config/settings.js';
 import { FIELD } from './ground/field.js';
 import { GMAT } from './ground/materials.js';
 import { KERBS3D } from './ground/kerbs3d.js';
+import { PITBOX } from './pitbox.js';
+import { PITCREW } from './pitcrew.js';
 import { GRAVEL } from './ground/gravel.js';
 import { GRASS } from './ground/grass.js';
 
@@ -127,7 +129,7 @@ G3.build = function(S){
   const T = S.track, P = T.pal, n = T.n, w = T.half, ro = T.runoffMax, wall = T.barrier === "wall";
   // the boundary is now a pair of curves, not a number
   const roR = i => T.roR[i], roL = i => T.roL[i];
-  KERBS3D.dispose(); GRAVEL.dispose(); GRASS.dispose();
+  KERBS3D.dispose(); GRAVEL.dispose(); GRASS.dispose(); PITBOX.dispose(); PITCREW.dispose();
   if(this.world){
     this.world.traverse(o => {
       if(o.geometry) o.geometry.dispose();
@@ -334,33 +336,22 @@ G3.build = function(S){
   this.add(road, this.strip(T, w - 0.45, w - 0.05, lift + 0.025, 9), this.mat(P.line));
   this.add(road, this.strip(T, -(w - 0.05), -(w - 0.45), lift + 0.025, 9), this.mat(P.line));
 
-  /* the pit lane: a lighter surface than the track, a lit lane edge, a fast lane and a
-     working lane, a service box for the stop and a painted bay for every team, and a
-     lit gantry over the entry and the exit so the lane reads from the air */
+  /* the pit lane: a lighter surface than the track laid just over it (the cars' tyres stand on it, not in it),
+     a lit lane edge, the line between the fast lane and the working lane, and a lit gantry over the entry
+     and the exit so the lane reads from the air. The boxes, boards, lights and crews: render3d/pitbox.js, pitcrew.js */
   const pOn = i => T.pitRamp(i) > 0.02, sg = T.pitSide, nite = !!T.night;
   const pin = i => sg * (T.half - 0.05), pout = i => sg * (T.half + T.pitW * T.pitRamp(i));
   // a strip wants its offsets low to high, or it faces the ground: on the left-hand side they come the other way round
   const ps = (fa, fb, l, u, f) => sg > 0 ? this.strip(T, fa, fb, l, u, f) : this.strip(T, fb, fa, l, u, f);
   const lit = (c, k) => this.mat(c, { emissive:c, emissiveIntensity:nite ? k : k * 0.18, roughness:0.6 });
-  this.add(road, ps(pin, pout, lift + 0.03, 8, pOn), nite ? this.mat("#586178", { emissive:"#3A4560", emissiveIntensity:0.6 }) : this.mat(shade(P.road, 0.2)));
-  this.add(road, ps(i => sg * (T.half + T.pitW * T.pitRamp(i) - 0.35), pout, lift + 0.04, 8, pOn), lit("#EEF3F8", 1.3));
-  // the line between the fast lane and the working lane
-  this.add(road, ps(i => sg * (T.half + 0.1 + T.pitW * T.pitRamp(i) * 0.34), i => sg * (T.half + 0.4 + T.pitW * T.pitRamp(i) * 0.34), lift + 0.04, 8,
-    i => T.pitRamp(i) > 0.9), lit("#3FA9F5", 1.2));
-  this.add(road, ps(sg * (T.half + 0.05), sg * (T.half + 0.5), lift + 0.04, 8,
+  this.add(road, ps(pin, pout, lift + 0.004, 8, pOn), nite ? this.mat("#586178", { emissive:"#3A4560", emissiveIntensity:0.6 }) : this.mat(shade(P.road, 0.2)));
+  this.add(road, ps(i => sg * (T.half + T.pitW * T.pitRamp(i) - 0.35), pout, lift + 0.008, 8, pOn), lit("#EEF3F8", 1.3));
+  // the line between the fast lane and the working lane, 4 m out (pitlane.js: fast lane 2.4, boxes 5.6)
+  this.add(road, ps(sg * (T.half + 3.85), sg * (T.half + 4.15), lift + 0.008, 8, i => T.pitRamp(i) > 0.9), lit("#EEF3F8", 1.0));
+  this.add(road, ps(sg * (T.half + 0.05), sg * (T.half + 0.5), lift + 0.008, 8,
     i => T.pitRamp(i) > 0.9 && i % 5 < 3), lit("#EEF3F8", 1.3));
-  // a painted bay for each team, and the service box where the stops happen
-  const bayAt = (bi, col, inner, k) => {
-    const bd = ((bi - T.pitBox) % n + n) % n, inB = i => { const d = ((i - bi) % n + n) % n; return T.pitRamp(i) > 0.9 && (d <= 1 || d >= n - 1); };
-    this.add(road, ps(sg * (T.half + 1.0), sg * (T.half + T.pitW - 1.0), lift + 0.05, 8, inB), lit(col, k));
-    // a solid bay of colour: the dark inner strip that used to sit on top only ever
-    // showed through as hatching, and drawing it properly lost the colour altogether
-  };
-  for(let q = -5; q <= 5; q++){
-    const bi = ((T.pitBox + q * 4) % n + n) % n;
-    if(q === 0) bayAt(bi, "#FFD23A", this.mat(nite ? "#2A2F3D" : shade(P.road, 0.04)), 2.2);
-    else bayAt(bi, TEAMS[(q + 5) % TEAMS.length].body, this.mat(nite ? "#2A2F3D" : shade(P.road, 0.04)), 1.0);
-  }
+  // every team's box, its board and release light, and the crews
+  try{ PITBOX.build(this, S); PITCREW.build(this, S); }catch(e){ console.warn("pit boxes", e.message); }
   // the wall, with a lit top rail
   const pw = i => T.pitRamp(i) > 0.9;
   this.add(road, this.wall(T, sg * (T.half + 0.35), 1.0, pw), this.twoSided(this.mat("#D8DCE0")), true);
