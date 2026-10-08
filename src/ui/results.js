@@ -22,7 +22,7 @@ function showResults(res){
   for(const r of res){
     const c = r.car, me = c === S.player;
     const gapCell = r.dnf ? "DNF" : S.mode === "qualy" ? fmtTime(r.best)
-      : r.dq ? "DSQ" : r.pos === 1 ? (S.mode === "race" ? (r.total != null ? fmtTime(r.total) : c.finished ? fmtTime(c.finishTime) : "—") : fmtTime(r.best)) : fmtGap(r.gap);
+      : r.dq ? `<span title="${(r.dqReason || "Disqualified").replace(/"/g, "&quot;")}">DSQ</span>` : r.pos === 1 ? (S.mode === "race" ? (r.total != null ? fmtTime(r.total) : c.finished ? fmtTime(c.finishTime) : "—") : fmtTime(r.best)) : fmtGap(r.gap);
     const row = el("tr", me ? "me" : "");
     row.innerHTML = `<td class="r pos">${r.pos}</td>
       <td class="nm"><span class="bar" style="background:${c.team.body}"></span>${c.drv.abbr} ${c.drv.last}</td>
@@ -36,7 +36,10 @@ function showResults(res){
   t.appendChild(body);
   const old = t.parentNode.querySelector(".pennotes"); if(old) old.remove();
   const mine = S.mode === "race" ? (S.penLog || []).filter(e => e.me && !/ served$/.test(e.text)) : [];
-  if(mine.length){
+  const myRow = S.mode === "race" ? res.find(r => r.car === S.player) : null;
+  if(myRow && myRow.dq && !mine.length){
+    t.after(el("div", "pennotes", `<b>You were disqualified</b><div>${myRow.dqReason || "Black flag"}</div>`));
+  } else if(mine.length){
     const n = el("div", "pennotes", "<b>Your penalties</b>");
     let total = 0;
     for(const e of mine){
@@ -46,7 +49,8 @@ function showResults(res){
       n.appendChild(el("div", "", `Lap ${e.lap} · ${e.text}${e.reason ? " — " + e.reason : ""}${tail}`));
     }
     const pl = S.penPlaces || 0;
-    n.appendChild(el("div", "", `<b>Total +${total} s · ${pl ? pl + (pl === 1 ? " place" : " places") + " lost" : "no places lost"}</b>`));
+    if(myRow && myRow.dq) n.appendChild(el("div", "", `<b>Disqualified — ${myRow.dqReason || "black flag"}</b>`));
+    else n.appendChild(el("div", "", `<b>Total +${total} s · ${pl ? pl + (pl === 1 ? " place" : " places") + " lost" : "no places lost"}</b>`));
     t.after(n);
   }
 

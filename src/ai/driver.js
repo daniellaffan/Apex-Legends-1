@@ -448,4 +448,4 @@ function driveAI(c, S, dt){
 }
 
 
-export { driveAI, wearMulFor };
+export { aiProfile, driveAI, wearMulFor };

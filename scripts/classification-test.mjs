@@ -67,6 +67,10 @@ for (let round = 0; round < rounds; round++) {
   ok(res.slice(exp.length + bad.size).every(r => r.dnf) && res.slice(exp.length, exp.length + bad.size).every(r => r.dq && !r.dnf), `${tag}: DSQs not directly under the finishers, DNFs last`);
   for (const c of dsqs) ok(res.find(r => r.car === c).dq, `${tag}: ${name(c)} black-flagged but not marked DSQ`);
   for (const c of twoC) ok(res.find(r => r.car === c).dq, `${tag}: ${name(c)} ran one compound but not DSQ`);
+  // every disqualification says why
+  for (const c of dsqs) ok(res.find(r => r.car === c).dqReason === 'x', `${tag}: ${name(c)} black flag reason lost: '${res.find(r => r.car === c).dqReason}'`);
+  for (const c of twoC) ok(!!res.find(r => r.car === c).dqReason, `${tag}: ${name(c)} two-compound DSQ has no reason`);
+  for (const r of res) if (!r.dq) ok(!r.dqReason, `${tag}: ${name(r.car)} not disqualified but has a reason`);
   // positions agree everywhere
   res.forEach((r, i) => { ok(r.pos === i + 1, `${tag}: row ${i} says pos ${r.pos}`); ok(r.car.pos === i + 1, `${tag}: car ${name(r.car)}.pos ${r.car.pos} != row ${i + 1}`); });
   ok(new Set(res.map(r => r.car)).size === cars.length, `${tag}: a car appears twice or not at all`);

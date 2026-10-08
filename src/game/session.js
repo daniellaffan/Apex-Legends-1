@@ -542,7 +542,7 @@ function endSession(){
       : cl.any ? cl.key.get(c) - key0
       : (c.finished && first.finished ? c.finishTime - first.finishTime : c.gap);
     return { car:c, pos:c.pos, gap, best:c.best, stops:c.stops, tyre:c.tyre,
-             pen:cl.any ? cl.pen.get(c) : 0, dq:!!(c.pen && c.pen.dsq),
+             pen:cl.any ? cl.pen.get(c) : 0, dq:!!(c.pen && c.pen.dsq), dqReason:(c.pen && c.pen.dsq && c.pen.dsqReason) || "",
              total:cl.any && c === first && c.finished ? key0 : null };
   });
   cl.order.forEach((c, i) => { c.pos = i + 1; });
@@ -552,7 +552,10 @@ function endSession(){
   // two-compound rule
   if(S.mode === "race" && S.mustPit){
     // two dry compounds, or no stop at all; anyone who ran wets is exempt
-    for(const r of res) if(!r.dnf && !r.dq && (r.car.used.size < 2 || r.car.stops === 0) && !r.car.used.has("wet")){ r.dq = true; }
+    for(const r of res) if(!r.dnf && !r.dq && (r.car.used.size < 2 || r.car.stops === 0) && !r.car.used.has("wet")){
+      r.dq = true;
+      r.dqReason = r.car.stops === 0 ? "Made no pit stop — two-compound rule" : "Did not use two different tyre compounds";
+    }
     res.sort((a, b) => (a.dnf - b.dnf) || (a.dq - b.dq) || (a.pos - b.pos));
     res.forEach((r, i) => r.pos = i + 1);
   }
@@ -587,9 +590,9 @@ function endSession(){
     setTimeout(() => { if(S === sess) CINE.begin(G3, S, kind, () => { if(S === sess) showResults(res); }); }, kind === "win" ? 1800 : 200);
   } else setTimeout(() => { if(S === sess) showResults(res); }, 900);
   if(kind !== "dnf"){
-    const black = !!(S.player.pen && S.player.pen.dsq);
+    const mineRow = res.find(r => r.car === S.player), black = !!(mineRow && mineRow.dq);
     showMsg(S.player.dnf ? "DNF" : black ? "BLACK FLAG" : S.mode === "qualy" ? "CHEQUERED FLAG" : "FINISH",
-      S.player.dnf ? (S.player.retiredBy || "Retired") : black ? "Disqualified" : S.mode !== "race" ? "Session over"
+      S.player.dnf ? (S.player.retiredBy || "Retired") : black ? "Disqualified" + (mineRow.dqReason ? " — " + mineRow.dqReason : "") : S.mode !== "race" ? "Session over"
         : PEN.owed(S.player) > 0 ? `P${S.player.pos} · +${PEN.owed(S.player)} s in penalties`
         : S.player.pos === 1 ? "Race win" : `P${S.player.pos}`, 2.4);
     $("#flag").classList.add("on"); setTimeout(() => $("#flag").classList.remove("on"), 1400);

@@ -114,12 +114,38 @@ ok(A1.stops - st1 <= 1 && A2.stops - st2 <= 1, 'penalty visits count as no stop'
 ok(!(S.penLog||[]).some(e => /not served/.test(e.text)), 'served penalties are not converted to time');
 console.log('AI served dt after', t1 && t1.toFixed(0), 's, sg after', t2 && t2.toFixed(0), 's');
 // ---------- 6. track limits, collision fault, blue flags, pit speeding on the player ----------
-SS.startSession('race', null); S = SS.S; p = S.player; S.state = 'run'; S.clock = 30; p.lap = 2; p.lapStart = 1000; p.vx = 50; p.vy = 0;
-const excursion = () => { p.off = S.track.half + 3.5; for (let i = 0; i < 8; i++) PEN.tick(S, 0.1); p.off = 0; for (let i = 0; i < 3; i++) PEN.tick(S, 0.1); };
-excursion(); ok(/WARNING/.test(say()) && /1 of 3/.test(say()), 'track limits warning 1: ' + say());
-excursion(); ok(/2 of 3/.test(say()), 'warning 2');
-excursion(); ok(/BLACK & WHITE/.test(say()), 'black and white flag on the third: ' + say());
-const t0p = p.pen.time; excursion(); ok(p.pen.time === t0p + 5 && /5 SECOND/.test(say()), 'fourth strike is 5 s: ' + say());
+SS.startSession('race', null); S = SS.S; p = S.player; PEN.st(p); S.state = 'run'; S.clock = 30; p.lap = 2; p.lapStart = 1000; p.vx = 50; p.vy = 0;
+// leaving the track only costs a penalty when the game measures a gain: time out vs the AI reference over the same distance
+const excursion = (dist, secs, speed) => {
+  S.penQ = []; S.penNext = 1e9; p.vx = speed; p.vy = 0; p.spinT = 0; p.wrecked = false; p.inPit = false; p.pitting = 0; p.s = 500; p.off = S.track.half + 3.5;
+  const n = Math.round(secs * 10);
+  for (let i = 0; i < n; i++) { p.s += dist / n; S.clock += 0.1; PEN.tick(S, 0.1); }
+  p.off = 0; for (let i = 0; i < 3; i++) { S.clock += 0.1; PEN.tick(S, 0.1); }
+};
+const qtxt = () => (S.penQ || []).map(m => m.text).join(' | ');
+let t0p = p.pen ? p.pen.time : 0;
+excursion(160, 0.8, 70); ok(p.pen.time === t0p + 5, 'a shortcut that gains time is a 5 s penalty: ' + qtxt() + ' / time ' + p.pen.time);
+ok(S.penLog.some(e => e.me && /gaining an advantage \(\d+\.\d s\)/.test(e.reason || '')), 'the penalty reason states the time gained: ' + JSON.stringify(S.penLog.slice(-1)));
+t0p = p.pen.time; excursion(25, 1.2, 30); ok(p.pen.time === t0p && /no advantage/.test(qtxt()), 'a slow trip over the gravel gains nothing, no penalty: ' + qtxt());
+t0p = p.pen.time; S.penQ = []; S.penNext = 1e9; p.vx = 60; p.vy = 0; p.s = 500; p.off = S.track.half + 3.5;
+for (let i = 0; i < 6; i++) { p.s += 20; S.clock += 0.1; if (i === 2) p.spinT = 1; PEN.tick(S, 0.1); }
+p.spinT = 0; p.off = 0; for (let i = 0; i < 3; i++) { S.clock += 0.1; PEN.tick(S, 0.1); }
+ok(p.pen.time === t0p, 'spinning off is never an advantage: ' + qtxt());
+t0p = p.pen.time; excursion(160, 0.1, 70); ok(p.pen.time === t0p, 'a brief touch of the white line is ignored');
+ok(!/LIMITS/.test(PEN.hudLine(S, p) || ''), 'no LIMITS n/3 counter any more');
+// qualifying: the lap is deleted only when time was gained
+SS.startSession('qualy', null); S = SS.S; p = S.player; S.state = 'run'; S.clock = 30; p.lap = 0; p.lapStart = 1000; p.lapInvalid = false;
+excursion(25, 1.2, 30); ok(!p.lapInvalid, 'qualy: a slow excursion keeps the lap');
+excursion(160, 0.8, 70); ok(p.lapInvalid && /LAP DELETED/.test(say()), 'qualy: a gaining excursion deletes the lap: ' + say());
+// the black flag carries its reason, in the results row and in the finish message
+SS.startSession('race', null); S = SS.S; p = S.player; PEN.issue(S, p, 'dsq', 'Ignoring the black flag');
+ok(p.pen.dsq && p.pen.dsqReason === 'Ignoring the black flag', 'dsq stores its reason: ' + p.pen.dsqReason);
+p.finished = true; p.finishTime = 300000; p.lap = S.laps + 1; S.state = 'run'; SS.endSession();
+{ const row = S.results.find(r => r.car === p); ok(row && row.dq && row.dqReason === 'Ignoring the black flag', 'results row carries dqReason: ' + (row && row.dqReason)); ok(/Ignoring the black flag/.test(say()), 'finish message gives the reason: ' + say()); }
+// the two-compound DSQ explains itself too
+SS.startSession('race', null); S = SS.S; p = S.player; p.finished = true; p.finishTime = 300000; p.lap = S.laps + 1; p.stops = 0; p.used = new Set(['medium']); S.state = 'run'; SS.endSession();
+{ const row = S.results.find(r => r.car === p); ok(row && row.dq && /pit stop|compound/.test(row.dqReason), 'tyre-rule DSQ has a reason: ' + (row && row.dqReason)); ok(/BLACK FLAG/.test(say()), 'tyre-rule DSQ shows the black flag message: ' + say()); }
+SS.startSession('race', null); S = SS.S; p = S.player; PEN.st(p); S.state = 'run'; S.clock = 30; p.lap = 2; p.lapStart = 1000; p.vx = 50; p.vy = 0;
 // a light tap is "noted", a hard shunt from behind is a penalty on the car behind
 const B1 = S.cars.find(c => c !== p && c.ai), B2 = S.cars.find(c => c !== p && c !== B1 && c.ai);
 for (const c of [B1, B2]) { c.spinT = 0; c.wrecked = false; c.pitting = 0; c.inPit = false; c.vx = c.vy = 0; }
@@ -138,8 +164,9 @@ ok(p.pen.time >= tP + 5, 'ignoring the blue flag costs 5 s');
   for (let k = 0; k < 60 && !p.pitting; k++) SS.update(1 / 60, 1 / 60);
   ok(p.pen.time === tS + 5, 'pit-lane speeding is 5 s: ' + (p.pen.time - tS)); }
 // qualifying: track limits delete the lap
-SS.startSession('qualy', null); S = SS.S; p = S.player; S.state = 'run'; p.lapStart = 1000; p.vx = 60; p.vy = 0;
-p.off = S.track.half + 3.5; for (let i = 0; i < 8; i++) PEN.tick(S, 0.1); ok(p.lapInvalid === true && /LAP DELETED/.test(say()), 'qualifying lap deleted: ' + say());
+SS.startSession('qualy', null); S = SS.S; p = S.player; PEN.st(p); S.state = 'run'; S.clock = 30; p.lap = 2; p.lapStart = 1000; p.vx = 70; p.vy = 0; p.spinT = 0; p.s = 500;
+p.off = S.track.half + 3.5; for (let i = 0; i < 8; i++) { p.s += 20; S.clock += 0.1; PEN.tick(S, 0.1); }
+p.off = 0; for (let i = 0; i < 3; i++) { S.clock += 0.1; PEN.tick(S, 0.1); } ok(p.lapInvalid === true && /LAP DELETED/.test(say()), 'qualifying lap deleted: ' + say());
 console.log('player checks done');
 console.log(fail ? fail + ' FAILED' : 'all checks passed');
 process.exit(fail ? 1 : 0);
