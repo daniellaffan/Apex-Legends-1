@@ -264,6 +264,14 @@ body.fpv .h-bc{left:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));tra
 #cine-skip{position:absolute;right:4vw;bottom:13vh;font:600 13px 'Barlow',sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#fff;opacity:0;transition:opacity .4s}
 #cine-fade{position:absolute;inset:0;background:#000;opacity:0}
 
+/* ---- loading screen: shown from "Head out" until the first frames of the session are on screen ---- */
+#loading{position:fixed;inset:0;z-index:60;background:#0a0c10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+#loading[hidden]{display:none}
+#loading .big{font:900 italic clamp(32px,5vw,64px)/1 'Saira Condensed',sans-serif;letter-spacing:.03em;text-transform:uppercase;color:#fff}
+#loading .small{font:600 clamp(13px,1.4vw,18px) 'Barlow',sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#FFB020}
+#loading .bar{margin-top:14px;width:min(320px,60vw);height:3px;background:rgba(255,255,255,.12);overflow:hidden}
+#loading .bar i{display:block;height:100%;width:35%;background:#FFB020;animation:simrest-run 1.3s ease-in-out infinite}
+
 /* ---- the rest of the race, simulated after the player retires (nothing is drawn) ---- */
 #simrest{position:fixed;inset:0;z-index:45;background:#0a0c10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
 #simrest[hidden]{display:none}
