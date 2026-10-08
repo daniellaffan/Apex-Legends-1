@@ -86,6 +86,8 @@ const COCKPIT = {
       box(pc, 1.05, 0.09 * sd, 0.475, 0.11, 0.12, 0.10, suit2);                             // a knee pad
     }
     box(pc, 1.29, 0, Z0 - 0.01, 0.70, O * 2 + 0.04, 0.02, black);                          // the floor
+    // the front of the well, floor to rim: without it you look down past the wheel and out through the nose
+    box(pc, 0.945, 0, (Z0 + ZT) / 2, 0.02, O * 2 + 0.04, ZT - Z0 + 0.02, black);
     box(pc, 1.61, 0, (Z0 + ZT) / 2 + 0.02, 0.03, O * 2, ZT - Z0 + 0.04, pad);              // the seat back
     box(pc, 1.47, 0, 0.47, 0.22, 0.30, 0.30, suit);                                         // the driver's body
     rod(pc, [0.95, -O, ZT + 0.012], [0.95, O, ZT + 0.012], 0.024, pad, 8);                  // the rim across the front

@@ -38,11 +38,13 @@ G3.build(S);
    to try a ground system in the picture before it is wired into the game */
 const HOOKS = [];
 for (const h of (process.env.HOOKS || '').split(',').filter(Boolean)) { const m = await import(new URL('file://' + (await import('node:path')).resolve(h)).href); HOOKS.push(m); if (m.install) await m.install(G3, S, THREE); }
-const i0 = +nodeArg % T.n;
-car.place(i0, T.line[i0]); car.vx = Math.cos(car.h) * 70; car.vy = Math.sin(car.h) * 70; car.ai = false; car.steer = +steerArg; car.pos = 7; car.lap = 2; car.lapStart = 0;
+const i0 = process.env.PIT ? ((T.pitBox + +nodeArg) % T.n + T.n) % T.n : +nodeArg % T.n;
+if (process.env.PIT) { car.place(i0, T.pitCentre(i0)); car.inPit = true; } else car.place(i0, T.line[i0]); car.vx = Math.cos(car.h) * 70; car.vy = Math.sin(car.h) * 70; car.ai = false; car.steer = +steerArg; car.pos = 7; car.lap = 2; car.lapStart = 0;
 G3.view = 'cockpit';
 for (let k = 0; k < 40; k++) { S.clock += 1 / 60; G3.frame(S); for (const m of HOOKS) if (m.frame) m.frame(G3, S, THREE); }
 const cam = G3.camFP;
+// TILT=deg: look further down (or up, negative) from the cockpit, to inspect the well and the floor
+if (process.env.TILT) cam.rotateX(-(+process.env.TILT) * Math.PI / 180);
 /* CAM=front|rear: stand outside, low, at the front-left or rear-left corner, looking at the suspension instead */
 if (process.env.CAM) {
   const g0 = G3.cars.find(e => e.c === car).g; g0.updateMatrixWorld(true);
@@ -62,10 +64,11 @@ const camPos = cam.position;
 const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
 const ca = new THREE.Vector4(), cb = new THREE.Vector4(), cc = new THREE.Vector4();
 let tris = 0;
+const CULL = !!process.env.CULL; let cullThis = false;
 function drawTri(A, B, C, rgb, alpha) {
   e1.subVectors(B, A); e2.subVectors(C, A); n.crossVectors(e1, e2); const L = n.length(); if (L < 1e-12) return; n.divideScalar(L);
   const mid = A.clone().add(B).add(C).divideScalar(3), toCam = camPos.clone().sub(mid);
-  if (n.dot(toCam) < 0) n.negate();                              // two-sided, lit on the side we see
+  if (n.dot(toCam) < 0) { if (CULL && cullThis) return; n.negate(); }   // two-sided, lit on the side we see (CULL=1: drop back faces as WebGL does)
   const lam = 0.42 + 0.75 * Math.max(0, n.dot(sunDir));
   const dist = toCam.length();
   let f = 0; if (fog) f = Math.min(1, Math.max(0, (dist - fog.near) / (fog.far - fog.near)));
@@ -118,6 +121,7 @@ function drawMesh(o, mat4, matCol) {
   else if (m.map) base.multiplyScalar(0.3);                      // a texture this can't read: a mid tone instead of white
   const alpha = m.transparent ? (m.opacity == null ? 1 : m.opacity) : 1;
   if (alpha < 0.05) return;
+  cullThis = m.side === THREE.FrontSide;
   const N = idx ? idx.count : pos.count;
   for (let t = 0; t < N; t += 3) {
     const i0 = idx ? idx.getX(t) : t, i1 = idx ? idx.getX(t + 1) : t + 1, i2 = idx ? idx.getX(t + 2) : t + 2;
@@ -131,7 +135,10 @@ function drawMesh(o, mat4, matCol) {
 G3.scene.updateMatrixWorld(true);
 const pl = G3.cars.find(e => e.c === car).g;
 const mine = new Set(); pl.traverse(o => mine.add(o));
+// CARONLY=1: draw nothing but the player's car, on magenta, so any hole in it shows as magenta
+if (process.env.CARONLY) { for (let q = 0; q < col.length; q += 3) { col[q] = 1; col[q + 1] = 0; col[q + 2] = 1; } }
 G3.scene.traverse(o => {
+  if (process.env.CARONLY) return;
   if (!(o.isMesh) || !o.visible || mine.has(o)) return;
   let p = o; while (p) { if (!p.visible) return; p = p.parent; }
   const g = o.geometry; if (!g || !g.attributes.position) return;
