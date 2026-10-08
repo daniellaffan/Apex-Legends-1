@@ -467,7 +467,13 @@ function update(dt, rdt){
     const settled = !S.player.wrecked && S.player.speed < 1.2;
     if(S.crashCam <= 0 || (settled && S.crashT > 3.0)){
       S.crashCam = 0; S.slow = 1;
-      if(S.mode === "race" && S.player.dnf && !S.ended){ S.simRest = 0; S.cine = null; $("#hud").hidden = false; showMsg("DNF", "Simulating the rest of the race…", 3); }
+      if(S.mode === "race" && S.player.dnf && !S.ended){
+        // the truck and crane lift the wreck away (world frozen), then the rest of the race is simulated behind a plain screen
+        const sess = S;
+        const startSim = () => { if(S !== sess || S.ended) return; S.dnfScene = false; S.simRest = 0; $("#hud").hidden = false; $("#simrest").hidden = false; };
+        if(G3.ok && !G3.lost){ S.dnfScene = true; CINE.begin(G3, S, "dnf", startSim); }
+        else { S.cine = null; startSim(); }
+      }
       else endSession();
     }
   }
@@ -532,6 +538,7 @@ function update(dt, rdt){
 /* ---------- end of session ---------- */
 function endSession(){
   if(S.ended) return; S.ended = true; S.state = "done";
+  $("#simrest").hidden = true;
   try{ AUDIO.silence(); }catch(e){}
   const arr = positions();
   const T = S.track;
@@ -616,11 +623,12 @@ function loop(t){
   requestAnimationFrame(loop);
   const dt = Math.min(0.033, (t - lastT) / 1000 || 0.016); lastT = t;
   if(!S){ return; }
-  if(S.simRest != null && !S.ended && !paused){ simulateRest(14); }
+  if(S.simRest != null && !S.ended && !paused){ simulateRest(24); }
+  else if(S.dnfScene){ if(!paused){ S.clock += dt; stepParts(dt); } }      // the retirement cutscene: the race stands still
   else if(!paused && !S.menuOpen && S.state !== "done") update(dt * (S.slow == null ? 1 : S.slow), dt);
   else if(!paused && S.state === "done") { S.clock += dt; stepParts(dt); }
   if(S.cine && !paused) CINE.update(G3, S, dt);
-  renderWorld(S);
+  if(S.simRest == null || S.ended) renderWorld(S);                        // the simulated rest of the race is never drawn
   if(R.tv && S.tv){
     const ctx = R.ctx; ctx.save(); ctx.setTransform(R.dpr, 0, 0, R.dpr, 0, 0);
     ctx.fillStyle = "rgba(10,12,16,.72)"; ctx.fillRect(18, R.H - 54, 190, 34);
