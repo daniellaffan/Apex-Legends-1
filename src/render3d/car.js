@@ -604,12 +604,14 @@ G3.carAnim = function(g, c, S, dt){
   });
   P.compound = compound;
   const bent = gone.has("susp") && !(c.wheelOff >= 0) ? (c.idx % 4) : -1, flat = gone.has("punct") ? ((c.idx + 1) % 4) : -1;
+  // a bent corner being fixed in the box straightens as the job goes on
+  const unbend = po && st.rep && st.rep.susp ? 1 - clamp((st.t - st.rep.susp[0]) / Math.max(0.1, st.rep.susp[1] - st.rep.susp[0]), 0, 1) : 1;
   P.pivots.forEach((pv, i) => {
     const B = pv.userData.base, front = i >= 2, w = g.userData.wheels[i];
     pv.visible = !(c.wheelOff === i || c.wheelOff2 === i) && !(po && !st.corners[i].none && po["c" + i] >= 1 && po["c" + i] < 2);
-    const out = wheelOut + (i === bent ? 0.34 : 0);
+    const out = wheelOut + (i === bent ? 0.34 * unbend : 0);
     pv.position.set(B.x, B.y - (i === flat ? 0.09 : 0) + wheelOut * 0.45, B.z + B.sd * out);
-    pv.rotation.set(i === bent ? 0.42 * B.sd : 0, (front ? -A.steer : 0) + (i === bent ? 0.3 : 0), 0, "YXZ");
+    pv.rotation.set(i === bent ? 0.42 * B.sd * unbend : 0, (front ? -A.steer : 0) + (i === bent ? 0.3 * unbend : 0), 0, "YXZ");
     pv.scale.set(1, i === flat ? 0.74 : 1, 1);
     w.rotation.z = -(front ? A.spinF : A.spinR);
   });
@@ -621,6 +623,8 @@ G3.carAnim = function(g, c, S, dt){
   // damage: the wings come off, the floor loses a chunk
   const noFront = gone.has("wing"), noRear = gone.has("rear");
   P.fw.visible = !noFront; P.fwStub.visible = noFront;
+  // in the box, the broken wing is off the car once the crew have pulled it (render3d/pitcrew.js carries it)
+  if(po && st.rep && st.rep.wing && st.t > lerp(st.rep.wing[0], st.rep.wing[1], 0.12)) P.fwStub.visible = false;
   P.rw.visible = !noRear; P.rwStub.visible = noRear;
   const chip = gone.has("floor"), dv = c.dentVer || 0, now = (S && S.clock) || 0;
   // the bodywork crumples where it was hit; rebuilt at most a few times a second while a car is being ground along a wall

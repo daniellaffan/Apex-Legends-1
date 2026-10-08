@@ -62,6 +62,8 @@ function stations(side){
   S2.push({ kind:"jackF", x:4.15, z:0, face:2 }, { kind:"jackR", x:-4.25, z:0, face:0 });
   S2.push({ kind:"stab", x:0.15, z:1.45, face:-1 }, { kind:"stab", x:0.15, z:-1.45, face:1 });
   S2.push({ kind:"rel", x:3.1, z:side * 2.9, face:-side });
+  // only out when there is a repair to do: two men to change the front wing, one for a bent corner
+  S2.push({ kind:"noseL", x:3.2, z:1.05, face:-1, extra:true }, { kind:"noseR", x:3.2, z:-1.05, face:1, extra:true }, { kind:"susp", x:0, z:0, face:1, extra:true });
   // waiting on the apron, in a line in front of the garage
   S2.forEach((m, k) => { m.wx = -6.5 + k * 0.8; m.wz = side * 3.7; });
   return S2;
@@ -91,6 +93,10 @@ const PITCREW = {
     const jackGeo = new THREE.BoxGeometry(1.7, 0.08, 0.10), jackHead = new THREE.BoxGeometry(0.35, 0.22, 0.5);
     const jacks = [0, 1].map(() => { const j = new THREE.Group(), h = new THREE.Mesh(jackGeo, toolMat), hd = new THREE.Mesh(jackHead, toolMat);
       h.position.x = 0.85; j.add(h, hd); grp.add(j); return j; });
+    // the repairs: the broken wing coming off, the new one going on, a spanner for the suspension
+    const E = CARGEO.team(G, t), bodyMat = G.carMats(t).body;
+    const wingOld = new THREE.Mesh(E.fwStub, bodyMat), wingNew = new THREE.Mesh(E.fw, bodyMat), spanner = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.07), toolMat);
+    for(const w of [wingOld, wingNew, spanner]){ w.visible = false; w.castShadow = true; grp.add(w); }
     const wheels = [];
     for(let q = 0; q < 4; q++){
       const ax = q < 2 ? SP.rear : SP.front;
@@ -99,7 +105,7 @@ const PITCREW = {
       for(const w of [old, nw]){ w.visible = false; w.castShadow = true; grp.add(w); }
       wheels.push({ ax, old, nw, oldKey:null, newKey:null });
     }
-    C = { grp, st, meshes, mats, guns, jacks, wheels, u:0, box, team:t, toolMat, seen:false };
+    C = { grp, st, meshes, mats, guns, jacks, wheels, wingOld, wingNew, spanner, u:0, box, team:t, toolMat, seen:false };
     G.world.add(grp);
     this.crews.set(box.id, C);
     return C;
@@ -154,7 +160,13 @@ const PITCREW = {
       if(newKey && W.newKey !== newKey){ W.newKey = newKey; W.nw.geometry = this.wheelGeo(G, W.ax, newKey, C.team); W.nw.material = car ? car3dTyreMat(G, car) : W.nw.material; }
     }
     const pose = {};
+    const rep = st && st.rep ? st.rep : {}, wingJob = !!(rep.wing || (P && P.plan && (P.plan.repairs || []).includes && (P.plan.repairs || []).includes("wing")));
+    const suspJob = !!(rep.susp || (P && P.plan && (P.plan.repairs || []).includes && (P.plan.repairs || []).includes("susp")));
+    const bentQ = car ? car.idx % 4 : 0;
     C.st.forEach((m, i) => {
+      // the repair men: hidden unless there is their job on this stop
+      if(m.extra && !((m.kind === "susp" && suspJob) || (m.kind !== "susp" && wingJob))){ hidePerson(C, i); return; }
+      if(m.kind === "susp"){ const ax = bentQ < 2 ? SP.rear : SP.front, sd = bentQ % 2 === 0 ? 1 : -1; m.x = ax.x + (bentQ < 2 ? 0.55 : -0.55); m.z = sd * 1.3; m.face = -sd; }
       // where: from the apron line out to the station
       // walking out to the station (a car is coming) or back to the apron (it has gone): face the way they walk
       const out = !!car, dx = (m.x - m.wx) * (out ? 1 : -1), dz = (m.z - m.wz) * (out ? 1 : -1);
@@ -167,6 +179,14 @@ const PITCREW = {
         pose.al = -pose.hl * 0.8; pose.ar = -pose.hr * 0.8; pose.lean = 0.12;
       } else if(ready >= 1){
         workPose(m, pose, po, st, t, i);
+        if(m.extra && po) repairPose(m, pose, st, rep, t, i);
+        // the wing men: pull the broken wing forward and away, fetch the new one from the garage side, carry it in, fit it
+        if((m.kind === "noseL" || m.kind === "noseR") && po && rep.wing){
+          const k2 = clamp((st.t - rep.wing[0]) / (rep.wing[1] - rep.wing[0]), 0, 1), sdw = Math.sign(m.z);
+          if(k2 < 0.12){ x += 0.9 * (k2 / 0.12); }
+          else if(k2 < 0.35){ const q = (k2 - 0.12) / 0.23; x += 0.9 + q * 0.6; z = lerp(m.z, m.z + side * 2.2 * (sdw === side ? 1 : 0.4), q); }
+          else if(k2 < 0.6){ const q = (k2 - 0.35) / 0.25; x += 1.5 - q * 1.5; z = lerp(m.z + side * 2.2 * (sdw === side ? 1 : 0.4), m.z, q); }
+        }
         // the front jack man swings out of the car's way once the jacks are down
         if(m.kind === "jackF" && po && st.t > st.drop + 0.05){ z += side * 1.8 * clamp((st.t - st.drop - 0.05) / 0.25, 0, 1); x -= 0.4; }   // towards the garage: the car leaves towards the fast lane
         if(m.kind === "jackF" && P && P.phase === "out"){ z += side * 1.8; x -= 0.4; }
@@ -195,6 +215,20 @@ const PITCREW = {
         if(ready < 1){ j.position.set(x + (front ? -0.5 : 0.5), 0.1, z); j.rotation.set(0, 0, 0.1); }
       }
     });
+    // the wing: the stub comes off forward and is laid down; the new wing comes from the garage side and slides on
+    const wk = po && rep.wing ? clamp((st.t - rep.wing[0]) / (rep.wing[1] - rep.wing[0]), 0, 1) : -1;
+    C.wingOld.visible = wk >= 0.12 && ready >= 1;
+    if(C.wingOld.visible){ const q = clamp((wk - 0.12) / 0.23, 0, 1); C.wingOld.position.set(0.9 + q * 2.2, lift - q * 0.05, side * 2.6 * q); C.wingOld.rotation.set(0, q * 0.5, 0); }
+    C.wingNew.visible = !!(wingJob && ready >= 1 && (!po || st.t < st.drop));
+    if(C.wingNew.visible){
+      const q = wk < 0.35 ? 0 : clamp((wk - 0.35) / 0.25, 0, 1), fit = wk > 0.6 ? Math.sin(t * 22) * 0.004 * (wk < 0.95 ? 1 : 0) : 0;
+      C.wingNew.position.set(lerp(1.4, 0, q) + fit, lerp(0.85, lift, q), lerp(side * 3.0, 0, q)); C.wingNew.rotation.set(0, (1 - q) * 0.4, 0);
+    }
+    // the spanner in the suspension man's hands, going to work on the bent corner
+    const sk = po && rep.susp ? clamp((st.t - rep.susp[0]) / (rep.susp[1] - rep.susp[0]), 0, 1) : -1;
+    C.spanner.visible = sk >= 0 && sk < 1 && ready >= 1;
+    if(C.spanner.visible){ const ax = bentQ < 2 ? SP.rear : SP.front, sd = bentQ % 2 === 0 ? 1 : -1;
+      C.spanner.position.set(ax.x + (bentQ < 2 ? 0.3 : -0.3), ax.r * 0.8 + lift, sd * 0.55); C.spanner.rotation.set(Math.sin(t * 9) * 0.6, 0, 0); }
     // the wheels: the old one comes off with the wheel-off man, the new one goes on from the wheel-on man
     for(let q = 0; q < 4; q++){
       const W = C.wheels[q], ax = W.ax, sd = q % 2 === 0 ? 1 : -1, x = ax.x, hubZ = sd * 0.83, hubY = ax.r + lift;
@@ -254,6 +288,18 @@ function workPose(m, p, po, st, t, i){
     p.al = 0.2; p.ar = po && po.light ? 2.7 : 0.45;  // the arm goes up as the light goes green
   }
 }
+// the repair men at work: the wing men bent over the nose, the suspension man on one knee at the corner
+function repairPose(m, p, st, rep, t, i){
+  if(m.kind === "susp"){
+    p.hip = 0.55; p.hl = 1.45; p.kl = 1.5; p.hr = -0.15; p.kr = 1.75; p.lean = 0.45; p.al = 1.0; p.ar = 1.2;
+    if(rep.susp && st.t < rep.susp[1]) p.ar += Math.sin(t * 9 + i) * 0.35;           // working the spanner
+  } else {
+    p.hip = 0.82; p.hl = 0.5; p.kl = 0.7; p.hr = 0.5; p.kr = 0.7; p.lean = 0.6; p.al = 1.15; p.ar = 1.15;
+  }
+}
+// someone not needed on this stop: folded away to nothing
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+function hidePerson(C, i){ for(const k of PARTS) C.meshes[k].setMatrixAt(i, ZERO); }
 // forward kinematics: one person's parts into the crew's instanced meshes
 function setPerson(C, i, x, z, face, p){
   const root = M4.compose(V.set(x, 0, z), Q.setFromEuler(E.set(0, face, 0)), ONE);

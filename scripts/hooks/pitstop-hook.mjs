@@ -8,10 +8,13 @@ export async function install(G3, S){
   const { PITCREW } = await import('../../src/render3d/pitcrew.js');
   const p = S.player, T = S.track, box = T.boxOf(p.team);
   p.ai = false;
-  pilotStart(p, S, 'player', { tyre: 'soft', repairs: [] });
+  // REP=wing,susp: those parts broken on the car, and their repair planned for this stop
+  const reps = (process.env.REP || '').split(',').filter(Boolean);
+  for (const k of reps) p.broken.add(k);
+  pilotStart(p, S, 'player', { tyre: 'soft', repairs: reps });
   const P = p.pp;
   if (process.env.PHASE === 'approach') { P.phase = 'box'; P.stopA = box.a; P.a = box.a - 40; P.v = 18; }
-  else { P.phase = 'stopped'; P.a = box.a; P.stopA = box.a; P.v = 0; st = P.st = planStop(p, { tyre: 'soft', repairs: [] }); P.st.t = +(process.env.PT || 0.9); }
+  else { P.phase = 'stopped'; P.a = box.a; P.stopA = box.a; P.v = 0; st = P.st = planStop(p, { tyre: 'soft', repairs: reps }); if (reps.length) console.log('repair windows', JSON.stringify(P.st.rep), 'drop', P.st.drop.toFixed(2)); P.st.t = +(process.env.PT || 0.9); }
   H = { p, P, PITCREW };
   frame(G3, S);
 }

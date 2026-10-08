@@ -31,7 +31,7 @@ function planStop(c, opts){
                oldTyre:c.tyre ? c.tyre.key : "medium", corners:[], slow:-1, pen:o.pen || null };
   if(st.noWork){
     // a stop-and-go: the car sits on the mark for ten seconds, untouched
-    st.jackF = st.jackR = st.drop = Infinity;
+    st.jackF = st.jackR = st.drop = Infinity; st.rep = {};
     st.green = 10; st.go = 10.15;
     return st;
   }
@@ -56,7 +56,8 @@ function planStop(c, opts){
   }
   // repairs run alongside: the longest job decides it
   let rep = 0;
-  for(const key of st.repairs){ const p = PARTS[key]; if(p && !p.tyre) rep = Math.max(rep, p.fix * rnd(0.85, 1.05)); }
+  st.rep = {};                                                            // each job's own window, for the animation
+  for(const key of st.repairs){ const p = PARTS[key]; if(p && !p.tyre){ const d = p.fix * rnd(0.85, 1.05); rep = Math.max(rep, d); st.rep[key] = [up, up + d]; } }
   st.repairEnd = up + rep;
   const allOn = Math.max(...st.corners.map(q => q.on));
   st.drop = Math.max(allOn, st.repairEnd) + rnd(0.04, 0.10);
