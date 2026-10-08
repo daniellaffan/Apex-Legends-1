@@ -465,7 +465,11 @@ function update(dt, rdt){
     const want = S.crashKind === "wreck" ? (S.crashT < 4.6 ? 0.2 : 0.55) : 1;
     S.slow = lerp(S.slow == null ? 1 : S.slow, want, 1 - Math.exp(-rdt * 7));
     const settled = !S.player.wrecked && S.player.speed < 1.2;
-    if(S.crashCam <= 0 || (settled && S.crashT > 3.0)){ S.crashCam = 0; S.slow = 1; endSession(); }
+    if(S.crashCam <= 0 || (settled && S.crashT > 3.0)){
+      S.crashCam = 0; S.slow = 1;
+      if(S.mode === "race" && S.player.dnf && !S.ended){ S.simRest = 0; S.cine = null; $("#hud").hidden = false; showMsg("DNF", "Simulating the rest of the race…", 3); }
+      else endSession();
+    }
   }
 
   // camera
@@ -558,7 +562,7 @@ function endSession(){
   const sess = S;
   // a retirement and a win each get a cutscene; everything else goes straight to the results
   const kind = (G3.ok && !G3.lost && S.mode === "race")
-    ? (S.player.dnf ? "dnf" : (res[0] && res[0].car === S.player && !res[0].dq && !res[0].dnf) ? "win" : null) : null;
+    ? (S.player.dnf ? null : (res[0] && res[0].car === S.player && !res[0].dq && !res[0].dnf) ? "win" : null) : null;
   if(kind){
     setTimeout(() => { if(S === sess) CINE.begin(G3, S, kind, () => { if(S === sess) showResults(res); }); }, kind === "win" ? 1800 : 200);
   } else setTimeout(() => { if(S === sess) showResults(res); }, 900);
@@ -572,11 +576,25 @@ function endSession(){
   }
 }
 
+/* the player is out: run the rest of the race without drawing it, then classify with the simulated times */
+function restDone(){ return S.cars.every(c => c.dnf || c.finished); }
+function simulateRest(budgetMs){
+  const t0 = Date.now(), CAP = 60 * 60 * 40;
+  while(!S.ended && S.simRest != null){
+    for(let i = 0; i < 120; i++){
+      update(1 / 60, 1 / 60); S.simRest++;
+      if(S.ended || restDone() || S.simRest > CAP){ S.simRest = null; endSession(); return; }
+    }
+    if(Date.now() - t0 > budgetMs) return;
+  }
+}
+
 function loop(t){
   requestAnimationFrame(loop);
   const dt = Math.min(0.033, (t - lastT) / 1000 || 0.016); lastT = t;
   if(!S){ return; }
-  if(!paused && !S.menuOpen && S.state !== "done") update(dt * (S.slow == null ? 1 : S.slow), dt);
+  if(S.simRest != null && !S.ended && !paused){ simulateRest(14); }
+  else if(!paused && !S.menuOpen && S.state !== "done") update(dt * (S.slow == null ? 1 : S.slow), dt);
   else if(!paused && S.state === "done") { S.clock += dt; stepParts(dt); }
   if(S.cine && !paused) CINE.update(G3, S, dt);
   renderWorld(S);
@@ -594,4 +612,4 @@ function loop(t){
 
 function setPaused(v){ paused = v; }
 function setS(v){ S = v; }
-export { S, cycleView, endSession, loop, paused, recover, requestPit, setPaused, setS, startSession, update, updateStatus };
+export { S, cycleView, endSession, loop, simulateRest, paused, recover, requestPit, setPaused, setS, startSession, update, updateStatus };
