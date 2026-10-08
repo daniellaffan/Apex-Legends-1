@@ -191,8 +191,8 @@ const SINGAPORE = {
         const top = rows * rowH + 4.4;
         for(let k = 0; k < span; k++){
           const ia = (i0 + k) % n, ib = (i0 + k + 1) % n, m = TW.get("solid", ...at(ia, side, off0 + depth / 2)), za = zb[k] + top, zn = zb[k + 1] + top, f0 = off0 - 2.5, f1 = off0 + depth + 2.5;
-          m.quad(pt(ia, side, f0, za), pt(ib, side, f0, zn), pt(ib, side, f1, zn + 0.8), pt(ia, side, f1, za + 0.8), L("#C8CCD8"));
-          m.quad(pt(ia, side, f0, za - 0.5), pt(ib, side, f0, zn - 0.5), pt(ib, side, f1, zn + 0.3), pt(ia, side, f1, za + 0.3), shadeC("#C8CCD8", -0.4));
+          m.quad(pt(ia, side, f0, za), pt(ib, side, f0, zn), pt(ib, side, f1, zn + 0.8), pt(ia, side, f1, za + 0.8), L("#6C7088"));
+          m.quad(pt(ia, side, f0, za - 0.5), pt(ib, side, f0, zn - 0.5), pt(ib, side, f1, zn + 0.3), pt(ia, side, f1, za + 0.3), shadeC("#6C7088", -0.4));
           TW.get("bright", ...at(ia, side, f0)).quad(pt(ia, side, f0 + 0.2, za - 0.55), pt(ib, side, f0 + 0.2, zn - 0.55), pt(ib, side, f0 + 0.2, zn - 0.3), pt(ia, side, f0 + 0.2, za - 0.3), L(seat));
           if(k % 5 === 0){ const fa = at(ia, side, f0 + 1.2); m.pole(fa[0], fa[1], zb[k] - 0.5, fa[0], fa[1], za - 0.5, 0.18, L("#7A7E8E")); }
         }

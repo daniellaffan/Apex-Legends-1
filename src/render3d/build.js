@@ -354,7 +354,7 @@ G3.build = function(S){
   try{ PITBOX.build(this, S); PITCREW.build(this, S); }catch(e){ console.warn("pit boxes", e.message); }
   // the wall, with a lit top rail
   const pw = i => T.pitRamp(i) > 0.9;
-  this.add(road, this.wall(T, sg * (T.half + 0.35), 1.0, pw), this.twoSided(this.mat("#D8DCE0")), true);
+  this.add(road, this.wall(T, sg * (T.half + 0.35), 1.0, pw), this.twoSided(this.mat(nite ? "#59607A" : "#D8DCE0", nite ? { roughness:1 } : undefined)), true);
   this.add(road, ps(sg * (T.half + 0.35), sg * (T.half + 0.75), 1.0, 8, pw), lit("#BFE3FF", 1.5));
   // entry and exit gantries
   if(!this._pitSign){
