@@ -537,10 +537,6 @@ function endSession(){
   const T = S.track;
   const cl = PEN.classify(S, arr);
   const first = cl.order[0], key0 = first ? cl.key.get(first) : 0;
-  if(S.mode === "race"){
-    const a = arr.indexOf(S.player), b = cl.order.indexOf(S.player);
-    S.penPlaces = (S.player.dnf || a < 0 || b < 0) ? 0 : Math.max(0, b - a);
-  }
   const res = cl.order.map(c => {
     const gap = c === first ? null
       : cl.any ? cl.key.get(c) - key0
@@ -576,6 +572,12 @@ function endSession(){
   }
   for(const r of res) r.car.pos = r.pos;
   S.results = res;
+  // places lost to the player's own penalties: cars that were behind on the road and are classified ahead (retirements and disqualified cars don't count)
+  if(S.mode === "race"){
+    const mine = res.find(r => r.car === S.player), a = arr.indexOf(S.player);
+    S.penPlaces = (!mine || mine.dq || mine.dnf || a < 0) ? 0
+      : res.filter(r => r.pos < mine.pos && !r.dq && !r.dnf && arr.indexOf(r.car) > a).length;
+  }
   if(S.champ && S.mode === "race") applyChampionship(res);
   const sess = S;
   // a retirement and a win each get a cutscene; everything else goes straight to the results

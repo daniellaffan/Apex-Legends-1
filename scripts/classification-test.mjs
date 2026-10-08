@@ -70,6 +70,12 @@ for (let round = 0; round < rounds; round++) {
   // positions agree everywhere
   res.forEach((r, i) => { ok(r.pos === i + 1, `${tag}: row ${i} says pos ${r.pos}`); ok(r.car.pos === i + 1, `${tag}: car ${name(r.car)}.pos ${r.car.pos} != row ${i + 1}`); });
   ok(new Set(res.map(r => r.car)).size === cars.length, `${tag}: a car appears twice or not at all`);
+  // the results panel's "places lost": cars that were behind on the road, are classified ahead, and are neither DSQ nor DNF
+  {
+    const pl = S.player, me = res.find(r => r.car === pl);
+    const want = (me.dq || me.dnf) ? 0 : good.filter(c => raw.get(c) > raw.get(pl) && exp.indexOf(c) < exp.indexOf(pl)).length;
+    ok(S.penPlaces === want, `${tag}: penPlaces ${S.penPlaces} != ${want}`);
+  }
   // winner, total and gaps
   if (exp.length) {
     const w = res[0], k0 = exp[0].finishTime + owedOf(exp[0]) * 1000;
