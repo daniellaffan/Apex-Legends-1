@@ -564,12 +564,11 @@ function endSession(){
   const out = S.cars.filter(c => c.dnf).sort((a, b) => (b.prog || 0) - (a.prog || 0));
   for(const c of out) res.push({ car:c, pos:res.length + 1, gap:null, best:c.best, stops:c.stops, tyre:c.tyre, dnf:true });
   res.forEach((r, i) => r.pos = i + 1);
-  // two-compound rule
+  // mandatory stop: every finisher must have pitted at least once (any tyre will do); anyone who ran wets is exempt
   if(S.mode === "race" && S.mustPit){
-    // two dry compounds, or no stop at all; anyone who ran wets is exempt
-    for(const r of res) if(!r.dnf && !r.dq && (r.car.used.size < 2 || r.car.stops === 0) && !r.car.used.has("wet")){
+    for(const r of res) if(!r.dnf && !r.dq && r.car.stops === 0 && !r.car.used.has("wet")){
       r.dq = true;
-      r.dqReason = r.car.stops === 0 ? "Made no pit stop — two-compound rule" : "Did not use two different tyre compounds";
+      r.dqReason = "Made no pit stop — mandatory pit stop rule";
     }
     res.sort((a, b) => (a.dnf - b.dnf) || (a.dq - b.dq) || (a.pos - b.pos));
     res.forEach((r, i) => r.pos = i + 1);

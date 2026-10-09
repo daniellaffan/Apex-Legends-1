@@ -1,5 +1,5 @@
 /* Finishing position == classified result, in Node: randomised finishing orders with every kind of penalty, DSQs, DNFs and the
-   two-compound rule, pushed through the real endSession(), and checked against an independently computed expected order.
+   mandatory-stop rule, pushed through the real endSession(), and checked against an independently computed expected order.
    node --import ./scripts/asset-register.mjs scripts/classification-test.mjs [track] [rounds] */
 globalThis.window = globalThis;
 const els = new Map();
@@ -44,7 +44,7 @@ for (let round = 0; round < rounds; round++) {
     else if (r < 0.43) { PEN.issue(S, c, 'dsq', 'x'); dsqs.push(c); }
     else if (r < 0.47) { PEN.issue(S, c, 'dt', 'x'); PEN.served(S, c, 'dt'); }      // served: no time
   }
-  // two-compound offenders
+  // no-stop offenders
   const twoC = [];
   for (const c of run) if (!dsqs.includes(c) && rnd() < 0.05) { c.stops = 0; c.used = new Set(['medium']); twoC.push(c); }
   SS.endSession();
@@ -66,10 +66,10 @@ for (let round = 0; round < rounds; round++) {
   ok(firstBad === -1 || res.slice(firstBad).every(r => r.dq || r.dnf), `${tag}: a DSQ/DNF sits above a classified finisher`);
   ok(res.slice(exp.length + bad.size).every(r => r.dnf) && res.slice(exp.length, exp.length + bad.size).every(r => r.dq && !r.dnf), `${tag}: DSQs not directly under the finishers, DNFs last`);
   for (const c of dsqs) ok(res.find(r => r.car === c).dq, `${tag}: ${name(c)} black-flagged but not marked DSQ`);
-  for (const c of twoC) ok(res.find(r => r.car === c).dq, `${tag}: ${name(c)} ran one compound but not DSQ`);
+  for (const c of twoC) ok(res.find(r => r.car === c).dq, `${tag}: ${name(c)} made no stop but not DSQ`);
   // every disqualification says why
   for (const c of dsqs) ok(res.find(r => r.car === c).dqReason === 'x', `${tag}: ${name(c)} black flag reason lost: '${res.find(r => r.car === c).dqReason}'`);
-  for (const c of twoC) ok(!!res.find(r => r.car === c).dqReason, `${tag}: ${name(c)} two-compound DSQ has no reason`);
+  for (const c of twoC) ok(!!res.find(r => r.car === c).dqReason, `${tag}: ${name(c)} no-stop DSQ has no reason`);
   for (const r of res) if (!r.dq) ok(!r.dqReason, `${tag}: ${name(r.car)} not disqualified but has a reason`);
   // positions agree everywhere
   res.forEach((r, i) => { ok(r.pos === i + 1, `${tag}: row ${i} says pos ${r.pos}`); ok(r.car.pos === i + 1, `${tag}: car ${name(r.car)}.pos ${r.car.pos} != row ${i + 1}`); });

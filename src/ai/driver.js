@@ -92,8 +92,7 @@ function stintLaps(tyre, S, T){ return 0.72 / (tyre.wear * S.wearMul * lapWearLo
 function chooseTyre(c, S){
   if(S.wetTarget > 0.4 && S.wet > 0.3) return TYRES.wet;
   const left = Math.max(1, S.laps - c.lap);
-  const needNew = S.mustPit && c.used.size < 2;
-  const opts = [TYRES.soft, TYRES.medium, TYRES.hard].filter(t => !(needNew && c.used.has(t.key)));
+  const opts = [TYRES.soft, TYRES.medium, TYRES.hard];
   // the softest set that gets to the flag, with a little in hand; else the longest-lasting
   for(const t of opts) if(stintLaps(t, S, c.T) >= left * 1.05) return t;
   return opts[opts.length - 1];

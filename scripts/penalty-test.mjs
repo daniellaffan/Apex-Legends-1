@@ -114,6 +114,9 @@ ok(A1.stops - st1 <= 1 && A2.stops - st2 <= 1, 'penalty visits count as no stop'
 ok(!(S.penLog||[]).some(e => /not served/.test(e.text)), 'served penalties are not converted to time');
 console.log('AI served dt after', t1 && t1.toFixed(0), 's, sg after', t2 && t2.toFixed(0), 's');
 // ---------- 6. track limits, collision fault, blue flags, pit speeding on the player ----------
+// one stop on the same compound is legal now: the rule is only that you pit
+SS.startSession('race', null); S = SS.S; p = S.player; p.finished = true; p.finishTime = 300000; p.lap = S.laps + 1; p.stops = 1; p.used = new Set(['medium']); S.state = 'run'; SS.endSession();
+{ const row = S.results.find(r => r.car === p); ok(row && !row.dq, 'a stop on the same compound is not disqualified: ' + (row && row.dqReason)); }
 SS.startSession('race', null); S = SS.S; p = S.player; PEN.st(p); S.state = 'run'; S.clock = 30; p.lap = 2; p.lapStart = 1000; p.vx = 50; p.vy = 0;
 // leaving the track only costs a penalty when the game measures a gain: time out vs the AI reference over the same distance
 const excursion = (dist, secs, speed) => {
@@ -142,7 +145,7 @@ SS.startSession('race', null); S = SS.S; p = S.player; PEN.issue(S, p, 'dsq', 'I
 ok(p.pen.dsq && p.pen.dsqReason === 'Ignoring the black flag', 'dsq stores its reason: ' + p.pen.dsqReason);
 p.finished = true; p.finishTime = 300000; p.lap = S.laps + 1; S.state = 'run'; SS.endSession();
 { const row = S.results.find(r => r.car === p); ok(row && row.dq && row.dqReason === 'Ignoring the black flag', 'results row carries dqReason: ' + (row && row.dqReason)); ok(/Ignoring the black flag/.test(say()), 'finish message gives the reason: ' + say()); }
-// the two-compound DSQ explains itself too
+// the no-stop DSQ explains itself too
 SS.startSession('race', null); S = SS.S; p = S.player; p.finished = true; p.finishTime = 300000; p.lap = S.laps + 1; p.stops = 0; p.used = new Set(['medium']); S.state = 'run'; SS.endSession();
 { const row = S.results.find(r => r.car === p); ok(row && row.dq && /pit stop|compound/.test(row.dqReason), 'tyre-rule DSQ has a reason: ' + (row && row.dqReason)); ok(/BLACK FLAG/.test(say()), 'tyre-rule DSQ shows the black flag message: ' + say()); }
 SS.startSession('race', null); S = SS.S; p = S.player; PEN.st(p); S.state = 'run'; S.clock = 30; p.lap = 2; p.lapStart = 1000; p.vx = 50; p.vy = 0;
