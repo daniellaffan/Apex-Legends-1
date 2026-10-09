@@ -5,6 +5,7 @@ import { CAR_SPEC } from '../car/spec.js';
 import { G3 } from './g3.js';
 import { CRASH } from './crash.js';
 import { stopPose } from '../car/pitstop.js';
+import { wearLook } from '../car/tyrewear.js';
 
 /* ---- the cars ----------------------------------------------------------
    Built from simple faceted shapes in the dimensions of CAR_SPEC: a lofted tub
@@ -391,28 +392,31 @@ const CARGEO = {
        pale blocks each side) and faint scuffing across the tread. */
     const pale = ring.clone().lerp(new THREE.Color(1, 1, 1), 0.55), scuff = rubber.clone().lerp(new THREE.Color(1, 1, 1), 0.035);
     const colAt = (s, k) => (s === 1 || s === 7) ? ((k % 8) < 2 ? pale : ring) : (s >= 3 && s <= 5 && (k & 1)) ? scuff : cols[s];
-    const pos = [], col = [];
-    const push = (a, q, r, c) => {
+    // per-vertex zone for the wear shader (render3d/g3.js tyreWearMat): 0 rim and hub, 1 sidewall, 2 compound band, 3 tread
+    const zoneOf = s => (s === 1 || s === 7) ? 2 : (s >= 3 && s <= 5) ? 3 : 1;
+    const pos = [], col = [], zone = [];
+    const push = (a, q, r, c, z) => {
       // face away from the wheel's centre
       const ux = q[0] - a[0], uy = q[1] - a[1], uz = q[2] - a[2], vx = r[0] - a[0], vy = r[1] - a[1], vz = r[2] - a[2];
       const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
       const cx = a[0] + q[0] + r[0], cy = a[1] + q[1] + r[1], cz = a[2] + q[2] + r[2];
       if(nx * cx + ny * cy + nz * cz < 0){ const t = q; q = r; r = t; }
-      pos.push(...a, ...q, ...r); for(let k = 0; k < 3; k++) col.push(c.r, c.g, c.b);
+      pos.push(...a, ...q, ...r); for(let k = 0; k < 3; k++){ col.push(c.r, c.g, c.b); zone.push(z); }
     };
     const pt = (f, z, k) => { const a = k / seg * TAU; return [Math.cos(a) * f * Rr, Math.sin(a) * f * Rr, z]; };
     for(let s = 0; s < P.length - 1; s++) for(let k = 0; k < seg; k++){
       const a = pt(P[s][0], P[s][1], k), q = pt(P[s][0], P[s][1], k + 1), r = pt(P[s + 1][0], P[s + 1][1], k + 1), t = pt(P[s + 1][0], P[s + 1][1], k);
-      push(a, q, r, colAt(s, k)); push(a, r, t, colAt(s, k));
+      push(a, q, r, colAt(s, k), zoneOf(s)); push(a, r, t, colAt(s, k), zoneOf(s));
     }
     // the wheel covers, slightly dished, and a hub nut that shows the wheel turning
     for(const sd of [-1, 1]) for(let k = 0; k < seg; k++){
       const a = pt(0.60, W * sd * 0.98, k), q = pt(0.60, W * sd * 0.98, k + 1), c0 = [0, 0, W * sd * 0.9];
-      push(c0, a, q, k % 4 === 0 ? hub : rim);
+      push(c0, a, q, k % 4 === 0 ? hub : rim, 0);
     }
     g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute("zone", new THREE.Float32BufferAttribute(zone, 1));
     g.computeVertexNormals(); g.computeBoundingSphere();
     this.cache.set(key, g);
     return g;
@@ -554,13 +558,13 @@ G3.car = function(c){
   // the same order as the 2D car: rear right, rear left, front right, front left
   for(const [ax, sd] of [[SP.rear, 1], [SP.rear, -1], [SP.front, 1], [SP.front, -1]]){
     const pv = new THREE.Group(); pv.position.set(ax.x, ax.r, ax.y * sd);
-    const w = mesh(CARGEO.wheel(this, ax.r, ax.w, compound, t.wheel || "#2A2D31"), M.tyre);
+    const w = mesh(CARGEO.wheel(this, ax.r, ax.w, compound, t.wheel || "#2A2D31"), this.tyreWearMat(M.tyre));
     pv.add(w); g.add(pv); pivots.push(pv); g.userData.wheels.push(w);
     pv.userData.base = { x:ax.x, y:ax.r, z:ax.y * sd, sd, ax };
   }
   g.userData.car = c;
   g.userData.parts = { ownGeo:false, dentVer:0, body, drv, fw, rw, fwFlap, rwFlap, fwStub, rwStub, glow, glowMat, pivots, compound, chipped:false };
-  g.userData.anim = { spinF:0, spinR:0, steer:0, flap:0, brake:0, clock:null, h:null };
+  g.userData.anim = { life:c.life != null ? c.life : 1, spinF:0, spinR:0, steer:0, flap:0, brake:0, clock:null, h:null };
   return g;
 };
 
@@ -601,6 +605,13 @@ G3.carAnim = function(g, c, S, dt){
     if(po && newKey) comp = po["c" + i] >= 2 ? TYRES[newKey].col : (TYRES[st.oldTyre] || TYRES.medium).col;
     const w = g.userData.wheels[i];
     if(w.userData.comp !== comp){ const ax = pv.userData.base.ax; w.geometry = CARGEO.wheel(this, ax.r, ax.w, comp, c.team.wheel || "#2A2D31"); w.userData.comp = comp; }
+    // wear: eases down with the car's tyres, snaps up on a fresh set; a corner with the new tyre on is fresh
+    if(i === 0){
+      const cl = c.life != null ? c.life : 1;
+      A.life = cl > A.life ? cl : A.life + (cl - A.life) * (1 - Math.exp(-dt * 6));
+    }
+    const fresh = po && newKey && po["c" + i] >= 2;
+    this.setTyreWear(w.material, wearLook(fresh ? 1 : A.life, A.look || (A.look = {})));
   });
   P.compound = compound;
   const bent = gone.has("susp") && !(c.wheelOff >= 0) ? (c.idx % 4) : -1, flat = gone.has("punct") ? ((c.idx + 1) % 4) : -1;

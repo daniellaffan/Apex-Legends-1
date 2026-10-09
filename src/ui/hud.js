@@ -4,6 +4,7 @@ import { LAUNCH_HI, LAUNCH_LO, gearOf, rpmOfCar } from '../car/physics.js';
 import { S, updateStatus } from '../game/session.js';
 import { hudLine } from '../game/penalties.js';
 import { stopPose } from '../car/pitstop.js';
+import { STAGES, wearLook, stageOf, barColour } from '../car/tyrewear.js';
 
 function buildBoard(){
   const b = $("#h-board"); b.innerHTML = "";
@@ -41,6 +42,26 @@ function pitPanel(c, S){
   }
   host.hidden = !h;
   if(h !== pitHTML){ pitHTML = h; host.innerHTML = h; }
+}
+
+/* The tyre icon: wear eases down, snaps back up on a fresh set; every layer's opacity is a CSS variable fed by
+   wearLook() (car/tyrewear.js), written only when it has moved, so the icon morphs with no steps. */
+const TW = { life:1, t:0, set:null, stage:-1, swap:0 };
+function tyreWearHud(c, tyEl){
+  const now = performance.now(), dt = TW.t ? Math.min((now - TW.t) / 1000, 0.25) : 0; TW.t = now;
+  const L = c.life != null ? c.life : 1;
+  TW.life = L > TW.life ? L : TW.life + (L - TW.life) * (1 - Math.exp(-dt * 6));
+  const look = wearLook(TW.life), keys = ["scuff", "grain", "marb", "cords", "fade", "heat"], src = [look.scuff, look.grain, look.marbles, look.cords, look.fade, look.heat];
+  const last = TW.set || (TW.set = [-1, -1, -1, -1, -1, -1]);
+  for(let i = 0; i < 6; i++) if(Math.abs(src[i] - last[i]) > 0.005){ last[i] = src[i]; tyEl.style.setProperty("--" + keys[i], src[i].toFixed(3)); }
+  const wear = $("#h-wear"); wear.style.width = (TW.life * 100).toFixed(0) + "%"; wear.style.background = barColour(TW.life);
+  const sg = stageOf(TW.life);
+  if(sg !== TW.stage){
+    const lab = $("#h-wstage");
+    if(TW.stage < 0) lab.textContent = STAGES[sg].name;
+    else { lab.classList.add("swap"); clearTimeout(TW.swap); TW.swap = setTimeout(() => { lab.textContent = STAGES[sg].name; lab.classList.remove("swap"); }, 150); }
+    TW.stage = sg;
+  }
 }
 
 function updateHUD(){
@@ -84,9 +105,9 @@ function updateHUD(){
     aeEl.classList.toggle("dirty", aeK === "dirty");
   }
   const ty = c.tyre;
-  const cmp = $("#h-cmp"); cmp.textContent = ty.label; cmp.style.setProperty("--tyc", ty.col);
-  const wear = $("#h-wear"); wear.style.width = (c.life * 100).toFixed(0) + "%";
-  wear.style.background = c.life > 0.55 ? "var(--green)" : c.life > 0.25 ? "var(--yellow)" : "var(--red)";
+  const cmp = $("#h-cmp"); if(cmp.textContent !== ty.label) cmp.textContent = ty.label;
+  const tyEl = $("#h-tyre"); if(tyEl._col !== ty.col){ tyEl._col = ty.col; tyEl.style.setProperty("--tyc", ty.col); }
+  tyreWearHud(c, tyEl);
   const dbox = $("#h-dmg"), anyD = c.damage > 0.02 || c.broken.size > 0;
   dbox.hidden = !anyD;
   if(anyD){

@@ -27,7 +27,19 @@
     </div>
     <div class="h-tr" id="h-board"></div>
     <div class="h-bl">
-      <div class="tyre"><div class="cmp" id="h-cmp">S</div><div class="meter"><i id="h-wear" style="width:100%"></i></div></div>
+      <div class="tyre" id="h-tyre"><svg class="tw" viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
+        <circle cx="20" cy="20" r="18" fill="#0C0E11"/>
+        <circle class="tw-ring" cx="20" cy="20" r="11.5" fill="none" stroke-width="4.5"/>
+        <circle class="tw-fade" cx="20" cy="20" r="11.5" fill="none" stroke="#6A7077" stroke-width="4.5"/>
+        <circle cx="20" cy="20" r="15.5" fill="none" stroke="#15181D" stroke-width="5"/>
+        <circle class="tw-scuff" cx="20" cy="20" r="15.5" fill="none" stroke="#5B6066" stroke-width="5"/>
+        <circle class="tw-grain" cx="20" cy="20" r="15.5" fill="none" stroke="#9AA0A6" stroke-width="5" stroke-dasharray="0.8 2.2"/>
+        <circle class="tw-marb" cx="20" cy="20" r="15.5" fill="none" stroke="#050505" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="0.1 7.4"/>
+        <circle class="tw-heat" cx="20" cy="20" r="15.5" fill="none" stroke="#FF6A2A" stroke-width="5"/>
+        <circle class="tw-cords" cx="20" cy="20" r="15.5" fill="none" stroke="#CFC4A4" stroke-width="5" stroke-dasharray="1.1 1.5"/>
+        <circle cx="20" cy="20" r="7.5" fill="#15181D"/>
+        <text class="tw-lbl" id="h-cmp" x="20" y="23.6" text-anchor="middle" font-size="10.5" font-weight="800">S</text>
+      </svg><div class="wstage" id="h-wstage">New</div><div class="meter"><i id="h-wear" style="width:100%"></i></div></div>
       <div class="dmgbox" id="h-dmg" hidden><div class="k">Car damage</div>
         <div class="meter"><i id="h-dmgbar" style="width:0%"></i></div>
         <div class="chips" id="h-chips"></div></div>

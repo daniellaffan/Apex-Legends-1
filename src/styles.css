@@ -112,9 +112,22 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   color:var(--cyan);border-top:1px solid var(--line);padding-top:4px}
 .h-tc .last{font-size:10px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin-top:4px;font-weight:600}
 .h-bl{position:absolute;left:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:flex;gap:8px;align-items:flex-end}
-.tyre{width:56px;text-align:center;background:rgba(11,14,18,.82);border:1px solid var(--line);border-radius:2px;padding:6px}
-.tyre .cmp{width:26px;height:26px;border-radius:50%;margin:0 auto 5px;border:4px solid var(--tyc,#888);background:#15181D;
-  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--tyc,#888)}
+.tyre{width:60px;text-align:center;background:rgba(11,14,18,.82);border:1px solid var(--line);border-radius:2px;padding:6px}
+.tyre{position:relative}
+.tyre .tw{display:block;margin:0 auto 3px}
+.tyre .tw-ring{stroke:var(--tyc,#888)}
+.tyre .tw-fade{opacity:var(--fade,0)}
+.tyre .tw-lbl{fill:var(--tyc,#888)}
+.tyre .tw-scuff{opacity:calc(var(--scuff,0)*.85)}
+.tyre .tw-grain{opacity:calc(var(--grain,0)*.55)}
+.tyre .tw-marb{opacity:var(--marb,0)}
+.tyre .tw-heat{opacity:calc(var(--heat,0)*.5)}
+.tyre .tw-cords{opacity:calc(var(--cords,0)*.9)}
+.tyre .tw circle{transition:opacity .25s linear}
+.tyre .wstage{font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;color:var(--dim);margin-bottom:4px;white-space:nowrap;transition:opacity .15s linear}
+.tyre .wstage.swap{opacity:0}
+.tyre::after{content:"";position:absolute;inset:0;border-radius:2px;pointer-events:none;opacity:var(--cords,0);animation:twpulse 1.2s ease-in-out infinite}
+@keyframes twpulse{0%,100%{box-shadow:inset 0 0 0 1px rgba(255,75,62,.35)}50%{box-shadow:inset 0 0 7px 1px rgba(255,75,62,.95)}}
 .meter{height:5px;background:#2B333D;border-radius:1px;overflow:hidden}
 .meter i{display:block;height:100%;background:var(--green);transition:width .2s,background .3s}
 .energy{width:132px;background:rgba(11,14,18,.82);border:1px solid var(--line);border-radius:2px;padding:6px 8px}

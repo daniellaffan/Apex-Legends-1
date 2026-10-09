@@ -3,6 +3,7 @@ import { clamp, lerp } from '../config/util.js';
 import { TYRES } from '../car/parts.js';
 import { CAR_SPEC } from '../car/spec.js';
 import { stopPose } from '../car/pitstop.js';
+import { wearLook } from '../car/tyrewear.js';
 import { CARGEO } from './car.js';
 import { PITBOX } from './pitbox.js';
 
@@ -101,7 +102,7 @@ const PITCREW = {
     for(let q = 0; q < 4; q++){
       const ax = q < 2 ? SP.rear : SP.front;
       const tm = car3dTyreMat(G), g0 = this.wheelGeo(G, ax, "medium", t);
-      const old = new THREE.Mesh(g0, tm), nw = new THREE.Mesh(g0, tm);
+      const old = new THREE.Mesh(g0, G.tyreWearMat(tm)), nw = new THREE.Mesh(g0, G.tyreWearMat(tm));
       for(const w of [old, nw]){ w.visible = false; w.castShadow = true; grp.add(w); }
       wheels.push({ ax, old, nw, oldKey:null, newKey:null });
     }
@@ -156,9 +157,12 @@ const PITCREW = {
     const oldKey = st ? st.oldTyre : car && car.tyre ? car.tyre.key : "medium";
     const newKey = st && st.tyre && st.tyre !== "none" ? st.tyre : P && P.plan && P.plan.tyre && P.plan.tyre !== "none" ? P.plan.tyre : null;
     for(const W of C.wheels){
-      if(W.oldKey !== oldKey){ W.oldKey = oldKey; W.old.geometry = this.wheelGeo(G, W.ax, oldKey, C.team); W.old.material = car ? car3dTyreMat(G, car) : W.old.material; }
-      if(newKey && W.newKey !== newKey){ W.newKey = newKey; W.nw.geometry = this.wheelGeo(G, W.ax, newKey, C.team); W.nw.material = car ? car3dTyreMat(G, car) : W.nw.material; }
+      if(W.oldKey !== oldKey){ W.oldKey = oldKey; W.old.geometry = this.wheelGeo(G, W.ax, oldKey, C.team); }
+      if(newKey && W.newKey !== newKey){ W.newKey = newKey; W.nw.geometry = this.wheelGeo(G, W.ax, newKey, C.team); }
     }
+    // the wheel coming off is as worn as the car's tyres were; the one going on is new
+    const oldLife = car && car.life != null ? car.life : 1;
+    for(const W of C.wheels){ G.setTyreWear(W.old.material, wearLook(oldLife, C.look || (C.look = {}))); G.setTyreWear(W.nw.material, wearLook(1, C.look2 || (C.look2 = {}))); }
     const pose = {};
     const rep = st && st.rep ? st.rep : {}, wingJob = !!(rep.wing || (P && P.plan && (P.plan.repairs || []).includes && (P.plan.repairs || []).includes("wing")));
     const suspJob = !!(rep.susp || (P && P.plan && (P.plan.repairs || []).includes && (P.plan.repairs || []).includes("susp")));
